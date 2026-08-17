@@ -31,6 +31,6 @@ This repo is **not** pip-installable. Missing `agent.py` / `bus.py` / `memory.py
 
 Round-7 orchestrator / bus / blackboard rewrite (E1–E9 **ACCEPT** in `ROUND7_DISPOSITION.md`; needs clean `.py`, not PDF). CostGuard must bill real `estimate_cost`, never `cost_usd=0.0`. Do not land the disposition adapter as written.
 
-Drive `orca/` INDEX still stale (0.4.0). Do not dump more source into Drive. Confirm with Fry before any Drive cleanup.
+Drive `orca/` is paper trail only. Stale INDEX / duplicate source dumps cleaned 2026-08-17. SoT is this repo + private `main`. Do not dump more `.py` into Drive.
 
 Orca ≠ BGM.
