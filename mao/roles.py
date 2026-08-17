@@ -18,7 +18,7 @@ class Privilege(str, Enum):
     HARDWARE_DESIGN = "hardware_design"
     APPROVE_WRITE = "approve_write"
     ORCHESTRATE = "orchestrate"
-    UNCLASSIFIED = "unclassified"  # held by nobody
+    UNCLASSIFIED = "unclassified"  # sentinel: held by nobody, grantable by nobody
 
 
 SENSITIVE_GRANTS = {
@@ -65,6 +65,9 @@ CLAUDE = JobDuty(
 AMPERE = JobDuty(
     name="ampere",
     title="Electronics Design Lead",
+    # HARDWARE_DESIGN is base but still sensitive for *grants*: base means
+    # Ampere uses design tools without a grant; the SENSITIVE_GRANTS listing
+    # bites when someone tries to hand hardware_design to Claude or Relay.
     privileges={Privilege.READ, Privilege.HARDWARE_DESIGN},
     system_prompt="You are Ampere — hardware. UNVERIFIED drafts only.",
     tools_allowed=["read_file", "write_design", "kicad_note", "kicad_gen", "bom_update"],
@@ -77,6 +80,9 @@ RELAY = JobDuty(
     tools_allowed=["read_file", "search_code", "flash_note", "pinout_check"],
 )
 TEAM: Dict[str, JobDuty] = {d.name: d for d in (GROK, CLAUDE, AMPERE, RELAY)}
+
+# Nobody may hold the sentinel, statically or by grant.
+assert not any(Privilege.UNCLASSIFIED in d.privileges for d in TEAM.values())
 
 
 class PrivilegeBroker:
@@ -95,7 +101,7 @@ class PrivilegeBroker:
 
     def start_turn(self, agent: str) -> None:
         if agent not in TEAM:
-            raise KeyError(agent)
+            raise HardPrivilegeError(f"unknown agent {agent!r}")
         if self._active_turn is not None and self._active_turn != agent:
             raise HardPrivilegeError(
                 f"turn already active for {self._active_turn!r}; end_turn() first"
@@ -123,6 +129,7 @@ class PrivilegeBroker:
             )
         if not self.enforce:
             self._bypassed.add(target)
+            # never forge human_approved
         else:
             sensitive = privs & SENSITIVE_GRANTS
             if sensitive and not human_approved:
@@ -145,10 +152,18 @@ class PrivilegeBroker:
             self._notes.pop(target, None)
             self._human_approved_grants.discard(target)
             self._bypassed.discard(target)
-        else:
-            self._grants[target] -= privs
-            if not self._grants[target]:
-                self._grants.pop(target, None)
+            return
+        self._grants[target] -= privs
+        if not self._grants[target]:
+            self._grants.pop(target, None)
+            self._notes.pop(target, None)
+        # A partial revoke that removes every sensitive privilege must also drop
+        # the approval flag, or status() keeps advertising a Fry approval for a
+        # grant that no longer contains anything Fry was asked to approve.
+        if not (self._grants.get(target, set()) & SENSITIVE_GRANTS):
+            self._human_approved_grants.discard(target)
+        if not self._grants.get(target):
+            self._bypassed.discard(target)
 
     def effective(self, agent: str) -> Set[Privilege]:
         base = set(TEAM[agent].privileges) if agent in TEAM else set()
