@@ -6,7 +6,7 @@ import inspect
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Set
+from typing import Any, Callable, Dict, Optional
 
 from .errors import HardPrivilegeError
 from .roles import Privilege
@@ -24,6 +24,11 @@ KNOWN_WRITE_CLASS: Dict[str, Optional[Privilege]] = {
 }
 
 WRITE_ALLOWLIST = {"runs", "orca-out", "examples"}  # not docs/, not mao/
+
+DEFAULT_PATH_PARAMS = (
+    "path", "output_dir", "out_dir", "output_csv",
+    "file", "filename", "dest", "target", "filepath", "out",
+)
 
 
 def require_repo_root() -> Path:
@@ -46,10 +51,7 @@ class Tool:
     parameters: dict = field(default_factory=dict)
     write_class: Optional[Privilege] = None
     is_read_only: bool = False
-    path_params: tuple = (
-        "path", "output_dir", "out_dir", "output_csv",
-        "file", "filename", "dest", "target", "filepath", "out",
-    )
+    path_params: tuple = DEFAULT_PATH_PARAMS
 
 
 class ToolRegistry:
@@ -68,6 +70,29 @@ class ToolRegistry:
                 else:
                     raise
 
+    @staticmethod
+    def _audit_signature(tool: Tool) -> None:
+        """A write-class tool must have an inspectable signature with no *args.
+
+        `bind()` collapses *args into a single tuple under one name, so its
+        elements can never be matched against path_params. Rather than guess
+        which positional extras are paths, refuse the tool at registration —
+        a registration-time refusal is loud, a call-time gap is silent.
+        """
+        try:
+            sig = inspect.signature(tool.func)
+        except (TypeError, ValueError) as e:
+            raise ValueError(
+                f"{tool.name}: write-class tool has no inspectable signature "
+                f"({e}); path arguments cannot be audited"
+            ) from e
+        for p in sig.parameters.values():
+            if p.kind is inspect.Parameter.VAR_POSITIONAL:
+                raise ValueError(
+                    f"{tool.name}: write-class tool may not declare *{p.name} — "
+                    "variadic positionals cannot be path-audited; use named parameters"
+                )
+
     def register(self, tool: Tool) -> None:
         if tool.is_read_only and tool.write_class is not None:
             raise ValueError(
@@ -75,8 +100,8 @@ class ToolRegistry:
             )
         if tool.write_class is None and not tool.is_read_only:
             tool.write_class = Privilege.UNCLASSIFIED
-        if tool.is_read_only:
-            tool.write_class = None
+        if tool.write_class is not None:
+            self._audit_signature(tool)
         self._tools[tool.name] = tool
 
     def register_function(
@@ -87,6 +112,7 @@ class ToolRegistry:
         parameters: Optional[dict] = None,
         write_class: Optional[Privilege] = None,
         is_read_only: bool = False,
+        path_params: Optional[tuple] = None,
     ) -> None:
         if write_class is None and not is_read_only:
             if name in KNOWN_WRITE_CLASS:
@@ -98,7 +124,10 @@ class ToolRegistry:
             else:
                 write_class = Privilege.UNCLASSIFIED
         self.register(
-            Tool(name, description, func, parameters or {}, write_class, is_read_only)
+            Tool(
+                name, description, func, parameters or {}, write_class, is_read_only,
+                tuple(path_params) if path_params else DEFAULT_PATH_PARAMS,
+            )
         )
 
     def get(self, name: str) -> Tool:
@@ -117,22 +146,44 @@ class ToolRegistry:
             raise HardPrivilegeError(f"path resolve failed: {raw}: {e}") from e
         return resolved
 
+    @staticmethod
+    def _flatten(sig: inspect.Signature, bound_arguments: dict) -> dict:
+        """Lift **kwargs contents up one level so named path params inside a
+        variadic keyword bag are still visible to the allowlist."""
+        out: Dict[str, Any] = {}
+        for pname, pval in bound_arguments.items():
+            kind = sig.parameters[pname].kind
+            if kind is inspect.Parameter.VAR_KEYWORD and isinstance(pval, dict):
+                out.update(pval)
+            else:
+                out[pname] = pval
+        return out
+
     def _check_write_paths(self, arguments: dict, path_params: tuple) -> None:
         candidates = []
         for k in path_params:
             if k in arguments and arguments[k] is not None:
-                candidates.append(str(arguments[k]))
+                val = arguments[k]
+                if isinstance(val, (list, tuple, set)):
+                    candidates.extend(str(v) for v in val if v is not None)
+                else:
+                    candidates.append(str(val))
         for raw in candidates:
-            parts_lower = [x.lower() for x in Path(raw).parts]
-            if "bgm" in parts_lower:
-                raise HardPrivilegeError(f"BGM path blocked: {raw}")
             resolved = self._resolve_safe(raw)
             try:
                 rel = resolved.relative_to(self.repo_root)
             except ValueError:
+                # Outside the repo. Name the BGM case explicitly — same denial,
+                # clearer log line. Checked on the RESOLVED path so that
+                # ../../bgm/x is caught, and NOT on the raw string, so that an
+                # in-repo runs/bgm/notes.md is no longer a false positive.
+                if "bgm" in [x.lower() for x in resolved.parts]:
+                    raise HardPrivilegeError(
+                        f"BGM path blocked: {raw} -> {resolved}"
+                    ) from None
                 raise HardPrivilegeError(
                     f"path outside repo root: {raw} -> {resolved}"
-                )
+                ) from None
             parts = rel.parts
             if not parts:
                 raise HardPrivilegeError(f"empty path: {raw}")
@@ -162,9 +213,10 @@ class ToolRegistry:
             except PermissionError as e:
                 raise HardPrivilegeError(str(e)) from e
             try:
-                bound = inspect.signature(tool.func).bind(*args, **kwargs)
+                sig = inspect.signature(tool.func)
+                bound = sig.bind(*args, **kwargs)
                 bound.apply_defaults()
-                arguments = dict(bound.arguments)
+                arguments = self._flatten(sig, dict(bound.arguments))
             except TypeError as e:
                 raise HardPrivilegeError(f"cannot bind args for {name!r}: {e}") from e
             self._check_write_paths(arguments, tool.path_params)
