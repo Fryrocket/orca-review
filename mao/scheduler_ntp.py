@@ -6,9 +6,11 @@ import shutil
 import subprocess
 from datetime import datetime, timezone
 
+from .errors import NTPNotSyncedError
 
-class NTPNotSyncedError(RuntimeError):
-    pass
+# Back-compat: callers that did `from .scheduler_ntp import NTPNotSyncedError`
+# keep working. Canonical home is mao.errors.
+__all__ = ["NTPNotSyncedError", "ntp_synchronized", "require_ntp_or_refuse"]
 
 
 def ntp_synchronized() -> bool:
@@ -26,10 +28,16 @@ def ntp_synchronized() -> bool:
         return False
 
 
-def require_ntp_or_refuse() -> None:
-    """Refuse (not warn) when NTP is unsynced. Call at arm AND before each fire."""
+def require_ntp_or_refuse(stage: str = "arm") -> None:
+    """Refuse (not warn) when NTP is unsynced.
+
+    MUST be called at arm time AND immediately before each job fires — a Pi 5
+    has no battery-backed RTC, so a reboot mid-schedule can move the clock
+    after the arm-time check has already passed. `stage` is recorded in the
+    message so the log says which of the two checks refused.
+    """
     if not ntp_synchronized():
         raise NTPNotSyncedError(
-            "NTP not synchronized — refusing scheduler (A14). "
+            f"NTP not synchronized — refusing scheduler at stage={stage!r} (A14). "
             f"utc_now={datetime.now(timezone.utc).isoformat()}"
         )
