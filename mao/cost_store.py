@@ -49,6 +49,10 @@ class DayCostStore:
             return {"day": self._utc_day(), "cost_usd": 1e12, "corrupt": True, "error": str(e)}
 
     def add(self, amount: float, ceiling: Optional[float] = None) -> float:
+        if float(amount) < 0:
+            raise OrcaConfigError(
+                f"DayCostStore.add amount must be >= 0 (got {amount})"
+            )
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.touch(exist_ok=True)
         with open(self.path, "r+") as f:

@@ -63,16 +63,22 @@ class UsageTracker:
                 )
 
     def record(self, agent, model, input_tokens=0, output_tokens=0, cost_usd=0.0) -> None:
+        # N5: record BEFORE any ceiling / kill-switch raise so a breach
+        # never loses the usage. `posted` distinguishes "in our tally"
+        # from "in the durable ledger" when the ledger refuses the charge.
+        if input_tokens is None or output_tokens is None:
+            raise OrcaConfigError("input_tokens/output_tokens must not be None")
+        if cost_usd is None or float(cost_usd) < 0:
+            raise OrcaConfigError("cost_usd must be >= 0")
+        rec = UsageRecord(
+            agent, model, int(input_tokens), int(output_tokens), float(cost_usd)
+        )
+        self.records.append(rec)
+        self._run_cost += float(cost_usd)
+        self.day_store.add(float(cost_usd), ceiling=self.per_day_ceiling_usd)
+        rec.posted = True
         if self.kill_switch:
             raise CostCapExceeded("kill_switch ON")
-        # N5: the transaction is recorded BEFORE any ceiling can raise, so a
-        # breach never loses the usage. `posted` distinguishes "in our tally"
-        # from "in the durable ledger" when the ledger refuses the charge.
-        rec = UsageRecord(agent, model, input_tokens, output_tokens, cost_usd)
-        self.records.append(rec)
-        self._run_cost += cost_usd
-        self.day_store.add(cost_usd, ceiling=self.per_day_ceiling_usd)
-        rec.posted = True
         if self.per_run_ceiling_usd is not None and self._run_cost > self.per_run_ceiling_usd:
             raise CostCapExceeded(f"per-run ceiling exceeded (${self._run_cost:.4f})")
 

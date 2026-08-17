@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 from .errors import HardPrivilegeError
-from .roles import Privilege
+from .roles import Privilege, TEAM
 
 KNOWN_WRITE_CLASS: Dict[str, Optional[Privilege]] = {
     "write_file": Privilege.CODE_EDIT,
@@ -17,10 +17,13 @@ KNOWN_WRITE_CLASS: Dict[str, Optional[Privilege]] = {
     "kicad_note": Privilege.HARDWARE_DESIGN,
     "kicad_gen": Privilege.HARDWARE_DESIGN,
     "bom_update": Privilege.HARDWARE_DESIGN,
+    "drc_checklist": Privilege.HARDWARE_DESIGN,
     "flash_note": Privilege.FIRMWARE_EDIT,
+    "pinout_check": Privilege.FIRMWARE_EDIT,
     "read_file": None,
     "search_code": None,
     "run_tests": None,
+    "part_search": None,
 }
 
 WRITE_ALLOWLIST = {"runs", "orca-out", "examples"}  # not docs/, not mao/
@@ -200,6 +203,17 @@ class ToolRegistry:
     def call(self, name: str, *args, agent: str, **kwargs) -> Any:
         """agent is REQUIRED — no ambient identity race."""
         tool = self.get(name)
+        if not agent:
+            raise HardPrivilegeError(f"agent= is required for tool {name!r}")
+        duty = TEAM.get(agent)
+        if duty is None:
+            raise HardPrivilegeError(f"unknown agent {agent!r}")
+        # Read-only catalog: tools_allowed is the only gate (writes use privilege).
+        if tool.write_class is None:
+            if "*" not in duty.tools_allowed and name not in duty.tools_allowed:
+                raise HardPrivilegeError(
+                    f"{agent} tools_allowed does not include {name!r}"
+                )
         if tool.write_class is not None:
             if self.broker is None:
                 raise HardPrivilegeError(

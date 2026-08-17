@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Orca — multi-agent control</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <svg class="logo-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <path fill="currentColor" d="M6 18c0-6 5-11 10-11s8 3 10 7c1 2 1 4 0 6-2 4-7 7-10 7s-10-3-10-9z"/>
+          <circle cx="20" cy="14" r="2" fill="#0b0f14"/>
+        </svg>
+        <div>
+          <div class="brand-title">orca</div>
+          <div class="brand-sub">multi-agent control</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <span id="modelPill" class="pill pill-muted">model</span>
+        <span id="conn" class="pill pill-warn">connecting</span>
+        <button id="btnRefresh" class="btn btn-ghost" type="button">Refresh</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="card">
+        <div class="card-head">
+          <h2>Team & privileges</h2>
+          <span class="hint">Manage agents and effective access</span>
+        </div>
+        <div id="team" class="team-list"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>Control & cost</h2>
+        </div>
+        <div class="cost-grid">
+          <div>
+            <div class="metric-label">Total tokens</div>
+            <div id="costTokens" class="metric-value">0</div>
+          </div>
+          <div>
+            <div class="metric-label">Est. USD</div>
+            <div id="costUsd" class="metric-value">$0.000000</div>
+          </div>
+        </div>
+        <div id="costByAgent" class="chip-row"></div>
+
+        <div class="divider"></div>
+
+        <div class="metric-label">Dashboard token</div>
+        <div class="form-row">
+          <input id="dashToken" type="password" placeholder="ORCA_DASHBOARD_TOKEN (if set)" autocomplete="off" />
+          <button id="btnSaveToken" class="btn btn-ghost" type="button">Save</button>
+        </div>
+
+        <div class="metric-label">Active turn</div>
+        <div id="activeTurn" class="mono turn-line">— None —</div>
+
+        <div class="form-row">
+          <select id="turnAgent"></select>
+          <button id="btnStartTurn" class="btn btn-primary" type="button">Start turn</button>
+          <button id="btnEndTurn" class="btn btn-ghost" type="button">End turn</button>
+        </div>
+
+        <div class="metric-label" style="margin-top:1rem">Grant privileges</div>
+        <div class="form-row wrap">
+          <select id="grantAgent"></select>
+          <label class="check"><input type="checkbox" value="code_edit" class="grantPriv" /> code_edit</label>
+          <label class="check"><input type="checkbox" value="firmware_edit" class="grantPriv" /> firmware_edit</label>
+          <label class="check"><input type="checkbox" value="write" class="grantPriv" /> write</label>
+        </div>
+        <div class="form-row wrap">
+          <input id="grantNote" type="text" placeholder="Task note (e.g. host-auth-helper)" />
+          <label class="check"><input type="checkbox" id="grantFry" /> I am Fry — approve</label>
+          <button id="btnGrant" class="btn btn-primary" type="button">Grant</button>
+          <button id="btnRevoke" class="btn btn-danger-ghost" type="button">Revoke</button>
+        </div>
+      </section>
+
+      <section class="card span-2">
+        <div class="card-head">
+          <h2>Human gate</h2>
+          <span id="gateBadge" class="badge">idle</span>
+        </div>
+        <div id="gateEmpty" class="empty-gate">No pending gate. Timeout fails closed (deny).</div>
+        <div id="gatePanel" class="hidden">
+          <p id="gateContext" class="gate-context"></p>
+          <pre id="gatePayload" class="code-block"></pre>
+          <div class="form-row">
+            <button id="btnApprove" class="btn btn-good" type="button">Approve</button>
+            <button id="btnReject" class="btn btn-bad" type="button">Reject</button>
+          </div>
+          <label class="metric-label">Optional edit</label>
+          <textarea id="gateEdit" placeholder="Edited content (optional)…"></textarea>
+          <div class="form-row">
+            <input id="gateNote" type="text" placeholder="Note" />
+            <button id="btnEdit" class="btn btn-primary" type="button">Submit edit</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card span-2">
+        <div class="card-head">
+          <h2>Bus log</h2>
+          <span class="hint">Live event tail</span>
+        </div>
+        <div id="bus" class="bus-log"></div>
+      </section>
+
+      <section class="card span-2">
+        <div class="card-head">
+          <h2>Run</h2>
+        </div>
+        <div class="form-row wrap">
+          <input id="runInput" class="grow" type="text" value="List two risks of shared tools among agents." />
+          <label class="check"><input type="checkbox" id="runHuman" /> human gate each step</label>
+          <button id="btnRun" class="btn btn-primary" type="button">Run sequential</button>
+        </div>
+        <pre id="runOut" class="code-block run-out"></pre>
+      </section>
+    </main>
+
+    <footer class="footer">
+      Orca 0.5.10 · turn-gated writes · Grok grants · Fry approves sensitive · no client enforce toggle
+    </footer>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

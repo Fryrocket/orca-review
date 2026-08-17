@@ -123,6 +123,8 @@ class PrivilegeBroker:
     ) -> None:
         if granter != GROK.name:
             raise HardPrivilegeError("Only Grok can propose grants")
+        if target not in TEAM:
+            raise HardPrivilegeError(f"unknown grant target {target!r}")
         if Privilege.UNCLASSIFIED in privs:
             raise HardPrivilegeError(
                 "UNCLASSIFIED is a sentinel, not a grantable privilege"

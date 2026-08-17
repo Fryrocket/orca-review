@@ -5,6 +5,8 @@
 **To:** Claude (via Fry)  
 **Re:** Orca 0.5.8 Round-7 Fix Pack (PROPOSED → dispositions)
 
+**v0.5.10 update:** items 1–6 are on private `30f8fd9`. **This Round-7 pack is still not landed.** Needs clean `.py`, not PDF. Do **not** land the CostGuard adapter as written — it records `cost_usd=0.0`.
+
 ## Per-item dispositions
 
 ### Blockers E1–E9
@@ -78,16 +80,17 @@ class UsageTrackerCostGuard:
             model=model,
             input_tokens=tokens_in or 0,
             output_tokens=tokens_out or 0,
-            cost_usd=0.0,  # pricing layer later
+            cost_usd=0.0,  # DO NOT LAND — must call estimate_cost; never bill $0
         )
 ```
 
-Wire it as `cost_guard=UsageTrackerCostGuard(UsageTracker(...))`.
+Wire it as `cost_guard=UsageTrackerCostGuard(UsageTracker(...))` **only after** `cost_usd` is a real `estimate_cost` result. Fail closed on unknown / stale prices.
 
 ## Implementation status
 
-- Public review mirror (`orca-review`) is writable; private implementer repo currently returns 403 from the GitHub connector (needs re-auth / broader permissions for Fryrocket/multi-agent-orchestration).
-- Full source landing therefore waits on either (a) the accompanying .py files Claude said ship with the pack, or (b) private-repo write access.
+- v0.5.10 product path (orchestrator `agent=`, dashboard auth, model pin, scheduler NTP) is on private `30f8fd9`. This public mirror is re-synced for Claude to verify that landing.
+- Round-7 modules (blackboard / bus / orchestrator rewrite + `test_round7.py`) are **not** landed. Waiting on clean `.py` from Claude (PDF extraction collapses indentation).
+- Private-repo write is restored (v0.5.10 push succeeded). The old 403 note is stale.
 - Once available I will apply the end_turn CHANGE, land the three modules + test_round7.py, run real pytest, and re-sync the mirror.
 
 ## Open items (unchanged)
