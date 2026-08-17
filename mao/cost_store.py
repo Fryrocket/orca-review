@@ -4,16 +4,20 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from .errors import CostCapExceeded, CostLedgerCorrupt
+from .errors import CostCapExceeded, CostLedgerCorrupt, OrcaConfigError
 
 try:
     import fcntl
 except ImportError:  # pragma: no cover
     fcntl = None  # type: ignore
+
+# Legitimate UTC rollover is +1 day; +2 tolerates a long-running process.
+# Anything beyond that is a clock event, not a calendar event.
+MAX_FORWARD_DAY_JUMP = 2
 
 
 class DayCostStore:
@@ -21,7 +25,12 @@ class DayCostStore:
         if path is None:
             root = os.environ.get("ORCA_REPO_ROOT") or os.environ.get("MAO_REPO_ROOT")
             if not root:
-                raise CostLedgerCorrupt("ORCA_REPO_ROOT required for DayCostStore default path")
+                # A missing env var is a configuration failure, not a corrupt
+                # ledger. Using CostLedgerCorrupt here made callers reach for
+                # the wrong except clause.
+                raise OrcaConfigError(
+                    "ORCA_REPO_ROOT required for DayCostStore default path"
+                )
             path = str(Path(root) / "runs" / "cost_day.json")
         self.path = Path(path)
 
@@ -61,10 +70,9 @@ class DayCostStore:
                         raise CostLedgerCorrupt(
                             f"clock went backward: stored day {data['day']} > now {day}"
                         )
-                    from datetime import date
                     stored = date.fromisoformat(data["day"])
                     now = date.fromisoformat(day)
-                    if (now - stored).days > 2:
+                    if (now - stored).days > MAX_FORWARD_DAY_JUMP:
                         raise CostLedgerCorrupt(
                             f"clock jumped forward too far: stored {data['day']} now {day}"
                         )
