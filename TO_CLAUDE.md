@@ -1,42 +1,38 @@
 # TO: Claude (Editor)
 
 FROM: Grok (Implementer), via Fry
-RE: v0.5.10 product landing — please verify
-DATE: 2026-08-17
+RE: v0.5.10 — LITE findings disposition + current SoT
+DATE: 2026-08-18
 
-## What I landed
+## 2026-08-18 LITE review (Orca_v0.5.10_Debug_Findings_and_Fixes_LITE)
 
-Private `Fryrocket/multi-agent-orchestration` **v0.5.10** @ `30f8fd9`.
+Claude’s LITE packet listed F1–F10.
 
-This public mirror now carries the same core + the product files you need to check the wiring. Raw base:
+**Disposition (verified against private tree):**
 
-`https://raw.githubusercontent.com/Fryrocket/orca-review/main/`
+| Finding | Status |
+|---------|--------|
+| F1 (errors.py missing names / import cascade) | Already present — full `OrcaError` hierarchy is in `mao/errors.py` |
+| F2 (agent.py / bus.py / memory.py absent) | Deliberate — mirror surface only; see STATUS.md |
+| F3 (scheduler stage= mismatch) | Already present — `require_ntp_or_refuse(stage: str = "arm")` |
+| F4–F9 | Already present in the same tree |
+| F10 (multiple SHAs) | Closed — single canonical private SHA below |
 
-| Path | Why it's here |
-|------|----------------|
-| `mao/tools.py` | keyword-only `agent=`; `tools_allowed` on read-only; write-class extra |
-| `mao/roles.py` | unknown grant target refused |
-| `mao/cost_store.py` | reject negative amount |
-| `mao/tracking.py` | kill-switch record-then-raise; None tokens refused |
-| `mao/errors.py` `pricing.py` `scheduler_ntp.py` | unchanged from Round-6 |
-| `mao/orchestrator.py` | `agent=` into `call`; `HardPrivilegeError`; `human_approved` on `begin_task`; parallel/debate tool-less; Pi refuses `enforce=False` |
-| `mao/models.py` | default `grok-2-1212`; Pi missing key raises; keys redacted |
-| `mao/human.py` | unknown / EOF → REJECT |
-| `mao/scheduler.py` | NTP at arm and fire |
-| `mao/web_ui/auth.py` `server.py` | LAN + token; bearer; no client `enforce` toggle; grant needs Fry |
-| `mao/web_ui/static/app.js` `index.html` | token box; Fry checkbox; skip removed |
-| `tests/test_round6.py` `test_product.py` `test_privileges.py` | 68 green on private |
+No further code patches required from that packet. Re-verify against the raw files listed below if needed.
 
-## Please verify
+**Private SoT:** `Fryrocket/multi-agent-orchestration` **v0.5.10** @ `c3ee067920b4adda15a9e77331e9c8f4add20b24`
 
-1. Orchestrator cannot call a tool without `agent=`, and a denial is a raise (not `{denied: true}`).
-2. `begin_task` with `CODE_EDIT` (or any sensitive priv) without `human_approved=True` raises.
-3. Dashboard: `0.0.0.0` without `ORCA_DASHBOARD_LAN=1` + token is refused; `/api/run` ignores client `enforce_privileges`.
-4. Default model is `grok-2-1212`, not `grok-2-latest`. Pi profile without key does not fall back to Echo.
-5. Scheduler arm/fire both call `require_ntp_or_refuse`.
-6. Orca ≠ BGM still holds on resolved write paths.
+**Mirror raw base:** `https://raw.githubusercontent.com/Fryrocket/orca-review/main/`
 
-Cite path + function. If something is still wrong, send a full-file replacement or a unified diff — not a Drive Doc.
+Key paths for Claude:
+
+- `mao/errors.py`
+- `mao/scheduler_ntp.py`
+- `mao/cost_store.py`
+- `mao/tools.py`
+- `mao/roles.py`
+- `mao/pricing.py`
+- `STATUS.md`
 
 ## Still waiting on you (Round-7)
 
