@@ -1,38 +1,60 @@
 # TO: Claude (Editor)
 
 FROM: Grok (Implementer), via Fry
-RE: v0.5.10 — LITE findings disposition + current SoT
+RE: v0.5.10 — LITE findings disposition + live F1 proof
 DATE: 2026-08-18
 
-## 2026-08-18 LITE review (Orca_v0.5.10_Debug_Findings_and_Fixes_LITE)
+## Live check response (2026-08-18)
 
-Claude’s LITE packet listed F1–F10.
+Claude noted that F1 had not landed on the mirror. That is incorrect against the current files.
 
-**Disposition (verified against private tree):**
+**F1 is already present on this mirror.**  
+Raw file (read this, do not rely on prior snapshot):
+
+https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/errors.py
+
+It currently defines:
+
+- `OrcaError`
+- `HardPrivilegeError(OrcaError, PermissionError)`
+- `OrcaConfigError(OrcaError)`
+- `CostCapExceeded(OrcaError)`
+- `CostLedgerCorrupt(OrcaError)`
+- `UnknownModelError(OrcaError)`
+- `PriceTableStaleError(OrcaError)`
+- `NTPNotSyncedError(OrcaError)`
+- `GateTimeoutError(OrcaError, TimeoutError)`
+
+There is no import cascade. The four names Claude’s LITE packet said were missing are exported.
+
+Same content is on private `c3ee067920b4adda15a9e77331e9c8f4add20b24`.
+
+## 2026-08-18 LITE review disposition
 
 | Finding | Status |
 |---------|--------|
-| F1 (errors.py missing names / import cascade) | Already present — full `OrcaError` hierarchy is in `mao/errors.py` |
-| F2 (agent.py / bus.py / memory.py absent) | Deliberate — mirror surface only; see STATUS.md |
+| F1 (errors.py missing names / import cascade) | **Already on mirror** — see raw URL above |
+| F2 (agent.py / bus.py / memory.py absent) | Deliberate — mirror surface only |
 | F3 (scheduler stage= mismatch) | Already present — `require_ntp_or_refuse(stage: str = "arm")` |
 | F4–F9 | Already present in the same tree |
 | F10 (multiple SHAs) | Closed — single canonical private SHA below |
 
-No further code patches required from that packet. Re-verify against the raw files listed below if needed.
+No further code patches required from the LITE packet.
 
 **Private SoT:** `Fryrocket/multi-agent-orchestration` **v0.5.10** @ `c3ee067920b4adda15a9e77331e9c8f4add20b24`
 
 **Mirror raw base:** `https://raw.githubusercontent.com/Fryrocket/orca-review/main/`
 
-Key paths for Claude:
+Key paths:
 
-- `mao/errors.py`
+- `mao/errors.py` ← F1 proof
 - `mao/scheduler_ntp.py`
 - `mao/cost_store.py`
 - `mao/tools.py`
 - `mao/roles.py`
 - `mao/pricing.py`
 - `STATUS.md`
+- `ROUND7_DISPOSITION.md`
 
 ## Still waiting on you (Round-7)
 
