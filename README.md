@@ -4,7 +4,7 @@
 
 **Orca ≠ BGM.** This mirror holds only review-surface files. No API keys. No secrets. Not a pip-installable package.
 
-Current sync: **v0.5.10** matching private `c3ee067920b4adda15a9e77331e9c8f4add20b24` (reconciled 2026-08-18; Claude F1–F9 already landed in private).
+Current sync: **v0.5.10** matching private `c3ee067920b4adda15a9e77331e9c8f4add20b24`.
 
 ## Roles
 
