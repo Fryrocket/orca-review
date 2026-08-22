@@ -1,39 +1,70 @@
-# Review mirror status
+# Orca Review Status — 2026-08-22
 
-- Repo: https://github.com/Fryrocket/orca-review (public)
-- Private implementer: [Fryrocket/multi-agent-orchestration](https://github.com/Fryrocket/multi-agent-orchestration) **v0.5.10** @ `c3ee067920b4adda15a9e77331e9c8f4add20b24`
+**Mirror tip:** `260b78c6ee42b05afcd7236252726608fecbd914`  
+**Core content pin:** `6d25f3ba48ff663265f82f0ca8cd36d46466aed0` (v0.5.12 Round-7 + R11)
 
-## What is on this mirror (review surface, not a full install)
+## Closed / Verified
 
-Core: `mao/tools.py` `roles.py` `cost_store.py` `tracking.py` `errors.py` `pricing.py` `scheduler_ntp.py`
+| ID | Status | Pin |
+|----|--------|-----|
+| R8-F1 | CLOSED | 6d25f3b errors.py hierarchy |
+| R8-F3 | CLOSED | 6d25f3b require_ntp_or_refuse(stage=) |
+| A14 | VERIFIED (call sites) | 6d25f3b scheduler.py start()+_fire() |
+| W8/F12 | CLOSED PENDING MIRROR CONFIRMATION | Gemini independent four-part still required |
 
-Product wiring: `mao/orchestrator.py` `models.py` `human.py` `scheduler.py` `web_ui/auth.py` `web_ui/server.py` `web_ui/static/{app.js,index.html}`
+Arithmetic: **2 closed** on pinned evidence this pass. W8/F12 pending Gemini.
 
-Tests (source for review): `tests/test_round6.py` `test_product.py` `test_privileges.py`
+## New findings entered (Claude pinned read of scheduler.py)
 
-This repo is **not** pip-installable. Missing `agent.py` / `bus.py` / `memory.py` on purpose. Run pytest in the private repo.
+| ID | Sev | Summary |
+|----|-----|--------|
+| R11-F41 | HIGH | _fire swallows FATAL_ERRORS; job re-arms |
+| R11-F42 | HIGH | Clock-jump / backlog storm on Pi 5 |
+| R11-F43 | MED | NTP-refused fire still counted + silent |
+| R11-F44 | MED | Corrupt next_run permanent silent skip |
+| R11-F45 | MED | Non-atomic jobs.json; unguarded load |
+| R11-F46 | MED | Zombie-thread after stop() timeout |
+| R11-F47 | L/M | timedatectl every fire; no TTL |
+| R11-F48 | LOW | list() returns live Job objects |
+| R11-F49 | LOW | start() NTP before already-running return |
 
-## pytest (private `main` @ `c3ee067`)
+F37–F40 confirmed LOW (fail-closed).
 
-Prior claim at `30f8fd9`: `tests/test_round6.py` + `tests/test_product.py` + `tests/test_privileges.py` → **68 passed**. Re-run recommended after any further change.
+## BLOCKING (until fixed or dispositioned)
 
-## Landed
+- **R11-F31** SENSITIVE_GRANTS omits WRITE / ORCHESTRATE
+- **R11-F32** enforce=False applies grants without sensitive check
 
-- `ToolRegistry.call(*, agent=)` keyword-only; orchestrator passes `agent=`; hard denials raise `HardPrivilegeError`
-- `begin_task(..., human_approved=)` required for sensitive grants
-- Dashboard: LAN bind needs `ORCA_DASHBOARD_LAN=1` + `ORCA_DASHBOARD_TOKEN`; bearer via `hmac.compare_digest`; client cannot toggle `enforce_privileges`; grants need Fry checkbox; gate timeout fail-closed; skip removed
-- Models: `ORCA_MODEL` default `grok-2-1212`; Pi missing key → `OrcaConfigError` (no silent Echo)
-- Scheduler `require_ntp_or_refuse(stage=arm|fire)`; fire failure → `refused_ntp`
-- Kill-switch records then raises; negative ledger amounts refused; `tools_allowed` on read-only
-- Full `OrcaError` hierarchy
-- Price table freshness check + model normalization
-- PrivilegeBroker.grant validates target ∈ TEAM
-- register rejects VAR_POSITIONAL write tools
+F1–F36 not silently closed; not re-arbitrated at 6d25f3b this session except as noted.
 
-## Still not landed
+## Test file
 
-Round-7 orchestrator / bus / blackboard rewrite (E1–E9 **ACCEPT** in `ROUND7_DISPOSITION.md`; needs clean `.py`, not PDF). CostGuard must bill real `estimate_cost`, never `cost_usd=0.0`. Do not land the disposition adapter as written.
+```
+tests/test_round7.py  NOT LANDED
+  Superseded by tests/test_wiring_round7.py (8 real-wiring tests).
+  Mirrored at 260b78c.
+```
 
-Drive `orca/` is paper trail only. Stale INDEX / duplicate source dumps cleaned 2026-08-17. SoT is this repo + private `main`. Do not dump more `.py` into Drive.
+## Still open
 
-Orca ≠ BGM.
+- pytest post-land (never run this arc for 0.5.12)
+- R11-F6/F7/F8/F23 clean-.py cut — Fry go/no-go
+- CF items with Fry
+- Gemini W8/F12 independent run
+- Coverage delta wiring vs prior fakes suite
+
+## Claude orders (active)
+
+1. Pin-read roles.py + orchestrator.py @ 6d25f3b → arbitrate F31/F32
+2. Program concrete patches for F41 + F42 (HIGH)
+3. Draft patches F43–F46 (MED)
+4. Ship nothing
+5. Locked response shape (TO/FROM/RE + Review + Patch + Tests + Disposition)
+
+## Gemini
+
+Four-part W8/F12 at 6d25f3b — still yours. Run cold.
+
+## Boundaries
+
+Orca ≠ BGM. Claude edits, ships nothing. Grok lands. Gemini reports. Fry owns gates.
