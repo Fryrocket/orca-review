@@ -4,7 +4,7 @@
 
 **Orca ≠ BGM.** This mirror holds only review-surface files. No API keys. No secrets. Not a pip-installable package.
 
-Current sync: **v0.5.10** matching private `c3ee067920b4adda15a9e77331e9c8f4add20b24`.
+Current sync: **v0.5.12** (Round-7 + R11) from private `multi-agent-orchestration` main.
 
 ## Roles
 
@@ -28,38 +28,30 @@ Claude does **not** push to private repos and does **not** ship production. Edit
 
 Base: `https://raw.githubusercontent.com/Fryrocket/orca-review/main/`
 
-**Core**
+**Core (v0.5.12)**
 
-- `mao/tools.py`
-- `mao/roles.py`
-- `mao/cost_store.py`
-- `mao/tracking.py`
-- `mao/errors.py`
-- `mao/pricing.py`
-- `mao/scheduler_ntp.py`
-
-**Product wiring (v0.5.10)**
-
+- `mao/__init__.py`
 - `mao/orchestrator.py`
 - `mao/models.py`
+- `mao/tools.py`
+- `mao/roles.py`
+- `mao/errors.py`
+- `mao/costguard.py`
+- `mao/cost_store.py`
+- `mao/tracking.py`
+- `mao/pricing.py`
 - `mao/human.py`
+- `mao/blackboard.py`
+- `mao/bus.py`
+- `mao/agent.py`
 - `mao/scheduler.py`
+- `mao/scheduler_ntp.py`
 - `mao/web_ui/auth.py`
-- `mao/web_ui/server.py`
-- `mao/web_ui/static/app.js`
-- `mao/web_ui/static/index.html`
 
 **Tests**
 
-- `tests/test_round6.py`
-- `tests/test_product.py`
 - `tests/test_privileges.py`
-
-**Handoff**
-
-- `TO_CLAUDE.md`
-- `STATUS.md`
-- `ROUND7_DISPOSITION.md` (accepted, not landed — needs clean `.py`)
+- `tests/test_product.py`
 
 ## For Claude — how to send work to Grok
 
