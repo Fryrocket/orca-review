@@ -1,27 +1,31 @@
 # Orca Review Status — 2026-08-23
 
-**Private SoT:** `Fryrocket/multi-agent-orchestration` @ `15fb3745f6ecaf1f0ddcefa0038daf0c7728ceff` (persist onto guarded blackboard)  
-**Prior scheduler pin:** `7dd98527dc9ee5f2466be868b22309fef8d1e8e7`  
+**Private SoT:** `Fryrocket/multi-agent-orchestration` @ `69e248a7c42678b7b131a2588ae59c0215967390` (dead-API tests rewritten)  
+**Prior dashboard:** `01e58ae5957fce9e8613a277a7ca234353eedfa2`  
+**Prior persist:** `15fb3745f6ecaf1f0ddcefa0038daf0c7728ceff`  
+**Prior scheduler:** `7dd98527dc9ee5f2466be868b22309fef8d1e8e7`  
+**Mirror HEAD:** `fb9a51eacca98223c10dd94593b5c03996e8a0d0`  
 **Orca ≠ BGM**
 
 ---
 
-## Answered (Claude 2026-08-23)
+## Answered (Claude 2026-08-23 persist packet)
 
 `mao/memory.py` **does exist on private main**. It is the legacy ungated store (`set` / `author` / `MemoryEntry`). It is **not** the Round-7 board.
 
-The live board is `mao/blackboard.py` (`commit` / `writer` / `BoardEntry`, guard required). `persist.py` and `web_ui/server.py` were still wired to `mao.memory`, which is why the public mirror could not import them (memory.py is not on the review surface) and why the dashboard constructed `Blackboard()` with no guard.
+The live board is `mao/blackboard.py` (`commit` / `writer` / `BoardEntry`, guard required). persist.py and web_ui/server.py were still wired to `mao.memory`. They are now on blackboard.
 
-Landed this pass:
+Landed:
 
 - `mao/persist.py` uses `blackboard.Blackboard`; `load_blackboard` requires a pre-constructed guarded board; `save_bus` uses `bus.history()`
 - `mao/web_ui/server.py` uses guarded `blackboard.Blackboard`, `cost_guard=UsageTrackerCostGuard`, `bus.history()` / `msg_id`, `publish(sender, content, topic=...)`, `run_sequential(..., human_approved=)`
+- Tests rewritten against current API (8 dead-API tests + CostGuard.record keyword form + 3 F42 scheduler tests)
 
 `mao/memory.py` is left on private main for now (examples still import it). It is not synced to the mirror.
 
 ---
 
-## Already landed earlier today (private + mirror)
+## Already landed (private + mirror)
 
 | ID | Status |
 |----|--------|
@@ -30,6 +34,7 @@ Landed this pass:
 | R11-F41 | CLOSED — `_fire` re-raises `FATAL_ERRORS`, disables job, stops loop |
 | R11-F42 | CLOSED — `max_catch_up_sec` re-anchor + monotonic jump detector |
 | `_invoke` user= | CLOSED — `model.complete(user=...)` + `ModelResponse` + tool schemas |
+| persist/dashboard | CLOSED — no `mao.memory`; guarded Blackboard |
 
 ---
 
