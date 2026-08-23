@@ -22,10 +22,12 @@ class Privilege(str, Enum):
 
 
 SENSITIVE_GRANTS = {
+    Privilege.WRITE,          # R11-F31: Blackboard default guard checks this
     Privilege.CODE_EDIT,
     Privilege.FIRMWARE_EDIT,
     Privilege.APPROVE_WRITE,
     Privilege.HARDWARE_DESIGN,
+    Privilege.ORCHESTRATE,    # R11-F31
 }
 
 
@@ -65,9 +67,6 @@ CLAUDE = JobDuty(
 AMPERE = JobDuty(
     name="ampere",
     title="Electronics Design Lead",
-    # HARDWARE_DESIGN is base but still sensitive for *grants*: base means
-    # Ampere uses design tools without a grant; the SENSITIVE_GRANTS listing
-    # bites when someone tries to hand hardware_design to Claude or Relay.
     privileges={Privilege.READ, Privilege.HARDWARE_DESIGN},
     system_prompt="You are Ampere — hardware. UNVERIFIED drafts only.",
     tools_allowed=["read_file", "write_design", "kicad_note", "kicad_gen", "bom_update"],
@@ -81,7 +80,6 @@ RELAY = JobDuty(
 )
 TEAM: Dict[str, JobDuty] = {d.name: d for d in (GROK, CLAUDE, AMPERE, RELAY)}
 
-# Nobody may hold the sentinel, statically or by grant.
 assert not any(Privilege.UNCLASSIFIED in d.privileges for d in TEAM.values())
 
 
@@ -131,7 +129,6 @@ class PrivilegeBroker:
             )
         if not self.enforce:
             self._bypassed.add(target)
-            # never forge human_approved
         else:
             sensitive = privs & SENSITIVE_GRANTS
             if sensitive and not human_approved:
@@ -159,9 +156,6 @@ class PrivilegeBroker:
         if not self._grants[target]:
             self._grants.pop(target, None)
             self._notes.pop(target, None)
-        # A partial revoke that removes every sensitive privilege must also drop
-        # the approval flag, or status() keeps advertising a Fry approval for a
-        # grant that no longer contains anything Fry was asked to approve.
         if not (self._grants.get(target, set()) & SENSITIVE_GRANTS):
             self._human_approved_grants.discard(target)
         if not self._grants.get(target):
