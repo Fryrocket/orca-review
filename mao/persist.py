@@ -1,13 +1,18 @@
-"""Persistence for blackboard and message bus."""
+"""Persistence for blackboard and message bus.
+
+Uses the Round-7 guarded Blackboard (commit/writer). load_blackboard
+replays into a caller-constructed board so construction cannot skip the
+guard. Does not import mao.memory — that module is a legacy ungated store.
+"""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional
 
-from .memory import Blackboard, MemoryEntry
-from .bus import MessageBus, Message
+from .blackboard import Blackboard
+from .bus import MessageBus
+from .errors import OrcaConfigError
 
 
 def save_blackboard(bb: Blackboard, path: str | Path) -> None:
@@ -18,7 +23,7 @@ def save_blackboard(bb: Blackboard, path: str | Path) -> None:
             {
                 "key": e.key,
                 "value": e.value,
-                "author": e.author,
+                "writer": e.writer,
                 "timestamp": e.timestamp,
                 "meta": e.meta,
             }
@@ -28,38 +33,28 @@ def save_blackboard(bb: Blackboard, path: str | Path) -> None:
     path.write_text(json.dumps(data, indent=2, default=str))
 
 
-def load_blackboard(path: str | Path) -> Blackboard:
+def load_blackboard(path: str | Path, board: Blackboard) -> Blackboard:
+    """Replay saved entries into an already-constructed (guarded) board."""
+    if board is None:
+        raise OrcaConfigError(
+            "load_blackboard requires a guarded Blackboard; refusing to "
+            "construct one without a guard"
+        )
     path = Path(path)
-    bb = Blackboard()
     if not path.exists():
-        return bb
+        return board
     data = json.loads(path.read_text())
     for item in data.get("entries", []):
-        bb.set(
-            key=item["key"],
-            value=item["value"],
-            author=item.get("author", "system"),
-            **item.get("meta", {}),
-        )
-    return bb
+        writer = item.get("writer") or item.get("author") or "system"
+        meta = dict(item.get("meta") or {})
+        board.commit(item["key"], item["value"], writer=writer, **meta)
+    return board
 
 
 def save_bus(bus: MessageBus, path: str | Path) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    data = {
-        "messages": [
-            {
-                "id": m.msg_id if hasattr(m, "msg_id") else getattr(m, "id", ""),
-                "topic": m.topic,
-                "sender": m.sender,
-                "content": m.content,
-                "timestamp": m.timestamp,
-                "meta": m.meta,
-            }
-            for m in bus.history()
-        ]
-    }
+    data = {"messages": [m.to_dict() for m in bus.history()]}
     path.write_text(json.dumps(data, indent=2, default=str))
 
 
