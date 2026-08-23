@@ -11,11 +11,12 @@ from typing import Any, Optional
 from urllib.parse import urlparse
 
 from mao.agent import Agent, Role
+from mao.blackboard import Blackboard
 from mao.bus import MessageBus
 from mao.cost_store import DayCostStore
+from mao.costguard import UsageTrackerCostGuard
 from mao.errors import GateTimeoutError, OrcaConfigError, OrcaError
 from mao.human import GateDecision, GateResult, HumanGate
-from mao.memory import Blackboard
 from mao.models import get_default_model
 from mao.orchestrator import Orchestrator
 from mao.roles import AMPERE, CLAUDE, GROK, Privilege, PrivilegeBroker, RELAY
@@ -25,6 +26,10 @@ from mao.web_ui.auth import authorized, dashboard_token, validate_bind
 STATIC = Path(__file__).parent / "static"
 
 _GATE_TIMEOUT = float(os.environ.get("ORCA_GATE_TIMEOUT_SEC", "300"))
+
+
+def _publish(bus: MessageBus, topic: str, content: Any) -> None:
+    bus.publish("ui", content, topic=topic)
 
 
 class DashboardGate(HumanGate):
@@ -38,11 +43,11 @@ class DashboardGate(HumanGate):
         self.state._gate_result = None
         self.state._gate_pending = True
         self.state._gate_event.clear()
-        self.state.bus.publish("gate.pending", sender="ui", content={"context": context})
+        _publish(self.state.bus, "gate.pending", {"context": context})
         ok = self.state._gate_event.wait(timeout=_GATE_TIMEOUT)
         self.state._gate_pending = False
         if not ok:
-            self.state.bus.publish("gate.timeout", sender="ui", content={"context": context})
+            _publish(self.state.bus, "gate.timeout", {"context": context})
             raise GateTimeoutError(
                 f"human gate timed out after {_GATE_TIMEOUT}s — fail CLOSED (deny)"
             )
@@ -57,11 +62,17 @@ class DashboardState:
         root = os.environ.get("ORCA_REPO_ROOT") or os.getcwd()
         self.broker = PrivilegeBroker()
         self.bus = MessageBus()
-        self.memory = Blackboard()
+        self.memory = Blackboard(
+            guard=lambda writer, key: self.broker.require(writer, Privilege.WRITE)
+        )
         self.tracker = UsageTracker(
             per_run_ceiling_usd=float(os.environ.get("ORCA_RUN_CEILING", "5")),
             per_day_ceiling_usd=float(os.environ.get("ORCA_DAY_CEILING", "20")),
             day_store=DayCostStore(Path(root) / "runs" / "cost_day.json"),
+        )
+        self.cost_guard = UsageTrackerCostGuard(
+            record_usage=self.tracker.record,
+            hard_ceiling_usd=self.tracker.per_run_ceiling_usd,
         )
         self.model = get_default_model()
         self.agents = [
@@ -78,11 +89,10 @@ class DashboardState:
             agents=self.agents,
             bus=self.bus,
             memory=self.memory,
-            tracker=self.tracker,
+            cost_guard=self.cost_guard,
             default_model=self.model,
             broker=self.broker,
             human_gate=self.gate,
-            enforce_privileges=True,
         )
 
     def snapshot(self) -> dict:
@@ -95,14 +105,14 @@ class DashboardState:
             },
             "bus": [
                 {
-                    "id": m.id,
+                    "id": m.msg_id,
                     "topic": m.topic,
                     "sender": m.sender,
                     "content": m.content,
                     "timestamp": m.timestamp,
                 }
-                for m in self.bus.log()
-            ][-120:],
+                for m in self.bus.history(limit=120)
+            ],
             "gate": {
                 "pending": self._gate_pending,
                 "context": self._gate_context,
@@ -184,12 +194,12 @@ class Handler(SimpleHTTPRequestHandler):
             if path == "/api/turn/start":
                 agent = body.get("agent") or "claude"
                 st.broker.start_turn(agent)
-                st.bus.publish("ui.turn.start", sender="ui", content={"agent": agent})
+                _publish(st.bus, "ui.turn.start", {"agent": agent})
                 return _json_response(self, 200, {"ok": True})
 
             if path == "/api/turn/end":
-                st.broker.end_turn()
-                st.bus.publish("ui.turn.end", sender="ui", content={})
+                st.broker.end_turn("grok")
+                _publish(st.bus, "ui.turn.end", {})
                 return _json_response(self, 200, {"ok": True})
 
             if path == "/api/grant":
@@ -204,10 +214,10 @@ class Handler(SimpleHTTPRequestHandler):
                     note=note,
                     human_approved=human_approved,
                 )
-                st.bus.publish(
+                _publish(
+                    st.bus,
                     "ui.grant",
-                    sender="ui",
-                    content={
+                    {
                         "agent": agent,
                         "privs": [p.value for p in privs],
                         "note": note,
@@ -219,7 +229,7 @@ class Handler(SimpleHTTPRequestHandler):
             if path == "/api/revoke":
                 agent = body.get("agent")
                 st.broker.revoke("grok", agent)
-                st.bus.publish("ui.revoke", sender="ui", content={"agent": agent})
+                _publish(st.bus, "ui.revoke", {"agent": agent})
                 return _json_response(self, 200, {"ok": True})
 
             if path == "/api/gate/decide":
@@ -249,7 +259,19 @@ class Handler(SimpleHTTPRequestHandler):
                     )
                 text = body.get("input") or "Hello"
                 require_human = bool(body.get("require_human"))
-                results = st.orch.run_sequential(text, human_every_step=require_human)
+                results = [
+                    {
+                        "agent": r.agent,
+                        "text": r.text,
+                        "run_id": r.run_id,
+                        "tokens_in": r.tokens_in,
+                        "tokens_out": r.tokens_out,
+                        "cost_usd": r.cost_usd,
+                    }
+                    for r in st.orch.run_sequential(
+                        text, human_approved=require_human
+                    )
+                ]
                 return _json_response(
                     self,
                     200,
