@@ -22,6 +22,9 @@ R11 fixes applied:
   F27 no state mutation before gate; refuse re-entry
   F28/F29 cleanup catches BaseException, never masks original
   F30 track grants before broker.grant (over-revoke safe)
+  F31 SENSITIVE_GRANTS includes WRITE + ORCHESTRATE (landed 2026-08-23)
+  F56 run_sequential no longer swallows FATAL_ERRORS (landed 2026-08-23)
+  Critical: _invoke uses user= (not prompt=), ModelResponse attrs, tool schemas
 """
 
 from __future__ import annotations
@@ -95,8 +98,6 @@ class Orchestrator:
     ):
         if not agents:
             raise OrcaConfigError("Orchestrator requires at least one agent")
-        # R11-F24: granter/runner identity must agree. PrivilegeBroker.grant
-        # hard-requires granter == GROK.name. Fail closed at construction.
         if runner != GROK.name:
             raise OrcaConfigError(
                 f"Orchestrator runner must be {GROK.name!r} (got {runner!r}). "
@@ -129,24 +130,16 @@ class Orchestrator:
         self.cost_guard = cost_guard
 
         self._active_run_id: Optional[str] = None
-        # Grants issued by the current begin_task (for end_task / revoke-on-deny)
-        self._task_grants: Dict[str, Set] = {}  # target -> privs
+        self._task_grants: Dict[str, Set] = {}
 
-    # ------------------------------------------------------------------
-    # Turn context (E1)
-    # ------------------------------------------------------------------
     @contextmanager
     def _turn(self, agent: str):
-        """Open a turn for `agent`, always close via granter=self._runner."""
         self.broker.start_turn(agent)
         try:
             yield
         finally:
             self.broker.end_turn(self._runner)
 
-    # ------------------------------------------------------------------
-    # Model invocation helper
-    # ------------------------------------------------------------------
     def _invoke(
         self,
         agent: Agent,
@@ -164,21 +157,35 @@ class Orchestrator:
         )
 
         tool_proxy = None
+        tool_schemas = None
         if tools_allowed and self.tools is not None and agent.tools:
             tool_proxy = AgentToolProxy(self.tools, agent.role.name, run_id)
+            tool_schemas = []
+            for tname in agent.tools:
+                try:
+                    t = self.tools.get(tname)
+                except KeyError:
+                    continue
+                tool_schemas.append(
+                    {
+                        "name": t.name,
+                        "description": t.description,
+                        "parameters": t.parameters,
+                    }
+                )
 
         text = ""
         tin = tout = 0
         reported_cost = 0.0
         try:
             if hasattr(model, "complete"):
+                # CRITICAL (2026-08-23): ModelAdapter.complete expects user=, not prompt=
                 raw = model.complete(
                     system=agent.system_prompt,
-                    prompt=prompt,
-                    tools=tool_proxy,
+                    user=prompt,
+                    tools=tool_schemas,
                 )
             elif hasattr(model, "chat"):
-                # chat path does not receive tools (R11-F19 noted; adapters differ)
                 raw = model.chat(
                     [
                         {"role": "system", "content": agent.system_prompt},
@@ -187,22 +194,36 @@ class Orchestrator:
                 )
             else:
                 raw = f"[{agent.role.name}] {prompt[:200]}"
+
+            tool_calls: list = []
             if isinstance(raw, dict):
                 text = raw.get("text") or raw.get("content") or str(raw)
                 tin = int(raw.get("input_tokens") or raw.get("tokens_in") or 0)
                 tout = int(raw.get("output_tokens") or raw.get("tokens_out") or 0)
                 reported_cost = float(raw.get("cost_usd") or 0.0)
+                tool_calls = list(raw.get("tool_calls") or [])
+            elif hasattr(raw, "text"):
+                # ModelAdapter.complete returns ModelResponse, not a dict
+                text = raw.text
+                tin = int(getattr(raw, "input_tokens", 0) or 0)
+                tout = int(getattr(raw, "output_tokens", 0) or 0)
+                tool_calls = list(getattr(raw, "tool_calls", None) or [])
             else:
                 text = str(raw)
+
+            if tool_calls and tool_proxy is not None:
+                for call in tool_calls:
+                    cname = call.get("name")
+                    cargs = call.get("arguments") or {}
+                    if cname:
+                        tool_proxy.call(cname, **cargs)
         except FATAL_ERRORS:
-            # R11-F3: privilege / cost / config errors must not become prose
             raise
         except Exception as e:
             if self.on_step_error == "stop":
                 raise
             text = f"[error] {type(e).__name__}: {e}"
 
-        # R11-F5: use the float the guard actually billed
         billed = self.cost_guard.record(
             getattr(model, "name", "unknown"),
             tin,
@@ -229,16 +250,12 @@ class Orchestrator:
         return result
 
     def _ensure_run_id(self) -> str:
-        """Reuse begin_task id when present; otherwise mint (R11-F16)."""
         if self._active_run_id:
             return self._active_run_id
         rid = str(uuid.uuid4())[:12]
         self._active_run_id = rid
         return rid
 
-    # ------------------------------------------------------------------
-    # Public run modes
-    # ------------------------------------------------------------------
     def run_sequential(
         self,
         objective: str,
@@ -246,9 +263,8 @@ class Orchestrator:
         agents: Optional[Sequence[Agent]] = None,
         human_approved: bool = False,
     ) -> Generator[StepResult, None, None]:
-        """Run agents one after another under turn + privilege control."""
         run_id = self._ensure_run_id()
-        self.cost_guard.reset_run()  # R11-F11
+        self.cost_guard.reset_run()
         roster = list(agents) if agents is not None else self.agents
 
         if human_approved and self.human_gate is not None:
@@ -259,16 +275,11 @@ class Orchestrator:
                 )
 
         for agent in roster:
-            # R11-F17: invoke fully inside the turn, then yield the result
+            # R11-F56: do NOT catch OrcaError here — FATAL_ERRORS must propagate
             with self._turn(agent.role.name):
-                try:
-                    result = self._invoke(
-                        agent, objective, run_id=run_id, tools_allowed=True
-                    )
-                except OrcaError:
-                    if self.on_step_error == "stop":
-                        raise
-                    continue
+                result = self._invoke(
+                    agent, objective, run_id=run_id, tools_allowed=True
+                )
             yield result
 
     def run_parallel(
@@ -277,10 +288,6 @@ class Orchestrator:
         *,
         agents: Optional[Sequence[Agent]] = None,
     ) -> Generator[StepResult, None, None]:
-        """Parallel mode is deliberately tool-less and turn-less (E2 / D-2).
-
-        R11-F18: agents that declare tools are refused, not silently stripped.
-        """
         run_id = self._ensure_run_id()
         self.cost_guard.reset_run()
         roster = list(agents) if agents is not None else self.agents
@@ -301,7 +308,6 @@ class Orchestrator:
         moderator: Optional[Agent] = None,
         agents: Optional[Sequence[Agent]] = None,
     ) -> Generator[StepResult, None, None]:
-        """Structured multi-round debate. Tool-less."""
         run_id = self._ensure_run_id()
         self.cost_guard.reset_run()
         roster = list(agents) if agents is not None else [
@@ -338,9 +344,6 @@ class Orchestrator:
                 history.append(f"moderator: {r.text}")
                 yield r
 
-    # ------------------------------------------------------------------
-    # Task lifecycle
-    # ------------------------------------------------------------------
     def begin_task(
         self,
         objective: str,
@@ -348,24 +351,11 @@ class Orchestrator:
         human_approved: bool = False,
         grant: Optional[Dict[str, set]] = None,
     ) -> str:
-        """Open a task. Gate FIRST, then grant. Tracks grants for end_task.
-
-        R11-F25: if human_approved is requested and no HumanGate is configured,
-        raise — never forge an approval flag with no human in the loop.
-        The value passed downstream to grant() is derived from the GateResult,
-        not echoed from the input flag.
-
-        R11-F27: refuse re-entry; mutate _active_run_id / _task_grants only
-        AFTER the gate has approved. Denied tasks leave no live run id and
-        do not orphan prior grants.
-        """
-        # R11-F27 part 1: refuse re-entry (pair with F26)
         if self._active_run_id is not None:
             raise OrcaConfigError(
                 f"task {self._active_run_id} already active; call end_task() first"
             )
 
-        # Gate first — no observable state mutation above this point
         approved = False
         if human_approved:
             if self.human_gate is None:
@@ -378,9 +368,8 @@ class Orchestrator:
                 raise HardPrivilegeError(
                     f"begin_task denied by gate: {gr.decision} ({gr.note})"
                 )
-            approved = True  # derived from GateResult, not the input flag
+            approved = True
 
-        # Only after gate: assign state (R11-F27 part 2)
         run_id = str(uuid.uuid4())[:12]
         self._active_run_id = run_id
         self._task_grants = {}
@@ -388,8 +377,6 @@ class Orchestrator:
         if grant:
             try:
                 for target, privs in grant.items():
-                    # R11-F30: record tracking BEFORE the call so partial
-                    # failures still get cleaned up (over-revoke is safe).
                     self._task_grants[target] = set(privs)
                     self.broker.grant(
                         self._runner,
@@ -399,23 +386,14 @@ class Orchestrator:
                         human_approved=approved,
                     )
             except BaseException:
-                # R11-F28/F29: cleanup must not mask the original cause;
-                # catch BaseException so Ctrl-C / SystemExit still revoke.
                 try:
                     self.end_task()
                 except Exception:
-                    pass  # never speak over the original
+                    pass
                 raise
         return run_id
 
     def end_task(self) -> None:
-        """Revoke all grants issued by the current begin_task (R11-F2).
-
-        Also clears _active_run_id (R11-F22). Raises OrcaConfigError if no
-        task is active (R11-F26) so double-call / out-of-order is visible.
-        Caller is responsible for pairing begin_task / end_task; there is no
-        automatic finally in the orchestrator itself.
-        """
         if self._active_run_id is None and not self._task_grants:
             raise OrcaConfigError(
                 "end_task() called with no active task "
@@ -425,7 +403,6 @@ class Orchestrator:
             try:
                 self.broker.revoke(self._runner, target, privs)
             except Exception:
-                # Best-effort revoke; continue cleaning the rest
                 pass
         self._task_grants.clear()
         self._active_run_id = None
