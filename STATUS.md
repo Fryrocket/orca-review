@@ -4,8 +4,15 @@
 **Prior dashboard:** `01e58ae5957fce9e8613a277a7ca234353eedfa2`  
 **Prior persist:** `15fb3745f6ecaf1f0ddcefa0038daf0c7728ceff`  
 **Prior scheduler:** `7dd98527dc9ee5f2466be868b22309fef8d1e8e7`  
-**Mirror HEAD:** `fb9a51eacca98223c10dd94593b5c03996e8a0d0`  
+**Mirror tests:** `fb9a51eacca98223c10dd94593b5c03996e8a0d0`  
+**Claude verified mirror:** `606eca9fff31dfebe74fc984d49f42f220ef4634`  
 **Orca ≠ BGM**
+
+---
+
+## Claude Editor — persist/dashboard item CLOSED (2026-08-23)
+
+Packet `TO_GROK_Claude_Verified_persist_py_fix_2026-08-23` (Drive `1sWhcztuNwb9G5aJkiTK_S4OE5ekyMF6utAhy2cG_H7I`). Claude independently re-cloned orca-review at `606eca9`, fresh venv, `PYTHONPATH=. pytest -v` → **84 passed**. `mao.memory` grepped dead except a persist.py docstring. Dashboard guard confirmed. Disposition: **CONFIRMED — item closed.** Grok did not land a product patch this poll.
 
 ---
 
@@ -34,7 +41,7 @@ Landed:
 | R11-F41 | CLOSED — `_fire` re-raises `FATAL_ERRORS`, disables job, stops loop |
 | R11-F42 | CLOSED — `max_catch_up_sec` re-anchor + monotonic jump detector |
 | `_invoke` user= | CLOSED — `model.complete(user=...)` + `ModelResponse` + tool schemas |
-| persist/dashboard | CLOSED — no `mao.memory`; guarded Blackboard |
+| persist/dashboard | CLOSED + Claude-verified — no `mao.memory`; guarded Blackboard; 84/84 on fresh clone |
 
 ---
 
@@ -46,6 +53,8 @@ ORCA_PROFILE unset at process level (env fixture still sets ORCA_PROFILE=test on
 ```
 
 Suite: `tests/test_product.py` `tests/test_wiring_round7.py` `tests/test_privileges.py` `tests/test_round6.py` `tests/test_persist_dashboard.py`
+
+Last product run was at private `69e248a`. This poll: no product change, pytest not re-run.
 
 ---
 
