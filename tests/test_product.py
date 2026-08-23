@@ -1,12 +1,12 @@
 """Product-layer tests: orchestrator, dashboard auth, models, scheduler, ledger."""
 
-import os
 from pathlib import Path
 
 import pytest
 
 from mao.agent import Agent, Role
 from mao.cost_store import DayCostStore
+from mao.costguard import UsageTrackerCostGuard
 from mao.errors import (
     CostCapExceeded,
     GateTimeoutError,
@@ -14,7 +14,8 @@ from mao.errors import (
     NTPNotSyncedError,
     OrcaConfigError,
 )
-from mao.models import OpenAICompatibleModel, get_default_model
+from mao.human import GateDecision, GateResult
+from mao.models import EchoModel, OpenAICompatibleModel, get_default_model
 from mao.orchestrator import Orchestrator
 from mao.pricing import DEFAULT_MODEL
 from mao.roles import Privilege, PrivilegeBroker
@@ -39,27 +40,45 @@ def _agent(name="claude"):
     return Agent(Role(name, name), system_prompt=f"you are {name}")
 
 
+def _cost_guard(env):
+    return UsageTrackerCostGuard(
+        record_usage=UsageTracker(day_store=DayCostStore(env / "c.json")).record,
+        hard_ceiling_usd=100.0,
+    )
+
+
+class _ApproveGate:
+    """Test double for HumanGate — always approves."""
+
+    def ask(self, payload, context=""):
+        return GateResult(GateDecision.APPROVE, content=payload)
+
+
 def test_orchestrator_write_raises_not_soft_dict(env):
     broker = PrivilegeBroker(enforce=True)
     tools = ToolRegistry(broker=broker, repo_root_path=env)
     tools.register_function(
         "write_file", "w", lambda path, content="": "ok", write_class=Privilege.CODE_EDIT
     )
+    agent = _agent()
+    agent.allow_tools(["write_file"])
+    agent.bind_model(EchoModel())
     orch = Orchestrator(
-        agents=[_agent()],
+        agents=[agent],
         tools=tools,
         broker=broker,
-        tracker=UsageTracker(day_store=DayCostStore(env / "c.json")),
+        cost_guard=_cost_guard(env),
     )
-    broker.start_turn("claude")
+    # Echo emits a write_file tool call because the objective mentions it;
+    # claude has no CODE_EDIT grant, so the registry must raise, not return
+    # a soft denial dict.
     with pytest.raises(HardPrivilegeError, match=r"claude lacks code_edit"):
-        orch.run_turn(orch.agents[0], "write_file please", touching_code=True)
+        list(orch.run_sequential("write_file please"))
 
 
 def test_orchestrator_passes_agent_to_registry(env):
     broker = PrivilegeBroker(enforce=True)
     broker.grant("grok", "claude", {Privilege.CODE_EDIT}, human_approved=True)
-    broker.start_turn("claude")
     seen = {}
 
     def wf(path="runs/x.py", content="", **kw):
@@ -70,36 +89,37 @@ def test_orchestrator_passes_agent_to_registry(env):
     tools.register_function("write_file", "w", wf, write_class=Privilege.CODE_EDIT)
     agent = _agent()
     agent.allow_tools(["write_file"])
+    agent.bind_model(EchoModel())
     orch = Orchestrator(
         agents=[agent],
         tools=tools,
         broker=broker,
-        tracker=UsageTracker(day_store=DayCostStore(env / "c.json")),
+        cost_guard=_cost_guard(env),
     )
-    # Echo will call write_file if the user text mentions it.
-    orch.run_turn(agent, "please write_file a helper")
+    list(orch.run_sequential("please write_file a helper"))
     assert seen.get("path") is not None
 
 
 def test_begin_task_sensitive_requires_fry(env):
-    orch = Orchestrator(
-        agents=[_agent()],
-        tracker=UsageTracker(day_store=DayCostStore(env / "c.json")),
-    )
+    broker = PrivilegeBroker(enforce=True)
+    orch = Orchestrator(agents=[_agent()], broker=broker, cost_guard=_cost_guard(env))
     with pytest.raises(HardPrivilegeError, match=r"HumanGate APPROVE"):
-        orch.begin_task("claude", privs={Privilege.CODE_EDIT})
+        orch.begin_task("edit code", grant={"claude": {Privilege.CODE_EDIT}})
 
 
 def test_begin_task_with_human_approved(env):
+    broker = PrivilegeBroker(enforce=True)
     orch = Orchestrator(
         agents=[_agent()],
-        tracker=UsageTracker(day_store=DayCostStore(env / "c.json")),
+        broker=broker,
+        cost_guard=_cost_guard(env),
+        human_gate=_ApproveGate(),
     )
     orch.begin_task(
-        "claude", privs={Privilege.CODE_EDIT}, human_approved=True, note="ok"
+        "edit code", human_approved=True, grant={"claude": {Privilege.CODE_EDIT}}
     )
     assert orch.broker.can("claude", Privilege.CODE_EDIT)
-    orch.end_task("claude")
+    orch.end_task()
     assert not orch.broker.can("claude", Privilege.CODE_EDIT)
 
 
@@ -115,13 +135,17 @@ def test_parallel_does_not_invoke_tools(env):
     tools.register_function("mystery_tool", "u", boom)
     a = _agent("grok")
     a.allow_tools(["mystery_tool"])
+    a.bind_model(EchoModel())
     orch = Orchestrator(
         agents=[a],
         tools=tools,
         broker=broker,
-        tracker=UsageTracker(day_store=DayCostStore(env / "c.json")),
+        cost_guard=_cost_guard(env),
     )
-    orch.run_parallel("call mystery_tool now")
+    # R11-F18: parallel mode refuses tool-declaring agents outright rather
+    # than silently stripping their tools.
+    with pytest.raises(OrcaConfigError, match=r"Parallel mode refuses tool-declaring agent"):
+        list(orch.run_parallel("call mystery_tool now"))
     assert called["n"] == 0
 
 
@@ -192,6 +216,66 @@ def test_scheduler_fire_records_ntp_refuse(monkeypatch, tmp_path):
     job = s.add("t", interval_sec=1, run_immediately=True)
     s._fire(job)
     assert job.last_status == "refused_ntp"
+
+
+def test_scheduler_clamps_clock_jump_backlog(monkeypatch, tmp_path):
+    """R11-F42: a job wildly overdue (clock jump / long downtime) must be
+    re-anchored, not fired — prevents a whole-table catch-up storm."""
+    import mao.scheduler as sched_mod
+
+    monkeypatch.setattr(sched_mod, "require_ntp_or_refuse", lambda stage="arm": None)
+    s = SessionScheduler(tmp_path / "jobs.json", max_catch_up_sec=300.0)
+    fired = {"n": 0}
+    s.set_handler(lambda job: fired.__setitem__("n", fired["n"] + 1))
+
+    job = s.add("t", interval_sec=60)
+    from datetime import datetime, timedelta, timezone
+
+    with s._lock:
+        job.next_run = (datetime.now(timezone.utc) - timedelta(seconds=10_000)).isoformat()
+
+    fired_count = s.tick()
+    assert fired_count == 0
+    assert fired["n"] == 0
+    assert job.last_status.startswith("clock_jump_reanchored")
+    new_next = datetime.fromisoformat(job.next_run)
+    assert (new_next - datetime.now(timezone.utc)).total_seconds() < job.interval_sec + 5
+
+
+def test_scheduler_fires_normal_catch_up_within_clamp(monkeypatch, tmp_path):
+    """A job only briefly overdue (well under the clamp) still fires normally."""
+    import mao.scheduler as sched_mod
+
+    monkeypatch.setattr(sched_mod, "require_ntp_or_refuse", lambda stage="arm": None)
+    s = SessionScheduler(tmp_path / "jobs.json", max_catch_up_sec=300.0)
+    fired = {"n": 0}
+    s.set_handler(lambda job: fired.__setitem__("n", fired["n"] + 1))
+
+    job = s.add("t", interval_sec=60)
+    from datetime import datetime, timedelta, timezone
+
+    with s._lock:
+        job.next_run = (datetime.now(timezone.utc) - timedelta(seconds=5)).isoformat()
+
+    fired_count = s.tick()
+    assert fired_count == 1
+    assert fired["n"] == 1
+    assert job.last_status == "ok"
+
+
+def test_check_clock_jump_detects_wall_monotonic_divergence(tmp_path):
+    """R11-F42 monotonic detector: observability only, does not alter firing."""
+    s = SessionScheduler(tmp_path / "jobs.json", clock_jump_threshold_sec=5.0)
+    assert s.last_clock_jump is None
+
+    import time
+
+    s._last_wall = time.time() - 100
+    s._last_mono = time.monotonic() - 1.0  # real time barely moved
+    s._check_clock_jump()
+
+    assert s.last_clock_jump is not None
+    assert "divergence=" in s.last_clock_jump
 
 
 def test_negative_cost_refused(tmp_path):

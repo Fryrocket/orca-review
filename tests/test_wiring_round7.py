@@ -60,7 +60,7 @@ def test_usage_tracker_cost_guard_with_real_estimator():
         max_output_tokens=2048,
     )
     # Force derivation path (caller reports 0.0)
-    guard.record("claude", "grok-2-1212", 1000, 500, 0.0)
+    guard.record("grok-2-1212", 1000, 500, agent="claude", cost_usd=0.0)
     assert len(recorded) == 1
     assert recorded[0]["cost_usd"] > 0.0
     assert guard.total_usd > 0.0
@@ -87,7 +87,7 @@ def test_record_passes_exact_tracking_signature():
         record_usage=spy,
         hard_ceiling_usd=5.0,
     )
-    guard.record("ampere", "claude-3-5-sonnet", 200, 80, 0.0)
+    guard.record("claude-3-5-sonnet", 200, 80, agent="ampere", cost_usd=0.0)
 
     assert seen["agent"] == "ampere"
     assert seen["model"] == "claude-3-5-sonnet"
@@ -109,7 +109,7 @@ def test_record_never_relies_on_default_cost_usd():
         hard_ceiling_usd=5.0,
     )
     # Caller already priced it
-    guard.record("grok", "grok-2-1212", 50, 20, 0.00123)
+    guard.record("grok-2-1212", 50, 20, agent="grok", cost_usd=0.00123)
     assert seen["cost_usd"] == 0.00123
 
 
