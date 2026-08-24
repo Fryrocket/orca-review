@@ -90,8 +90,28 @@ class SessionScheduler:
         except (json.JSONDecodeError, OSError):
             # Soft-load: a corrupt jobs.json must not kill the process
             return
+        # R11-F77: JSON decode was soft, but Job(**j) was not. An extra
+        # key, a missing id, or jobs not a list raised TypeError/KeyError
+        # from __init__ and killed the process. Ignore unknown fields;
+        # skip rows that still cannot construct.
+        if not isinstance(data, dict):
+            return
+        raw_jobs = data.get("jobs", [])
+        if not isinstance(raw_jobs, list):
+            return
+        fields = Job.__dataclass_fields__
+        loaded: Dict[str, Job] = {}
+        for j in raw_jobs:
+            if not isinstance(j, dict) or "id" not in j:
+                continue
+            try:
+                loaded[str(j["id"])] = Job(
+                    **{k: j[k] for k in fields if k in j}
+                )
+            except (TypeError, KeyError, ValueError):
+                continue
         with self._lock:
-            self._jobs = {j["id"]: Job(**j) for j in data.get("jobs", [])}
+            self._jobs = loaded
 
     def save(self) -> None:
         with self._lock:
