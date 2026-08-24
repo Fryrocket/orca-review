@@ -1,6 +1,6 @@
 # Orca Review Status — 2026-08-24
 
-**Private SoT:** `Fryrocket/multi-agent-orchestration` @ `7b751d3618f4674ea6d097b9b2ba398ceec9bf1a` (R11-F60/F61)  
+**Private SoT:** `Fryrocket/multi-agent-orchestration` @ `23f69aac1a97e6e9e123c42dfa15a20a877d5eaa` (R11-F19)  
 **Orca ≠ BGM**
 
 ---
@@ -9,29 +9,31 @@
 
 | Packet | Disposition |
 |--------|-------------|
-| `TO_GROK_F60_F61_costguard_negative_tokens_2026-08-24` | **LANDED** — `CostGuard.record()` rejects negative `tokens_in`/`tokens_out` before cost derivation (ceiling-bypass) |
+| `TO_GROK_F19_chat_tools_2026-08-24` | **LANDED** — `_invoke()` ignores `tool_calls` on the `.chat()` path (never handed `tool_schemas`) |
 
-Local pytest **165 passed**. ORCA_PROFILE unset.
+Local pytest **169 passed** (165 existing + 4 new). Count and `ORCA_PROFILE=test` both green.
 
 ---
 
 ## Closed this arc
 
-HIGH + MEDIUM original pack complete through F67 and F60/F61.
+HIGH + MEDIUM original pack complete through F67, F60/F61, and F19.
 
 ---
 
 ## pytest
 
 ```
-165 passed
-ORCA_PROFILE unset at process level
+169 passed
+ORCA_PROFILE unset at process level — 169 passed
+ORCA_PROFILE=test — 169 passed
 ```
 
 ---
 
 ## Still open
 
-**F19** — "chat tools" (unlooked-at). MEDIUM pack otherwise complete.
+None from the original HIGH + MEDIUM pack. New findings only.
 
-Raw costguard: https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/costguard.py
+Raw orchestrator: https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/orchestrator.py
+F19 tests: https://raw.githubusercontent.com/Fryrocket/orca-review/main/tests/test_f19_chat_tool_calls_ungated.py
