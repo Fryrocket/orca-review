@@ -29,6 +29,7 @@ R11 fixes applied:
   F59 string-returning adapters approximate tokens so CostGuard bills (landed 2026-08-24)
   F62/F63 bare run_* must not persist _active_run_id (landed 2026-08-24)
   F67 run_debate excludes moderator from roster even when agents= is set (landed 2026-08-24)
+  F19 chat-path tool_calls ignored unless a schema was actually handed (landed 2026-08-24)
   Critical: _invoke uses user= (not prompt=), ModelResponse attrs, tool schemas
 """
 
@@ -195,6 +196,7 @@ class Orchestrator:
         text = ""
         tin = tout = 0
         reported_cost = 0.0
+        schema_given = False
         try:
             if hasattr(model, "complete"):
                 # CRITICAL (2026-08-23): ModelAdapter.complete expects user=, not prompt=
@@ -203,7 +205,11 @@ class Orchestrator:
                     user=prompt,
                     tools=tool_schemas,
                 )
+                schema_given = tool_schemas is not None
             elif hasattr(model, "chat"):
+                # R11-F19: .chat() is never handed tool_schemas (system+user
+                # messages only), so this model has no legitimate basis for
+                # producing a tool_calls entry. schema_given stays False.
                 raw = model.chat(
                     [
                         {"role": "system", "content": agent.system_prompt},
@@ -219,13 +225,15 @@ class Orchestrator:
                 tin = int(raw.get("input_tokens") or raw.get("tokens_in") or 0)
                 tout = int(raw.get("output_tokens") or raw.get("tokens_out") or 0)
                 reported_cost = float(raw.get("cost_usd") or 0.0)
-                tool_calls = list(raw.get("tool_calls") or [])
+                if schema_given:
+                    tool_calls = list(raw.get("tool_calls") or [])
             elif hasattr(raw, "text"):
                 # ModelAdapter.complete returns ModelResponse, not a dict
                 text = raw.text
                 tin = int(getattr(raw, "input_tokens", 0) or 0)
                 tout = int(getattr(raw, "output_tokens", 0) or 0)
-                tool_calls = list(getattr(raw, "tool_calls", None) or [])
+                if schema_given:
+                    tool_calls = list(getattr(raw, "tool_calls", None) or [])
             else:
                 # R11-F59: adapter returned neither a dict nor a ModelResponse
                 # — no structured usage at all. Do NOT leave tin/tout at their
