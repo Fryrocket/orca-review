@@ -24,6 +24,8 @@ R11 fixes applied:
   F30 track grants before broker.grant (over-revoke safe)
   F31 SENSITIVE_GRANTS includes WRITE + ORCHESTRATE (landed 2026-08-23)
   F56 run_sequential no longer swallows FATAL_ERRORS (landed 2026-08-23)
+  F57 run_sequential(human_approved=True) requires a HumanGate (landed 2026-08-24)
+  F59 string-returning adapters approximate tokens so CostGuard bills (landed 2026-08-24)
   Critical: _invoke uses user= (not prompt=), ModelResponse attrs, tool schemas
 """
 
@@ -209,7 +211,17 @@ class Orchestrator:
                 tout = int(getattr(raw, "output_tokens", 0) or 0)
                 tool_calls = list(getattr(raw, "tool_calls", None) or [])
             else:
+                # R11-F59: adapter returned neither a dict nor a ModelResponse
+                # — no structured usage at all. Do NOT leave tin/tout at their
+                # 0 default: CostGuard.record() reads tin==0 and tout==0 as
+                # "genuinely free," so a string-returning adapter would bill
+                # $0 forever. Approximate from what we actually have (same
+                # char/4 heuristic preflight() already uses as its upper
+                # bound) so CostGuard's existing estimate_cost fallback
+                # (tin>0 or tout>0) engages instead of silently zeroing out.
                 text = str(raw)
+                tin = max(1, len(prompt) // 4)
+                tout = max(1, len(text) // 4)
 
             if tool_calls and tool_proxy is not None:
                 for call in tool_calls:
@@ -267,7 +279,12 @@ class Orchestrator:
         self.cost_guard.reset_run()
         roster = list(agents) if agents is not None else self.agents
 
-        if human_approved and self.human_gate is not None:
+        if human_approved:
+            if self.human_gate is None:
+                raise OrcaConfigError(
+                    "human_approved=True requires a HumanGate on the Orchestrator. "
+                    "Refusing to assert approval with no human in the loop (R11-F57)."
+                )
             gr = self.human_gate.ask(objective, context="begin sequential run")
             if gr.decision != GateDecision.APPROVE:
                 raise HardPrivilegeError(
