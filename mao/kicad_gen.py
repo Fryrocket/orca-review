@@ -203,7 +203,19 @@ def generate_from_nl(description: str, name: str = "orca_board", out_dir: str = 
 
 def register_kicad_gen_tools(registry) -> None:
     def kicad_gen(description: str, name: str = "orca_board") -> str:
-        r = generate_from_nl(description, name=name)
+        # R11-F76: generate_from_nl defaults out_dir to "runs/kicad_projects"
+        # relative to cwd. ToolRegistry path_params never see that implicit
+        # path, so a cwd outside repo_root wrote files the allowlist never
+        # audited (F73 only constrained `name`). Pin to repo_root/runs/.
+        root = Path(registry.repo_root).resolve()
+        out_dir = (root / "runs" / "kicad_projects").resolve()
+        try:
+            out_dir.relative_to(root)
+        except ValueError:
+            raise HardPrivilegeError(
+                f"kicad_gen out_dir escaped repo root: {out_dir}"
+            )
+        r = generate_from_nl(description, name=name, out_dir=str(out_dir))
         return (
             f"[kicad_gen] {r['name']}\n"
             f"sch: {r['schematic']}\n"
