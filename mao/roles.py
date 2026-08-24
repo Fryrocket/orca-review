@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, Optional, Set
 
-from .errors import HardPrivilegeError
+from .errors import HardPrivilegeError, OrcaConfigError
 
 _PI5_MODEL_PATHS = ("/proc/device-tree/model", "/sys/firmware/devicetree/base/model")
 
@@ -126,7 +126,15 @@ RELAY = JobDuty(
 )
 TEAM: Dict[str, JobDuty] = {d.name: d for d in (GROK, CLAUDE, AMPERE, RELAY)}
 
-assert not any(Privilege.UNCLASSIFIED in d.privileges for d in TEAM.values())
+# R11-F54: was a bare `assert`, which `python -O` / PYTHONOPTIMIZE strips
+# entirely — this invariant (nobody holds the UNCLASSIFIED sentinel) would
+# silently stop being checked on an optimized run. Use a real conditional
+# raise so it can't be compiled away.
+if any(Privilege.UNCLASSIFIED in d.privileges for d in TEAM.values()):
+    raise OrcaConfigError(
+        "UNCLASSIFIED is a sentinel privilege and must not be held by any "
+        "JobDuty in TEAM — check the TEAM role definitions above"
+    )
 
 
 class PrivilegeBroker:
@@ -143,12 +151,23 @@ class PrivilegeBroker:
                 "spoofable env var must not disable privilege enforcement "
                 "on real Pi hardware (R11-F50)"
             )
-        self.enforce = bool(enforce)
+        self._enforce = bool(enforce)
         self._grants: Dict[str, Set[Privilege]] = {}
         self._notes: Dict[str, str] = {}
         self._active_turn: Optional[str] = None
         self._human_approved_grants: Set[str] = set()
         self._bypassed: Set[str] = set()
+
+    @property
+    def enforce(self) -> bool:
+        """Read-only (R11-F51): `enforce` was a plain public attribute, so
+        any code holding a broker reference could do `broker.enforce = False`
+        and disable all privilege checking instantly — no HardPrivilegeError,
+        no ORCA_PROFILE=pi5 refusal, no Pi 5 hardware check (R11-F50), none
+        of __init__'s fail-closed gates apply to a direct reassignment.
+        Fixed at construction; there is no supported way to flip it later.
+        """
+        return self._enforce
 
     def start_turn(self, agent: str) -> None:
         if agent not in TEAM:
@@ -160,9 +179,19 @@ class PrivilegeBroker:
         self._active_turn = agent
 
     def end_turn(self, granter: str = "grok") -> None:
-        if self._active_turn:
-            self.revoke(granter, self._active_turn)
+        # R11-F53: previously `self._active_turn = None` only ran after
+        # revoke() returned. revoke() raises HardPrivilegeError for an
+        # unauthorized granter, so a single wrong-granter end_turn() call
+        # left _active_turn permanently set — every future start_turn() for
+        # any other agent then raised "turn already active" with no way to
+        # recover short of calling end_turn() again with the right granter.
+        # Turn bookkeeping must not depend on the revoke succeeding: clear
+        # it first, then attempt revoke (whose own failure still propagates
+        # to the caller — this only stops it from wedging turn state).
+        target = self._active_turn
         self._active_turn = None
+        if target:
+            self.revoke(granter, target)
 
     def grant(
         self,
