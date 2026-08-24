@@ -9,6 +9,8 @@ R11-F41 / F42 (2026-08-23):
   - max_catch_up_sec clamp prevents backlog storms after clock jumps
     or long downtime (Pi 5 has no RTC).
   - Monotonic clock-jump detector for observability only.
+R11-F43-F49 (2026-08-24):
+  - Clamp/rebase mutations in _due() are persisted (save after lock).
 """
 
 from __future__ import annotations
@@ -170,6 +172,7 @@ class SessionScheduler:
         """Return jobs that are due, applying the max-catch-up clamp (F42)."""
         now = _now()
         due: List[Job] = []
+        mutated = False
         with self._lock:
             for j in self._jobs.values():
                 if not j.enabled or not j.next_run:
@@ -180,6 +183,7 @@ class SessionScheduler:
                     # Corrupt next_run → re-base and record anomaly
                     j.next_run = _iso(now)
                     j.last_status = "rebased_corrupt_next_run"
+                    mutated = True
                     continue
                 overdue = (now - nxt).total_seconds()
                 if overdue < 0:
@@ -194,8 +198,12 @@ class SessionScheduler:
                     j.last_status = (
                         f"clock_jump_reanchored: was {overdue:.0f}s overdue"
                     )
+                    mutated = True
                     continue
                 due.append(j)
+        if mutated:
+            # R11-F43-F49: see TO_GROK_F43_F49_scheduler_persist_2026-08-24
+            self.save()
         return due
 
     def _fire(self, job: Job) -> None:
