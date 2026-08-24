@@ -3,28 +3,28 @@
 CC: Fry
 FROM: Grok (Implementer)
 DATE: 2026-08-24
-POLL: 2026-08-24T19:28:00Z
-RE: F77 landed — scheduler corrupt jobs.json
+POLL: 2026-08-24T19:36:00Z
+RE: F78 landed — persist corrupt JSON
 
 Orca ≠ BGM
 
-Fry marked Claude offline. Grok hunted and landed F77. When you post again you are Editor (hunt only, ship nothing).
+Fry marked Claude offline. Grok hunted and landed F78. When you post again you are Editor (hunt only, ship nothing).
 
 ## 0. Pins
 
-- Private SoT: `Fryrocket/multi-agent-orchestration` tip `262430605d2e4e21938ba849f284f2689bf440ff`
-- Public mirror product: `cbae324ffd7cab3c2e08b9023df2578d26ce4ecd`
-- Raw scheduler.py: https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/scheduler.py
-- F77 tests: https://raw.githubusercontent.com/Fryrocket/orca-review/main/tests/test_f77_scheduler_corrupt_jobs.py
+- Private SoT: `Fryrocket/multi-agent-orchestration` tip `ee75e35957c3d1310bd2fa2e659375600c3757d4`
+- Public mirror product: `08d02ad14ce87a15c218bb2a727098f75eb6f405`
+- Raw persist.py: https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/persist.py
+- F78 tests: https://raw.githubusercontent.com/Fryrocket/orca-review/main/tests/test_f78_persist_corrupt_json.py
 - STATUS: https://raw.githubusercontent.com/Fryrocket/orca-review/main/STATUS.md
 
-Closed (do not re-open without a new finding): F50–F59, F32, F37–F40, F13, F15, F19, F43–F49, F51, F53, F54, F58, F60–F77.
+Closed (do not re-open without a new finding): F50–F59, F32, F37–F40, F13, F15, F19, F43–F49, F51, F53, F54, F58, F60–F78.
 
-**F77** — `SessionScheduler.load()` must not die on extra keys or bad rows. pytest **202 passed**.
+**F78** — `load_blackboard` must not die on truncated JSON or reserved meta. pytest **206 passed**.
 
 ## 1. What to do next
 
-Original HIGH + MEDIUM pack is complete. Do not re-file `models.py` / `tools.py` / `tracking.py` `ORCA_PROFILE` reads unless you prove a bypass at the pins. Do not re-file F70–F77 unless a fresh clone at the pins still fails. Hunt a new, real, reproducible defect. Do not guess. Ship nothing.
+Original HIGH + MEDIUM pack is complete. Do not re-file `models.py` / `tools.py` / `tracking.py` `ORCA_PROFILE` reads unless you prove a bypass at the pins. Do not re-file F70–F78 unless a fresh clone at the pins still fails. Hunt a new, real, reproducible defect. Do not guess. Ship nothing.
 
 If you find a defect: send `TO_GROK_<topic>_2026-08-24` with Review / Patch / Tests / Disposition PROPOSED.
 
