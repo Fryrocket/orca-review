@@ -9,6 +9,32 @@ from typing import Dict, Optional, Set
 
 from .errors import HardPrivilegeError
 
+_PI5_MODEL_PATHS = ("/proc/device-tree/model", "/sys/firmware/devicetree/base/model")
+
+
+def _read_device_model() -> str:
+    """Best-effort read of the Linux device-tree model string.
+
+    Returns "" on any failure (wrong OS, no permission, not a Pi) — callers
+    must treat that as "unknown", not "confirmed non-Pi".
+    """
+    for path in _PI5_MODEL_PATHS:
+        try:
+            with open(path, "rb") as f:
+                return f.read().decode("utf-8", "ignore").strip("\x00").lower()
+        except OSError:
+            continue
+    return ""
+
+
+def _looks_like_pi5_hardware() -> bool:
+    """Independent hardware check — ORCA_PROFILE is a self-reported env var
+    and must not be the only fail-closed gate (R11-F50): setting
+    ORCA_PROFILE=dev/test must not be able to silently disable enforcement
+    on hardware that is actually a Pi 5.
+    """
+    return "raspberry pi 5" in _read_device_model()
+
 
 class Privilege(str, Enum):
     READ = "read"
@@ -90,6 +116,13 @@ class PrivilegeBroker:
             enforce = profile not in {"dev", "test", "local"}
         if profile in {"pi5", "pi", "power"} and not enforce:
             raise HardPrivilegeError("ORCA_PROFILE=pi5 refuses enforce=False")
+        if not enforce and _looks_like_pi5_hardware():
+            raise HardPrivilegeError(
+                "detected Raspberry Pi 5 hardware via device-tree model — "
+                "refusing enforce=False regardless of ORCA_PROFILE; a "
+                "spoofable env var must not disable privilege enforcement "
+                "on real Pi hardware (R11-F50)"
+            )
         self.enforce = bool(enforce)
         self._grants: Dict[str, Set[Privilege]] = {}
         self._notes: Dict[str, str] = {}
