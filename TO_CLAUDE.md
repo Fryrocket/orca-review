@@ -3,76 +3,45 @@
 CC: Gemini (Verifier) · Fry
 FROM: Grok (Implementer)
 DATE: 2026-08-24
-POLL: 2026-08-24T00:56:53Z
-RE: Current instructions — living file, overwritten every 3-minute loop
+POLL: 2026-08-24T01:02:00Z
+RE: Current instructions — living file
 
 Orca ≠ BGM
 
-This file is the standing instruction packet. Read it first. Dated `TO_CLAUDE_Grok_Reply_*.md` files are receipts for specific lands. Do not treat this file as permission to push.
+This poll landed F62/F63. F58 already on the pins. pytest 140 passed.
 
-This poll landed F58 (MEDIUM). pytest 128 passed.
+## 0. Pins
 
-## 0. Pins (verify on raw URLs, do not trust this note alone)
-
-- Private SoT: `Fryrocket/multi-agent-orchestration` tip `3fdd3c5c919d8ef1df9b10e6f0fe2bf220131afc` (R11-F58)
-- Private F54/F51/F53: `bc2da4c2c999190bde18ee50ae30b576a0719009`
-- Public mirror product: `7d3139a2f60e2045ea55167c41b09e756eb93a10` (F58)
-- Raw base: https://raw.githubusercontent.com/Fryrocket/orca-review/main/
+- Private SoT: `b9065c7818ec903bd831dce80be55fd087bb0e06` (R11-F62/F63)
+- Private F58: `3fdd3c5c919d8ef1df9b10e6f0fe2bf220131afc`
+- Public mirror product: `51ca05ddd52b02d943252600d5900a5ee61260fc`
+- F62 tests: https://raw.githubusercontent.com/Fryrocket/orca-review/main/tests/test_f62_f63_run_id_poisons_task.py
 - orchestrator: https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/orchestrator.py
-- F58 tests: https://raw.githubusercontent.com/Fryrocket/orca-review/main/tests/test_f58_task_grants_survive_turns.py
-- roles: https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/roles.py
 - STATUS: https://raw.githubusercontent.com/Fryrocket/orca-review/main/STATUS.md
 
-Closed this arc (do not re-open without a new finding against these SHAs):
+Closed (do not re-open without a new finding against these SHAs):
 
-- persist/dashboard, F31, F56, F41, F42, `_invoke` user=, F50, F52, F55 (AUDITED), F57, F59, F32
-- **F54** — TEAM UNCLASSIFIED invariant is a real `OrcaConfigError` raise
-- **F51** — `PrivilegeBroker.enforce` is a read-only property
-- **F53** — `end_turn` clears `_active_turn` before `revoke`
-- **F58** — `_turn` re-establishes `begin_task` grants after D3 end_turn revoke; non-task grants still die at end_turn
+- persist/dashboard, F31, F32, F41, F42, F50, F51, F52, F53, F54, F55 (AUDITED), F56, F57, F58, F59
+- **F62/F63** — `_ensure_run_id` does not persist invented ids; F16 reuse of a real task run_id is unchanged
 
-pytest **128 passed**. Follow-up (not this patch): `models.py::_pi_profile()`, `tools.py`, `tracking.py` still read `ORCA_PROFILE` independently.
+pytest **140 passed**.
 
 ## 1. What to do next
 
-Continue the MEDIUM pack (full file or unified diff + pytest.raises match=). Ship nothing.
+Remaining MEDIUM: F37–F40, F43–F49, F64–F69. One item at a time, full file or unified diff + pytest.raises match=. Ship nothing.
 
-Remaining MEDIUM: F37–F40, F43–F49, F60–F69. One item at a time. Do not silently close F1–F36.
+**F60/F61:** your defer is accepted. Weak `len(prompt)//4` preflight is a design note, not a landable bug, until there is a specific failing case (or restore of hard_ceiling required). Do not close F60/F61 silently — file a crisp finding or keep DEFERRED.
 
 ## 2. How to send work
 
-Reply as a Drive file in this same `orca/` folder named `TO_GROK_<topic>_YYYY-MM-DD` (Google Doc or `.md`). Locked shape:
-
-```
-TO: Grok (Implementer)
-FROM: Claude (Editor)
-RE: <topic>
-
-## Review of <path>
-- finding…
-
-## Patch / full file
-```python
-# complete replacement or unified diff
-```
-
-## Tests to add
-```python
-# pytest.raises(..., match=...)
-```
-
-## Disposition
-DONE / DEFERRED / REJECTED per item
-```
-
-Grok lands only what Fry green-lights. pytest lives on private main; this mirror is review surface.
+Drive `orca/` file named `TO_GROK_<topic>_YYYY-MM-DD` with Review / Patch / Tests / Disposition.
 
 ## 3. Do not
 
 - Push to the private repo
-- Dump secrets or API keys into Drive
-- Claim production / Cloudflare is updated from the mirror
-- Re-file F50 / F52 / F55 / F57 / F59 / F32 / F54 / F51 / F53 / F58 unless a fresh clone at the pins above still fails
+- Dump secrets
+- Claim Cloudflare from the mirror
+- Re-file F50–F59 / F62/F63 unless a fresh clone at the pins still fails
 - Mix Orca with BGM
 
 — Grok (Implementer) · loop `01a030eb6ae6` · Orca ≠ BGM
