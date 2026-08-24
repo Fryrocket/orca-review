@@ -162,7 +162,7 @@ class ToolRegistry:
                 out[pname] = pval
         return out
 
-    def _check_write_paths(self, arguments: dict, path_params: tuple) -> None:
+    def _path_candidates(self, arguments: dict, path_params: tuple) -> list:
         candidates = []
         for k in path_params:
             if k in arguments and arguments[k] is not None:
@@ -171,22 +171,40 @@ class ToolRegistry:
                     candidates.extend(str(v) for v in val if v is not None)
                 else:
                     candidates.append(str(val))
-        for raw in candidates:
-            resolved = self._resolve_safe(raw)
-            try:
-                rel = resolved.relative_to(self.repo_root)
-            except ValueError:
-                # Outside the repo. Name the BGM case explicitly — same denial,
-                # clearer log line. Checked on the RESOLVED path so that
-                # ../../bgm/x is caught, and NOT on the raw string, so that an
-                # in-repo runs/bgm/notes.md is no longer a false positive.
-                if "bgm" in [x.lower() for x in resolved.parts]:
-                    raise HardPrivilegeError(
-                        f"BGM path blocked: {raw} -> {resolved}"
-                    ) from None
+        return candidates
+
+    def _require_inside_repo(self, raw: str) -> Path:
+        resolved = self._resolve_safe(raw)
+        try:
+            resolved.relative_to(self.repo_root)
+        except ValueError:
+            # Outside the repo. Name the BGM case explicitly — same denial,
+            # clearer log line. Checked on the RESOLVED path so that
+            # ../../bgm/x is caught, and NOT on the raw string, so that an
+            # in-repo runs/bgm/notes.md is no longer a false positive.
+            if "bgm" in [x.lower() for x in resolved.parts]:
                 raise HardPrivilegeError(
-                    f"path outside repo root: {raw} -> {resolved}"
+                    f"BGM path blocked: {raw} -> {resolved}"
                 ) from None
+            raise HardPrivilegeError(
+                f"path outside repo root: {raw} -> {resolved}"
+            ) from None
+        return resolved
+
+    def _check_read_paths(self, arguments: dict, path_params: tuple) -> None:
+        """Read-only tools still must not escape repo_root (R11-F72).
+
+        WRITE_ALLOWLIST must not gate reads (D4), but `../` / absolute paths
+        resolving outside the repo are not reads of the repo — they leak
+        host files. Containment only; mao/ and docs/ remain readable.
+        """
+        for raw in self._path_candidates(arguments, path_params):
+            self._require_inside_repo(raw)
+
+    def _check_write_paths(self, arguments: dict, path_params: tuple) -> None:
+        for raw in self._path_candidates(arguments, path_params):
+            resolved = self._require_inside_repo(raw)
+            rel = resolved.relative_to(self.repo_root)
             parts = rel.parts
             if not parts:
                 raise HardPrivilegeError(f"empty path: {raw}")
@@ -234,4 +252,19 @@ class ToolRegistry:
             except TypeError as e:
                 raise HardPrivilegeError(f"cannot bind args for {name!r}: {e}") from e
             self._check_write_paths(arguments, tool.path_params)
+        else:
+            # R11-F72: read-only tools were catalog-gated only. A path
+            # argument of ../secret or /etc/passwd never hit
+            # _check_write_paths, so register_code_tools.read_file (and any
+            # other read tool using DEFAULT_PATH_PARAMS) could dump files
+            # outside the repo. Contain to repo_root; do not apply the
+            # write allowlist (D4).
+            try:
+                sig = inspect.signature(tool.func)
+                bound = sig.bind(*args, **kwargs)
+                bound.apply_defaults()
+                arguments = self._flatten(sig, dict(bound.arguments))
+            except (TypeError, ValueError):
+                arguments = dict(kwargs)
+            self._check_read_paths(arguments, tool.path_params)
         return tool.func(*args, **kwargs)
