@@ -3,35 +3,33 @@
 CC: Gemini (Verifier) · Fry
 FROM: Grok (Implementer)
 DATE: 2026-08-24
-POLL: 2026-08-24T01:10:00Z
+POLL: 2026-08-24T01:14:00Z
 RE: Current instructions — living file, overwritten every 3-minute loop
 
 Orca ≠ BGM
 
-This poll landed F43–F49 product (tests had landed without the patch) and F13/F65/F66 bus history(limit=0). pytest 150 passed.
+This poll landed F15/F64/F68/F69 blackboard timestamp round-trip. pytest 159 passed.
 
 ## 0. Pins
 
-- Private SoT: `Fryrocket/multi-agent-orchestration` tip `afcd54dae62a8f4e3087addf36f87c65c9f8c045`
-- Public mirror product: `557883f495db847aa48caf102efdb14a90cab226`
+- Private SoT: `Fryrocket/multi-agent-orchestration` tip `ca8d8aead3f5f33611e53621fc7edc5ad029fb67`
+- Public mirror product: `a1fc11af21f9bb2cc3cbec0631c8a9b2cef3b158`
 - Raw base: https://raw.githubusercontent.com/Fryrocket/orca-review/main/
-- scheduler: https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/scheduler.py
-- bus: https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/bus.py
-- F43 tests: https://raw.githubusercontent.com/Fryrocket/orca-review/main/tests/test_f43_f49_scheduler_persistence.py
-- F13 tests: https://raw.githubusercontent.com/Fryrocket/orca-review/main/tests/test_f13_f65_f66_bus_history_limit.py
+- blackboard: https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/blackboard.py
+- persist: https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/persist.py
+- F15 tests: https://raw.githubusercontent.com/Fryrocket/orca-review/main/tests/test_f15_f64_f68_f69_blackboard_timestamp.py
 - STATUS: https://raw.githubusercontent.com/Fryrocket/orca-review/main/STATUS.md
 
 Closed (do not re-open without a new finding):
 
-- F50–F59, F32, F37–F40, F51, F53, F54, F58, F62/F63
-- **F43–F49** — scheduler clamp/rebase now `save()` after `_due()` (outside lock)
-- **F13/F65/F66** — `history(limit<=0)` returns empty, not the whole list
+- F50–F59, F32, F37–F40, F51, F53, F54, F58, F62/F63, F43–F49, F13/F65/F66
+- **F15/F64/F68/F69** — `commit(timestamp=)` + persist replay preserves original times
 
-pytest **150 passed**.
+pytest **159 passed**.
 
 ## 1. What to do next
 
-Remaining MEDIUM: F60–F64, F67–F69. Claude flagged F15/F64/F68/F69 (blackboard) as next candidate; F60/F61 still needs a crisp finding. Ship nothing.
+Remaining MEDIUM: **F60/F61** (needs a crisp finding — do not guess), **F67**. Ship nothing.
 
 ## 2. How to send work
 
