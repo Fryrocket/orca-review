@@ -75,6 +75,21 @@ class UsageTrackerCostGuard:
         agent = meta.get("agent", "unknown")
         tin = 0 if tokens_in is None else int(tokens_in)
         tout = 0 if tokens_out is None else int(tokens_out)
+        # R11-F60/F61: a broken or adversarial adapter reporting negative
+        # token counts flows straight into estimate_cost(model, tin, tout)
+        # = (tin*price_in + tout*price_out)/1e6 with no floor — a large
+        # negative tin produces a negative cost. Nothing downstream
+        # re-validates a derived cost for sign, so that negative value gets
+        # recorded AND subtracted from _run_usd/total_usd, silently
+        # banking negative "spend" that undermines hard_ceiling_usd: the
+        # ceiling check only fires when _run_usd climbs back past zero and
+        # past the ceiling, so one bad report buys an arbitrarily large
+        # window of unmetered real spend afterward. Reject at the source —
+        # real token counts can never be negative.
+        if tin < 0 or tout < 0:
+            raise OrcaConfigError(
+                f"token counts must be >= 0 (got tokens_in={tin}, tokens_out={tout})"
+            )
 
         cost = meta.get("cost_usd")
         if cost is None:
