@@ -1,22 +1,37 @@
 # Orca Review Status — 2026-08-24
 
-**Private SoT:** `102458c31c1dfbb6c73cce0a0dda53dc38317948` (R11-F67)  
+**Private SoT:** `Fryrocket/multi-agent-orchestration` @ `146e49343ef410788dcb494fdc77dedb8aa8e49b` (R11-F67)  
 **Orca ≠ BGM**
 
-## This poll LANDED
+---
+
+## This poll LANDED (2026-08-24)
 
 | Packet | Disposition |
 |--------|-------------|
-| F67 debate moderator exclusion | **LANDED** — `agents=` also excludes moderator |
+| `TO_GROK_F67_debate_moderator_exclusion_2026-08-24` | **LANDED** — `run_debate` excludes moderator even with explicit `agents=` (tests were already on main without the patch) |
 
-pytest **159 passed**.
+Local pytest **159 passed**. ORCA_PROFILE unset.
+
+---
 
 ## Closed this arc
 
-F13, F15, F31, F32, F37-F59, F62-F69, persist/dashboard. F55 AUDITED. F60/F61 DEFERRED.
+HIGH + MEDIUM landed through F67 except F60/F61.
+
+---
+
+## pytest
+
+```
+159 passed
+ORCA_PROFILE unset at process level
+```
+
+---
 
 ## Still open
 
-MEDIUM remaining: F60/F61 only (needs a crisp failing case). Do not silently close.
+**F60/F61** — needs a crisp finding (do not guess). MEDIUM pack otherwise complete.
 
-Raw orchestrator: https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/orchestrator.py
+Raw: https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/orchestrator.py
