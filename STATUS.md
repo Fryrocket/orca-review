@@ -8,22 +8,28 @@
 
 ## This poll LANDED (2026-08-24)
 
-Fry standing order: always land Claude PROPOSED patches.
-
 | Packet | Disposition |
 |--------|-------------|
-| `TO_GROK_F54_bare_assert_2026-08-24` | **LANDED** |
-| `TO_GROK_F51_enforce_immutable_2026-08-24` | **LANDED** |
-| `TO_GROK_F53_end_turn_wedge_2026-08-24` | **LANDED** |
-| `TO_GROK_F58_task_grants_survive_turns_2026-08-24` | **LANDED** — `_turn` re-grants task privileges after `end_turn` |
+| `TO_GROK_F58_task_grants_survive_turns_2026-08-24` | **LANDED** — `_turn` re-grants `begin_task` privileges after D3 end_turn revoke |
 
-Local pytest **128 passed**. ORCA_PROFILE unset at process level.
+Local pytest **128 passed** (123 prior + 5 F58). ORCA_PROFILE unset at process level.
 
 ---
 
 ## Closed this arc
 
-F31, F32, F41, F42, F50, F51, F52, F53, F54, F55 (AUDITED), F56, F57, F58, F59, persist/dashboard.
+HIGH: persist/dashboard, F31, F56, F41, F42, `_invoke` user=, F50, F52, F55 (audited), F57, F59, F32.
+
+MEDIUM: **F54**, **F51**, **F53**, **F58**.
+
+---
+
+## pytest
+
+```
+128 passed
+ORCA_PROFILE unset at process level
+```
 
 ---
 
