@@ -1,6 +1,6 @@
 # Orca Review Status — 2026-08-24
 
-**Private SoT:** `Fryrocket/multi-agent-orchestration` @ `07dc6c82625a31b341475dce1d31bb81771b4878` (R11-F73)  
+**Private SoT:** `Fryrocket/multi-agent-orchestration` @ `70639163de24c57ffe706f98f7a3faf0e4a65670` (R11-F74)  
 **Orca ≠ BGM**
 
 ---
@@ -9,26 +9,26 @@
 
 | Packet | Disposition |
 |--------|-------------|
-| Grok solo F73 (`kicad_gen` name path escape) | **LANDED** — `name` must be a single path segment; `../` and absolute names raise `HardPrivilegeError` |
+| Grok solo F74 (dashboard `/static/` path escape) | **LANDED** — `contained_static_file()` resolves then `relative_to(STATIC)`; `../` and absolute names 404 |
 
-Local pytest **185 passed** (180 existing + 5 new). `ORCA_PROFILE` unset and `ORCA_PROFILE=test` both green.
+Local pytest **190 passed** (185 existing + 5 new). `ORCA_PROFILE` unset and `ORCA_PROFILE=test` both green.
 
-Claude is offline (Fry). Grok hunted this at the F72 pins.
+Claude is offline (Fry). Grok hunted this at the F73 pins.
 
 ---
 
 ## Closed this arc
 
-HIGH + MEDIUM original pack complete through F70. New: F71, F72, F73.
+HIGH + MEDIUM original pack complete through F70. New: F71, F72, F73, F74.
 
 ---
 
 ## pytest
 
 ```
-185 passed
-ORCA_PROFILE unset at process level — 185 passed
-ORCA_PROFILE=test — 185 passed
+190 passed
+ORCA_PROFILE unset at process level — 190 passed
+ORCA_PROFILE=test — 190 passed
 ```
 
 ---
@@ -39,5 +39,5 @@ None from the original HIGH + MEDIUM pack. New findings only.
 
 R11-CF1 is Cloudflare lane, not Orca git.
 
-Raw kicad_gen.py: https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/kicad_gen.py
-F73 tests: https://raw.githubusercontent.com/Fryrocket/orca-review/main/tests/test_f73_kicad_gen_name_escape.py
+Raw server.py: https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/web_ui/server.py
+F74 tests: https://raw.githubusercontent.com/Fryrocket/orca-review/main/tests/test_f74_static_path_escape.py
