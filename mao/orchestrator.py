@@ -25,6 +25,7 @@ R11 fixes applied:
   F31 SENSITIVE_GRANTS includes WRITE + ORCHESTRATE (landed 2026-08-23)
   F56 run_sequential no longer swallows FATAL_ERRORS (landed 2026-08-23)
   F57 run_sequential(human_approved=True) requires a HumanGate (landed 2026-08-24)
+  F58 begin_task grants re-established after each turn (landed 2026-08-24)
   F59 string-returning adapters approximate tokens so CostGuard bills (landed 2026-08-24)
   Critical: _invoke uses user= (not prompt=), ModelResponse attrs, tool schemas
 """
@@ -133,6 +134,7 @@ class Orchestrator:
 
         self._active_run_id: Optional[str] = None
         self._task_grants: Dict[str, Set] = {}
+        self._task_human_approved: bool = False
 
     @contextmanager
     def _turn(self, agent: str):
@@ -141,6 +143,18 @@ class Orchestrator:
             yield
         finally:
             self.broker.end_turn(self._runner)
+            # R11-F58: re-establish task-level grants after end_turn's
+            # per-turn revoke, if the task is still active. See
+            # TO_GROK_F58_task_grants_survive_turns_2026-08-24 for the
+            # full writeup.
+            if self._active_run_id is not None and agent in self._task_grants:
+                self.broker.grant(
+                    self._runner,
+                    agent,
+                    self._task_grants[agent],
+                    note=f"task {self._active_run_id} turn-carry",
+                    human_approved=self._task_human_approved,
+                )
 
     def _invoke(
         self,
@@ -390,6 +404,7 @@ class Orchestrator:
         run_id = str(uuid.uuid4())[:12]
         self._active_run_id = run_id
         self._task_grants = {}
+        self._task_human_approved = approved
 
         if grant:
             try:
