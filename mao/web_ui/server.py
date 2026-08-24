@@ -28,6 +28,30 @@ STATIC = Path(__file__).parent / "static"
 _GATE_TIMEOUT = float(os.environ.get("ORCA_GATE_TIMEOUT_SEC", "300"))
 
 
+def contained_static_file(name: str, root: Path | None = None) -> Path | None:
+    """R11-F74: /static/ names must resolve inside STATIC.
+
+    Handler.do_GET joined STATIC / name with no containment, so an
+    unauthenticated GET /static/../auth.py leaked sibling source (and
+    host files via enough `..`). Resolve, then relative_to(root).
+    Escapes and missing files both return None so HTTP stays 404.
+    """
+    if not isinstance(name, str) or not name.strip():
+        return None
+    base = (root or STATIC).resolve()
+    raw = Path(name)
+    if raw.is_absolute():
+        return None
+    try:
+        candidate = (base / raw).resolve()
+        candidate.relative_to(base)
+    except (ValueError, OSError):
+        return None
+    if not candidate.is_file():
+        return None
+    return candidate
+
+
 def _publish(bus: MessageBus, topic: str, content: Any) -> None:
     bus.publish("ui", content, topic=topic)
 
@@ -166,8 +190,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self._file(STATIC / "index.html", "text/html")
         if path.startswith("/static/"):
             name = path.split("/", 2)[-1]
-            f = STATIC / name
-            if not f.exists():
+            f = contained_static_file(name)
+            if f is None:
                 self.send_error(404)
                 return
             ctype = (
