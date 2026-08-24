@@ -3,45 +3,47 @@
 CC: Gemini (Verifier) · Fry
 FROM: Grok (Implementer)
 DATE: 2026-08-24
-POLL: 2026-08-24T01:02:00Z
-RE: Current instructions — living file
+POLL: 2026-08-24T01:05:10Z
+RE: Current instructions — living file, overwritten every 3-minute loop
 
 Orca ≠ BGM
 
-This poll landed F62/F63. F58 already on the pins. pytest 140 passed.
+This poll landed F62/F63 product (tests had landed without the patch) and F37–F40 NTP tests (audited, no defect). pytest 140 passed.
 
-## 0. Pins
+## 0. Pins (verify on raw URLs, do not trust this note alone)
 
-- Private SoT: `b9065c7818ec903bd831dce80be55fd087bb0e06` (R11-F62/F63)
-- Private F58: `3fdd3c5c919d8ef1df9b10e6f0fe2bf220131afc`
-- Public mirror product: `51ca05ddd52b02d943252600d5900a5ee61260fc`
-- F62 tests: https://raw.githubusercontent.com/Fryrocket/orca-review/main/tests/test_f62_f63_run_id_poisons_task.py
+- Private SoT: `Fryrocket/multi-agent-orchestration` tip `30290d95259bde980922508fe84b80de7a7d9fe3`
+- Public mirror product: `bc2e6c08c34111c7a0b73412751984ccb6adcbe2`
+- Raw base: https://raw.githubusercontent.com/Fryrocket/orca-review/main/
 - orchestrator: https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/orchestrator.py
+- F62 tests: https://raw.githubusercontent.com/Fryrocket/orca-review/main/tests/test_f62_f63_run_id_poisons_task.py
+- F37 tests: https://raw.githubusercontent.com/Fryrocket/orca-review/main/tests/test_f37_f40_ntp_probe.py
 - STATUS: https://raw.githubusercontent.com/Fryrocket/orca-review/main/STATUS.md
 
 Closed (do not re-open without a new finding against these SHAs):
 
-- persist/dashboard, F31, F32, F41, F42, F50, F51, F52, F53, F54, F55 (AUDITED), F56, F57, F58, F59
-- **F62/F63** — `_ensure_run_id` does not persist invented ids; F16 reuse of a real task run_id is unchanged
+- persist/dashboard, F31, F56, F41, F42, `_invoke` user=, F50, F52, F55, F57, F59, F32
+- F54, F51, F53, F58
+- **F62/F63** — `_ensure_run_id` does not persist throwaway ids; F16 reuse of begin_task run_id unchanged
+- **F37–F40** — NTP probe audited correct; tests now exercise real subprocess path
 
-pytest **140 passed**.
+pytest **140 passed**. Follow-up: `models.py`/`tools.py`/`tracking.py` still read `ORCA_PROFILE`. F60/F61 still needs a crisp finding.
 
 ## 1. What to do next
 
-Remaining MEDIUM: F37–F40, F43–F49, F64–F69. One item at a time, full file or unified diff + pytest.raises match=. Ship nothing.
+Continue MEDIUM (full file or unified diff + pytest.raises match=). Ship nothing.
 
-**F60/F61:** your defer is accepted. Weak `len(prompt)//4` preflight is a design note, not a landable bug, until there is a specific failing case (or restore of hard_ceiling required). Do not close F60/F61 silently — file a crisp finding or keep DEFERRED.
+Remaining: F43–F49 (scheduler behaviour), F60–F69. One item at a time. Do not silently close F1–F36.
 
 ## 2. How to send work
 
-Drive `orca/` file named `TO_GROK_<topic>_YYYY-MM-DD` with Review / Patch / Tests / Disposition.
+Reply as `TO_GROK_<topic>_YYYY-MM-DD` in this folder. Locked shape: Review / Patch / Tests / Disposition.
 
 ## 3. Do not
 
 - Push to the private repo
-- Dump secrets
-- Claim Cloudflare from the mirror
-- Re-file F50–F59 / F62/F63 unless a fresh clone at the pins still fails
+- Dump secrets into Drive
+- Re-file F50–F59 / F32 / F37–F40 / F51 / F53 / F54 / F58 / F62/F63 unless a fresh clone at the pins still fails
 - Mix Orca with BGM
 
 — Grok (Implementer) · loop `01a030eb6ae6` · Orca ≠ BGM
