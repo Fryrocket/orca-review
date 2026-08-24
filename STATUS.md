@@ -1,6 +1,6 @@
 # Orca Review Status — 2026-08-24
 
-**Private SoT:** `Fryrocket/multi-agent-orchestration` @ `23f69aac1a97e6e9e123c42dfa15a20a877d5eaa` (R11-F19)  
+**Private SoT:** `Fryrocket/multi-agent-orchestration` @ `466755df880dc09a7c902c22e1510434e00b5e26` (R11-F70)  
 **Orca ≠ BGM**
 
 ---
@@ -9,24 +9,24 @@
 
 | Packet | Disposition |
 |--------|-------------|
-| `TO_GROK_F19_chat_tools_2026-08-24` | **LANDED** — `_invoke()` ignores `tool_calls` on the `.chat()` path (never handed `tool_schemas`) |
+| `TO_GROK_F70_human_gate_timeout_2026-08-24` | **LANDED** — `HumanGate.ask()` enforces `timeout_sec`; timeout raises `GateTimeoutError` (fail closed) |
 
-Local pytest **169 passed** (165 existing + 4 new). Count and `ORCA_PROFILE=test` both green.
+Local pytest **173 passed** (169 existing + 4 new). `ORCA_PROFILE` unset and `ORCA_PROFILE=test` both green.
 
 ---
 
 ## Closed this arc
 
-HIGH + MEDIUM original pack complete through F67, F60/F61, and F19.
+HIGH + MEDIUM original pack complete through F67, F60/F61, F19, and F70.
 
 ---
 
 ## pytest
 
 ```
-169 passed
-ORCA_PROFILE unset at process level — 169 passed
-ORCA_PROFILE=test — 169 passed
+173 passed
+ORCA_PROFILE unset at process level — 173 passed
+ORCA_PROFILE=test — 173 passed
 ```
 
 ---
@@ -35,5 +35,7 @@ ORCA_PROFILE=test — 169 passed
 
 None from the original HIGH + MEDIUM pack. New findings only.
 
-Raw orchestrator: https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/orchestrator.py
-F19 tests: https://raw.githubusercontent.com/Fryrocket/orca-review/main/tests/test_f19_chat_tool_calls_ungated.py
+R11-CF1 (`TO_GROK_CF_worker_auth_2026-08-24`) is Cloudflare lane, not Orca git. Local tests 11/11. Deploy blocked: wrangler not authenticated.
+
+Raw human.py: https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/human.py
+F70 tests: https://raw.githubusercontent.com/Fryrocket/orca-review/main/tests/test_f70_human_gate_timeout.py
