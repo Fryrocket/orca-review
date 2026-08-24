@@ -106,7 +106,9 @@ class MessageBus:
             if run_id is not None:
                 items = [m for m in items if m.run_id == run_id]
             if limit is not None:
-                items = items[-limit:]
+                # R11-F13/F65/F66: items[-limit:] with limit=0 is items[-0:]
+                # which is the whole list. Negative limits get the same empty.
+                items = items[-limit:] if limit > 0 else []
             return list(items)
 
     def close(self) -> None:

@@ -202,7 +202,7 @@ class SessionScheduler:
                     continue
                 due.append(j)
         if mutated:
-            # R11-F43-F49: see TO_GROK_F43_F49_scheduler_persist_2026-08-24
+            # R11-F43-F49: persist clamp/rebase; _fire() never saves these jobs.
             self.save()
         return due
 
