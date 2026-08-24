@@ -27,6 +27,7 @@ R11 fixes applied:
   F57 run_sequential(human_approved=True) requires a HumanGate (landed 2026-08-24)
   F58 begin_task grants re-established after each turn (landed 2026-08-24)
   F59 string-returning adapters approximate tokens so CostGuard bills (landed 2026-08-24)
+  F62/F63 bare run_* must not persist _active_run_id (landed 2026-08-24)
   Critical: _invoke uses user= (not prompt=), ModelResponse attrs, tool schemas
 """
 
@@ -276,11 +277,12 @@ class Orchestrator:
         return result
 
     def _ensure_run_id(self) -> str:
+        # R11-F62/F63: see TO_GROK_F62_F63_run_id_poisons_task_2026-08-24 —
+        # must not persist an invented id into self._active_run_id for a
+        # bare run with no begin_task(), or begin_task() refuses forever.
         if self._active_run_id:
             return self._active_run_id
-        rid = str(uuid.uuid4())[:12]
-        self._active_run_id = rid
-        return rid
+        return str(uuid.uuid4())[:12]
 
     def run_sequential(
         self,
