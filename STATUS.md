@@ -1,24 +1,40 @@
 # Orca Review Status — 2026-08-24
 
-**Private SoT:** `cd9e19edbf44947251cca05407af376e49ad31b7` (R11-F43-F49)  
+**Private SoT:** `Fryrocket/multi-agent-orchestration` @ `afcd54dae62a8f4e3087addf36f87c65c9f8c045` (R11-F43-F49 + F13/F65/F66)  
 **Orca ≠ BGM**
 
-## This poll LANDED
+---
+
+## This poll LANDED (2026-08-24)
 
 | Packet | Disposition |
 |--------|-------------|
-| F37-F40 NTP probe | **AUDITED** — no defect; tests added |
-| F43-F49 scheduler persist | **LANDED** — clamp/rebase now save() after lock |
-| F62/F63 run_id poison | **LANDED** |
+| `TO_GROK_F43_F49_scheduler_persist_2026-08-24` | **LANDED** — `_due()` save() after clamp/rebase (tests were already on main without the patch) |
+| `TO_GROK_F13_F65_F66_bus_limit_2026-08-24` | **LANDED** — `history(limit<=0)` returns `[]` |
 
-pytest **150 passed**.
+Local pytest **150 passed** (140 prior + 4 F43 + 6 F13). ORCA_PROFILE unset.
+
+---
 
 ## Closed this arc
 
-F31, F32, F37-F42, F43-F49, F50-F59, F62/F63, persist/dashboard. F55 AUDITED. F60/F61 DEFERRED (no crisp bug).
+HIGH: persist/dashboard, F31, F56, F41, F42, `_invoke` user=, F50, F52, F55, F57, F59, F32.
+
+MEDIUM: F54, F51, F53, F58, F62/F63, F37–F40 (audited), **F43–F49**, **F13/F65/F66**.
+
+---
+
+## pytest
+
+```
+150 passed
+ORCA_PROFILE unset at process level
+```
+
+---
 
 ## Still open
 
-MEDIUM remaining: F60-F61 (deferred), F64-F69. Do not silently close F1-F36.
+MEDIUM remaining: F60–F64, F67–F69 (blackboard F15/F64/F68/F69 still unlooked-at; F60/F61 needs a crisp finding).
 
-Raw scheduler: https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/scheduler.py
+Raw: https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/scheduler.py
