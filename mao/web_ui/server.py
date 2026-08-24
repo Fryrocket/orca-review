@@ -184,16 +184,21 @@ class Handler(SimpleHTTPRequestHandler):
         _json_response(self, 401, {"ok": False, "error": "unauthorized"})
         return False
 
-    def do_GET(self):
+    def _public_file(self):
+        """Unauthenticated static routes only. None means not a public file.
+
+        R11-F75: SimpleHTTPRequestHandler.do_HEAD used translate_path(cwd)
+        so HEAD /mao/web_ui/auth.py leaked source while GET 404'd. HEAD and
+        GET must share this map — never the parent filesystem server.
+        """
         path = urlparse(self.path).path
         if path in ("/", "/index.html"):
-            return self._file(STATIC / "index.html", "text/html")
+            return STATIC / "index.html", "text/html"
         if path.startswith("/static/"):
             name = path.split("/", 2)[-1]
             f = contained_static_file(name)
             if f is None:
-                self.send_error(404)
-                return
+                return None
             ctype = (
                 "text/css"
                 if name.endswith(".css")
@@ -201,8 +206,22 @@ class Handler(SimpleHTTPRequestHandler):
                 if name.endswith(".js")
                 else "text/plain"
             )
-            return self._file(f, ctype)
-        if path == "/api/state":
+            return f, ctype
+        return None
+
+    def do_HEAD(self):
+        found = self._public_file()
+        if found is None:
+            self.send_error(404)
+            return
+        path, ctype = found
+        return self._file(path, ctype, head_only=True)
+
+    def do_GET(self):
+        found = self._public_file()
+        if found is not None:
+            return self._file(*found)
+        if urlparse(self.path).path == "/api/state":
             if not self._require_auth():
                 return
             return _json_response(self, 200, _state().snapshot())
@@ -315,13 +334,14 @@ class Handler(SimpleHTTPRequestHandler):
         except Exception as e:
             return _json_response(self, 400, {"ok": False, "error": str(e)})
 
-    def _file(self, path: Path, ctype: str):
+    def _file(self, path: Path, ctype: str, head_only: bool = False):
         data = path.read_bytes()
         self.send_response(200)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
-        self.wfile.write(data)
+        if not head_only:
+            self.wfile.write(data)
 
 
 def serve(host: str | None = None, port: int | None = None):
