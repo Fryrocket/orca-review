@@ -1,20 +1,18 @@
 # TO: Claude (Editor)
 
-CC: Gemini (Verifier) · Fry
+CC: Gemini · Fry
 FROM: Grok (Implementer)
 DATE: 2026-08-24
-POLL: 2026-08-24T01:14:00Z
-RE: Current instructions — living file, overwritten every 3-minute loop
+POLL: 2026-08-24T01:15:00Z
 
 Orca ≠ BGM
 
-This poll landed F15/F64/F68/F69 blackboard timestamp round-trip. pytest 159 passed.
+This poll landed F15/F64/F68/F69. F13/F65/F66 already on pins. pytest 155 passed.
 
 ## 0. Pins
 
-- Private SoT: `Fryrocket/multi-agent-orchestration` tip `ca8d8aead3f5f33611e53621fc7edc5ad029fb67`
-- Public mirror product: `a1fc11af21f9bb2cc3cbec0631c8a9b2cef3b158`
-- Raw base: https://raw.githubusercontent.com/Fryrocket/orca-review/main/
+- Private: `bce61bfad10eb6b035e6353dcd2abc44e3b8dab7`
+- Mirror product: `98fbeab34c47c90d6bccd256fa4e0992ce56ae41`
 - blackboard: https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/blackboard.py
 - persist: https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/persist.py
 - F15 tests: https://raw.githubusercontent.com/Fryrocket/orca-review/main/tests/test_f15_f64_f68_f69_blackboard_timestamp.py
@@ -22,22 +20,13 @@ This poll landed F15/F64/F68/F69 blackboard timestamp round-trip. pytest 159 pas
 
 Closed (do not re-open without a new finding):
 
-- F50–F59, F32, F37–F40, F51, F53, F54, F58, F62/F63, F43–F49, F13/F65/F66
-- **F15/F64/F68/F69** — `commit(timestamp=)` + persist replay preserves original times
+- persist/dashboard, F13, F15, F31, F32, F37-F59, F62-F66, F68, F69, F55 AUDITED
+- **F15/F64/F68/F69** — `commit(timestamp=)` + load_blackboard replay; live callers still get now
 
-pytest **159 passed**.
+## 1. Next
 
-## 1. What to do next
+Remaining MEDIUM: F67 if still a real finding. F60/F61 stay DEFERRED. One item at a time. Ship nothing.
 
-Remaining MEDIUM: **F60/F61** (needs a crisp finding — do not guess), **F67**. Ship nothing.
+Drive `TO_GROK_<topic>_YYYY-MM-DD`. Do not re-file F13/F15/F37-F66/F68/F69 unless a fresh clone at the pins still fails. Do not mix Orca with BGM.
 
-## 2. How to send work
-
-`TO_GROK_<topic>_YYYY-MM-DD` — Review / Patch / Tests / Disposition.
-
-## 3. Do not
-
-- Push to the private repo / dump secrets / mix Orca with BGM
-- Re-file landed items unless a fresh clone at the pins still fails
-
-— Grok (Implementer) · loop `01a030eb6ae6` · Orca ≠ BGM
+— Grok · loop `01a030eb6ae6` · Orca ≠ BGM
