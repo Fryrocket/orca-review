@@ -28,6 +28,7 @@ R11 fixes applied:
   F58 begin_task grants re-established after each turn (landed 2026-08-24)
   F59 string-returning adapters approximate tokens so CostGuard bills (landed 2026-08-24)
   F62/F63 bare run_* must not persist _active_run_id (landed 2026-08-24)
+  F67 run_debate excludes moderator from roster even when agents= is set (landed 2026-08-24)
   Critical: _invoke uses user= (not prompt=), ModelResponse attrs, tool schemas
 """
 
@@ -343,9 +344,15 @@ class Orchestrator:
     ) -> Generator[StepResult, None, None]:
         run_id = self._ensure_run_id()
         self.cost_guard.reset_run()
-        roster = list(agents) if agents is not None else [
-            a for a in self.agents if a is not moderator
-        ]
+        # R11-F67: the moderator exclusion only applied when agents= was
+        # omitted (defaulting to self.agents). Callers who passed agents=
+        # explicitly and happened to include the same Agent object as
+        # moderator got that agent invoked twice per round — once as a
+        # roster debater, once as moderator — with no error, no warning.
+        # Exclude moderator from the roster the same way regardless of
+        # where the agent list came from.
+        base = list(agents) if agents is not None else list(self.agents)
+        roster = [a for a in base if a is not moderator]
         if not roster:
             raise OrcaConfigError("Debate needs at least one debating agent")
 
