@@ -43,14 +43,22 @@ class Blackboard:
         value: Any,
         *,
         writer: str,
+        timestamp: Optional[str] = None,
         **meta,
     ) -> BoardEntry:
-        """Guard first, then mutate. Denied writes leave the board untouched."""
+        """Guard first, then mutate. Denied writes leave the board untouched.
+
+        R11-F15/F64/F68/F69: timestamp= lets persist.py's load_blackboard
+        replay preserve original commit times instead of stamping "now".
+        """
         if not key or not isinstance(key, str):
             raise OrcaConfigError("blackboard key must be a non-empty string")
         # Guard *before* any mutation (ordering required by tests).
         self._guard(writer, key)
-        entry = BoardEntry(key=key, value=value, writer=writer, meta=dict(meta))
+        kwargs = {"key": key, "value": value, "writer": writer, "meta": dict(meta)}
+        if timestamp is not None:
+            kwargs["timestamp"] = timestamp
+        entry = BoardEntry(**kwargs)
         with self._lock:
             self._data[key] = entry
             self._history.append(entry)

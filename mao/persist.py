@@ -47,7 +47,10 @@ def load_blackboard(path: str | Path, board: Blackboard) -> Blackboard:
     for item in data.get("entries", []):
         writer = item.get("writer") or item.get("author") or "system"
         meta = dict(item.get("meta") or {})
-        board.commit(item["key"], item["value"], writer=writer, **meta)
+        board.commit(
+            item["key"], item["value"], writer=writer,
+            timestamp=item.get("timestamp"), **meta,
+        )
     return board
 
 
