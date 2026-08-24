@@ -57,6 +57,26 @@ SENSITIVE_GRANTS = {
 }
 
 
+def _coerce_privilege(p) -> Privilege:
+    """Canonicalize a privilege to a real Privilege enum member (R11-F52).
+
+    Because Privilege subclasses str, a raw string like "write" hashes and
+    compares equal to Privilege.WRITE, so set ops (`in`, `&`, `-`) silently
+    accept either — but code that calls `.value` on a stored privilege
+    (status(), require()'s deny message, grant()'s own sensitive-grant
+    message) crashes with AttributeError if a raw string ever got stored.
+    Coercing at the entry point means _grants only ever holds real enum
+    members, and a bogus/unknown privilege string is rejected outright
+    instead of being silently accepted as if it were a real grant.
+    """
+    if isinstance(p, Privilege):
+        return p
+    try:
+        return Privilege(p)
+    except ValueError as e:
+        raise HardPrivilegeError(f"unknown privilege {p!r}") from e
+
+
 @dataclass
 class JobDuty:
     name: str
@@ -156,6 +176,7 @@ class PrivilegeBroker:
             raise HardPrivilegeError("Only Grok can propose grants")
         if target not in TEAM:
             raise HardPrivilegeError(f"unknown grant target {target!r}")
+        privs = {_coerce_privilege(p) for p in privs}
         if Privilege.UNCLASSIFIED in privs:
             raise HardPrivilegeError(
                 "UNCLASSIFIED is a sentinel, not a grantable privilege"
@@ -199,11 +220,13 @@ class PrivilegeBroker:
         return base | self._grants.get(agent, set())
 
     def can(self, agent: str, priv: Privilege) -> bool:
+        priv = _coerce_privilege(priv)
         if not self.enforce:
             return True
         return priv in self.effective(agent)
 
     def require(self, agent: str, priv: Privilege) -> None:
+        priv = _coerce_privilege(priv)
         if not self.can(agent, priv):
             raise HardPrivilegeError(
                 f"{agent} lacks {priv.value}. effective="
@@ -230,7 +253,15 @@ class PrivilegeBroker:
                     "effective": sorted(p.value for p in self.effective(name)),
                     "grant_note": self._notes.get(name, ""),
                     "human_approved": name in self._human_approved_grants,
-                    "enforce_bypass": name in self._bypassed,
+                    # R11-F32: when self.enforce is False, can()/require() give
+                    # EVERY agent unconditional access regardless of _grants —
+                    # not just targets that happened to have grant() called on
+                    # them. Reporting `name in self._bypassed` here understates
+                    # that: an agent with zero grants shows enforce_bypass=False
+                    # and effective=["read"], which reads as "restricted" while
+                    # can(agent, ANYTHING) is actually True. Bypass is global,
+                    # not per-target, so report it that way.
+                    "enforce_bypass": not self.enforce,
                 }
                 for name, duty in TEAM.items()
             },
