@@ -3,8 +3,8 @@
 CC: Fry
 FROM: Grok (Implementer)
 DATE: 2026-08-25
-POLL: 2026-08-25T22:05:10Z
-RE: F82 landed — kicad_sch string escaping; F81–F79 closed
+POLL: 2026-08-25T22:19:45Z
+RE: F83 landed — DashboardGate ask lock; F82–F79 closed
 
 Orca ≠ BGM
 
@@ -12,17 +12,19 @@ You are Editor (hunt only, ship nothing). Grok lands concrete `TO_GROK_*` packet
 
 ## 0. Pins
 
-- Private SoT: `Fryrocket/multi-agent-orchestration` tip `57e23577181ade5ec81185b3bd823e793dabaa3f`
-- Private F82 product: `a707e1f222fb1ddd48a02889ef99655af3baed27`
-- Public mirror F82 product: `fea9a1e08e20bc4e9615b5cf25621756eadf784e`
-- Public F82 tests: `d4994fa97b35387510d23cfb295f6e1069c29271`
-- Raw kicad_gen.py: https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/kicad_gen.py
-- F82 tests: https://raw.githubusercontent.com/Fryrocket/orca-review/main/tests/test_f82_kicad_sch_string_escaping.py
+- Private SoT: `Fryrocket/multi-agent-orchestration` tip `cf0f2b90d46a74da377fe03e448100f2e0512fee`
+- Private F83 product: `a5158ede482b6ab1b40df4ebd201f8856273a835`
+- Public mirror F83 product: `c90add628ca5bcd1bcd2bb7cfad9e3d5e0c3dc0f`
+- Public F83 tests: `9eddef4522777e5b42886064ab6170edf654a086`
+- Raw server.py: https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/web_ui/server.py
+- F83 tests: https://raw.githubusercontent.com/Fryrocket/orca-review/main/tests/test_f83_dashboard_gate_concurrency.py
 - STATUS: https://raw.githubusercontent.com/Fryrocket/orca-review/main/STATUS.md
 
-Closed (do not re-open without a new finding): F50–F59, F32, F37–F40, F13, F15, F19, F43–F49, F51, F53, F54, F58, F60–F82. R11-CF1 closed on Cloudflare lane.
+Closed (do not re-open without a new finding): F50–F59, F32, F37–F40, F13, F15, F19, F43–F49, F51, F53, F54, F58, F60–F83. R11-CF1 closed on Cloudflare lane.
 
-**F82** — `render_kicad_sch` must escape quotes in S-expression string fields. pytest **220 passed** (unset).
+**F83** — `DashboardGate.ask()` must serialize concurrent grant cycles. pytest **222 passed** (unset).
+
+**F82** — `render_kicad_sch` must escape quotes in S-expression string fields. Closed.
 
 **F81** — `WebHumanGate.do_GET()` must HTML-escape payload/context. Closed.
 
@@ -32,9 +34,9 @@ Closed (do not re-open without a new finding): F50–F59, F32, F37–F40, F13, F
 
 ## 1. What to do next
 
-Original HIGH + MEDIUM pack is complete (F50–F78 + F19 + CF1). F79–F82 are also closed.
+Original HIGH + MEDIUM pack is complete (F50–F78 + F19 + CF1). F79–F83 are also closed.
 
-Do **not** re-file `models.py` / `tools.py` / `tracking.py` `ORCA_PROFILE` reads unless you prove a bypass at these pins. Do not re-file F70–F82 unless a fresh clone at the pins still fails. Hunt a new, real, reproducible defect (**F83+** only). Do not guess. Ship nothing.
+Do **not** re-file `models.py` / `tools.py` / `tracking.py` `ORCA_PROFILE` reads unless you prove a bypass at these pins. Do not re-file F70–F83 unless a fresh clone at the pins still fails. Hunt a new, real, reproducible defect (**F84+** only). Do not guess. Ship nothing.
 
 Grok will land the next concrete `TO_GROK_*` with Review / Patch / Tests / PROPOSED.
 
@@ -49,4 +51,4 @@ Grok will land the next concrete `TO_GROK_*` with Review / Patch / Tests / PROPO
 - Mix Cloudflare Worker patches into Orca source
 - Paste API tokens or worker secrets into Drive or git
 
-— Grok (Implementer) · loop `01a03adda735` · F82 stands · Orca ≠ BGM
+— Grok (Implementer) · loop `01a03adda735` · F83 stands · Orca ≠ BGM
