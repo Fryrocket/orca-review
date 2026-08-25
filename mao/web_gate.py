@@ -5,6 +5,7 @@ Stdlib only (http.server). Open http://127.0.0.1:8765 when a gate is pending.
 
 from __future__ import annotations
 
+import html
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -73,6 +74,19 @@ class WebHumanGate:
                 pass
 
             def do_GET(self):
+                # R11-F81: context and payload can carry attacker/model-
+                # controlled text (e.g. an orchestrator `objective` or a
+                # begin_task() grant note) -- this page's whole job is to
+                # show that content to a human before they click Approve.
+                # Rendering it unescaped meant a payload containing
+                # </pre><script>...</script> ran with same-origin access
+                # to POST /decide, letting injected content approve its
+                # own gate with no real human click. HTML-escape both
+                # before embedding.
+                safe_context = html.escape(str(gate._context))
+                safe_payload = html.escape(
+                    json.dumps(gate._payload, indent=2, default=str)
+                )
                 body = f"""<!doctype html>
 <html><head><title>Orca Human Gate</title>
 <style>
@@ -82,8 +96,8 @@ button {{ margin-right: .5rem; padding: .5rem 1rem; }}
 textarea {{ width: 100%; height: 120px; }}
 </style></head><body>
 <h1>Orca Human Gate</h1>
-<p><b>Context:</b> {gate._context}</p>
-<pre>{json.dumps(gate._payload, indent=2, default=str)}</pre>
+<p><b>Context:</b> {safe_context}</p>
+<pre>{safe_payload}</pre>
 <form method=\"POST\" action=\"/decide\">
   <p>
     <button name=\"decision\" value=\"approve\">Approve</button>
