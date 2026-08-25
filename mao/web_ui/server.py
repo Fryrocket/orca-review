@@ -7,7 +7,7 @@ import os
 import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Dict, Optional, Set
 from urllib.parse import urlparse
 
 from mao.agent import Agent, Role
@@ -123,6 +123,32 @@ class DashboardState:
         self._gate_result: Optional[GateResult] = None
         self._gate_event = threading.Event()
         self.gate = DashboardGate(self)
+        # R11-F84: PrivilegeBroker._active_turn is one shared string, and
+        # Orchestrator._turn()'s start_turn/end_turn calls it with no
+        # locking. ThreadingHTTPServer runs each /api/run request on its
+        # own thread, and every run's default roster includes the same
+        # four agents -- two concurrent runs both entering a turn for the
+        # same agent name either spuriously reject each other ("turn
+        # already active") or, worse, silently share one turn slot: the
+        # first run's end_turn() then revokes that agent's *entire*
+        # dynamically-granted privilege set (not just the turn) out from
+        # under the second run still relying on it -- including privileges
+        # a human genuinely approved via /api/grant, with no /api/revoke
+        # ever called. Serialize run execution so only one run drives the
+        # shared broker/orchestrator at a time -- same pattern as F83's
+        # _ask_lock.
+        self._run_lock = threading.Lock()
+        # R11-F84 (part 2): serializing runs alone does NOT fix the grant
+        # loss -- even a single, solo /api/run call still strips it, since
+        # bare run_sequential() never sets Orchestrator._active_run_id, so
+        # the F58 task-grant carry-over in _turn()'s finally block never
+        # fires. /api/grant's contract (grant until /api/revoke) has no
+        # natural home in the turn/task model the orchestrator enforces.
+        # Track what the dashboard has explicitly granted and restore it
+        # after every run drains, reusing the already-human-approved
+        # status recorded at grant time -- this restores a decision a
+        # human already made, it does not ask a new one.
+        self._standing_grants: Dict[str, Set[Privilege]] = {}
         self.orch = Orchestrator(
             agents=self.agents,
             bus=self.bus,
@@ -293,6 +319,10 @@ class Handler(SimpleHTTPRequestHandler):
                     note=note,
                     human_approved=human_approved,
                 )
+                # R11-F84: remember this as a standing grant so /api/run
+                # can restore it after Orchestrator._turn()'s end_turn()
+                # strips it (see DashboardState._standing_grants).
+                st._standing_grants.setdefault(agent, set()).update(privs)
                 _publish(
                     st.bus,
                     "ui.grant",
@@ -308,6 +338,10 @@ class Handler(SimpleHTTPRequestHandler):
             if path == "/api/revoke":
                 agent = body.get("agent")
                 st.broker.revoke("grok", agent)
+                # R11-F84: an explicit revoke must actually stick -- clear
+                # the standing-grant record too, or the next /api/run would
+                # just restore what was just revoked.
+                st._standing_grants.pop(agent, None)
                 _publish(st.bus, "ui.revoke", {"agent": agent})
                 return _json_response(self, 200, {"ok": True})
 
@@ -338,19 +372,28 @@ class Handler(SimpleHTTPRequestHandler):
                     )
                 text = body.get("input") or "Hello"
                 require_human = bool(body.get("require_human"))
-                results = [
-                    {
-                        "agent": r.agent,
-                        "text": r.text,
-                        "run_id": r.run_id,
-                        "tokens_in": r.tokens_in,
-                        "tokens_out": r.tokens_out,
-                        "cost_usd": r.cost_usd,
-                    }
-                    for r in st.orch.run_sequential(
-                        text, human_approved=require_human
-                    )
-                ]
+                with st._run_lock:
+                    try:
+                        results = [
+                            {
+                                "agent": r.agent,
+                                "text": r.text,
+                                "run_id": r.run_id,
+                                "tokens_in": r.tokens_in,
+                                "tokens_out": r.tokens_out,
+                                "cost_usd": r.cost_usd,
+                            }
+                            for r in st.orch.run_sequential(
+                                text, human_approved=require_human
+                            )
+                        ]
+                    finally:
+                        for tgt, privs in st._standing_grants.items():
+                            st.broker.grant(
+                                "grok", tgt, privs,
+                                note="R11-F84: standing grant restored after run",
+                                human_approved=True,
+                            )
                 return _json_response(
                     self,
                     200,
