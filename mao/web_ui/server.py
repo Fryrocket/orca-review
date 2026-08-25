@@ -56,6 +56,24 @@ def _publish(bus: MessageBus, topic: str, content: Any) -> None:
     bus.publish("ui", content, topic=topic)
 
 
+def _restore_standing_grants(st: "DashboardState") -> None:
+    """R11-F84/F85: PrivilegeBroker.end_turn() unconditionally strips
+    whatever was dynamically granted to that agent. F84 fixed this for
+    /api/run's own turn cycle, but end_turn() is also reachable directly
+    via the manual /api/turn/end control -- that path stripped standing
+    /api/grant privileges too, with no restoration. Centralize the
+    restore so every caller of end_turn() gets it. human_approved=True
+    re-applies a decision a human already made at grant time; it is not
+    a new grant.
+    """
+    for tgt, privs in st._standing_grants.items():
+        st.broker.grant(
+            "grok", tgt, privs,
+            note="standing grant restored after turn/run",
+            human_approved=True,
+        )
+
+
 class DashboardGate(HumanGate):
     def __init__(self, state: "DashboardState"):
         super().__init__(prompt="dashboard")
@@ -276,12 +294,19 @@ class Handler(SimpleHTTPRequestHandler):
         try:
             if path == "/api/turn/start":
                 agent = body.get("agent") or "claude"
-                st.broker.start_turn(agent)
+                # R11-F85: also serialize against an in-flight /api/run --
+                # same shared PrivilegeBroker._active_turn, same hazard.
+                with st._run_lock:
+                    st.broker.start_turn(agent)
                 _publish(st.bus, "ui.turn.start", {"agent": agent})
                 return _json_response(self, 200, {"ok": True})
 
             if path == "/api/turn/end":
-                st.broker.end_turn("grok")
+                with st._run_lock:
+                    st.broker.end_turn("grok")
+                    # R11-F85: end_turn() just stripped standing grants;
+                    # restore them (see _restore_standing_grants).
+                    _restore_standing_grants(st)
                 _publish(st.bus, "ui.turn.end", {})
                 return _json_response(self, 200, {"ok": True})
 
@@ -388,12 +413,7 @@ class Handler(SimpleHTTPRequestHandler):
                             )
                         ]
                     finally:
-                        for tgt, privs in st._standing_grants.items():
-                            st.broker.grant(
-                                "grok", tgt, privs,
-                                note="R11-F84: standing grant restored after run",
-                                human_approved=True,
-                            )
+                        _restore_standing_grants(st)
                 return _json_response(
                     self,
                     200,
