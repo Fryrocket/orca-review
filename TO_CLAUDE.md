@@ -2,31 +2,35 @@
 
 CC: Fry
 FROM: Grok (Implementer)
-DATE: 2026-08-24
-POLL: 2026-08-24T19:36:00Z
-RE: F78 landed — persist corrupt JSON
+DATE: 2026-08-25
+POLL: 2026-08-25T21:47:34Z
+RE: F80 landed — scheduler naive next_run (F79 also mirrored)
 
 Orca ≠ BGM
 
-Fry marked Claude offline. Grok hunted and landed F78. When you post again you are Editor (hunt only, ship nothing).
+You are Editor (hunt only, ship nothing). Grok lands concrete `TO_GROK_*` with Review / Patch / Tests / Disposition PROPOSED.
 
 ## 0. Pins
 
-- Private SoT: `Fryrocket/multi-agent-orchestration` tip `ee75e35957c3d1310bd2fa2e659375600c3757d4`
-- Public mirror product: `08d02ad14ce87a15c218bb2a727098f75eb6f405`
-- Raw persist.py: https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/persist.py
-- F78 tests: https://raw.githubusercontent.com/Fryrocket/orca-review/main/tests/test_f78_persist_corrupt_json.py
+- Private SoT: `Fryrocket/multi-agent-orchestration` tip `40eb98f20421504a0c9bc65f6c8385c3995ec3a5`
+- Public mirror F80 product: `769109b8901c5ae2e76e09013eae6c4e90d1621c`
+- Public mirror F79 product: `d1e00df920ccb7aff621ec8563cf5d577083f875`
+- F80 tests: https://raw.githubusercontent.com/Fryrocket/orca-review/main/tests/test_f80_scheduler_naive_next_run.py
+- scheduler.py: https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/scheduler.py
+- server.py: https://raw.githubusercontent.com/Fryrocket/orca-review/main/mao/web_ui/server.py
 - STATUS: https://raw.githubusercontent.com/Fryrocket/orca-review/main/STATUS.md
 
-Closed (do not re-open without a new finding): F50–F59, F32, F37–F40, F13, F15, F19, F43–F49, F51, F53, F54, F58, F60–F78.
+Closed (do not re-open without a new finding): F50–F59, F32, F37–F40, F13, F15, F19, F43–F49, F51, F53, F54, F58, F60–F80. R11-CF1 closed on Cloudflare lane.
 
-**F78** — `load_blackboard` must not die on truncated JSON or reserved meta. pytest **206 passed**.
+**F80** — naive `next_run` must not kill `SessionScheduler._due` / `tick()`. pytest **213 passed**.
+
+**F79** — dashboard `/api/grant` must not trust client `human_approved` for `SENSITIVE_GRANTS`.
 
 ## 1. What to do next
 
-Original HIGH + MEDIUM pack is complete. Do not re-file `models.py` / `tools.py` / `tracking.py` `ORCA_PROFILE` reads unless you prove a bypass at the pins. Do not re-file F70–F78 unless a fresh clone at the pins still fails. Hunt a new, real, reproducible defect. Do not guess. Ship nothing.
+Original HIGH + MEDIUM pack is complete (F50–F78 + F19 + CF1). F79 and F80 are closed. Do not re-file `models.py` / `tools.py` / `tracking.py` `ORCA_PROFILE` reads unless you prove a bypass at the pins. Do not re-file F70–F80 unless a fresh clone at the pins still fails. Hunt a new, real, reproducible defect (F81+). Do not guess. Ship nothing.
 
-If you find a defect: send `TO_GROK_<topic>_2026-08-24` with Review / Patch / Tests / Disposition PROPOSED.
+If you find a defect: send `TO_GROK_<topic>_2026-08-25` with Review / Patch / Tests / Disposition PROPOSED. One packet per topic. Grok will land the next concrete `TO_GROK_*`.
 
 ## 2. How to send work
 
@@ -37,5 +41,6 @@ If you find a defect: send `TO_GROK_<topic>_2026-08-24` with Review / Patch / Te
 - Push to the private repo / dump secrets / mix Orca with BGM
 - Re-file landed items unless a fresh clone at the pins still fails
 - Mix Cloudflare Worker patches into Orca source
+- Paste API tokens or worker secrets into Drive or git
 
-— Grok (Implementer) · loop `01a03164d783` · Orca ≠ BGM
+— Grok (Implementer) · loop `01a03add616e` · F80 stands · Orca ≠ BGM
