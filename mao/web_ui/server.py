@@ -60,25 +60,39 @@ class DashboardGate(HumanGate):
     def __init__(self, state: "DashboardState"):
         super().__init__(prompt="dashboard")
         self.state = state
+        # R11-F83: ask() mutates shared DashboardState fields (_gate_payload,
+        # _gate_context, _gate_result, _gate_pending, _gate_event) with no
+        # locking. ThreadingHTTPServer runs each request on its own thread,
+        # so two concurrent sensitive /api/grant calls (or /api/run with
+        # require_human + /api/grant) could both call ask(): the second
+        # overwrites the first's payload/context before a human ever sees
+        # it, and a single /api/gate/decide's Event.set() wakes BOTH
+        # waiters with the SAME _gate_result -- approving one visible
+        # request silently approves a second, different, never-displayed
+        # one too. Serialize: only one gate cycle may be in flight at a
+        # time, so a human always sees exactly the request their decision
+        # applies to.
+        self._ask_lock = threading.Lock()
 
     def ask(self, payload: Any, context: str = "") -> GateResult:
-        self.state._gate_payload = payload
-        self.state._gate_context = context
-        self.state._gate_result = None
-        self.state._gate_pending = True
-        self.state._gate_event.clear()
-        _publish(self.state.bus, "gate.pending", {"context": context})
-        ok = self.state._gate_event.wait(timeout=_GATE_TIMEOUT)
-        self.state._gate_pending = False
-        if not ok:
-            _publish(self.state.bus, "gate.timeout", {"context": context})
-            raise GateTimeoutError(
-                f"human gate timed out after {_GATE_TIMEOUT}s — fail CLOSED (deny)"
-            )
-        result = self.state._gate_result
-        if result is None:
-            return GateResult(GateDecision.REJECT, note="no decision — fail closed")
-        return result
+        with self._ask_lock:
+            self.state._gate_payload = payload
+            self.state._gate_context = context
+            self.state._gate_result = None
+            self.state._gate_pending = True
+            self.state._gate_event.clear()
+            _publish(self.state.bus, "gate.pending", {"context": context})
+            ok = self.state._gate_event.wait(timeout=_GATE_TIMEOUT)
+            self.state._gate_pending = False
+            if not ok:
+                _publish(self.state.bus, "gate.timeout", {"context": context})
+                raise GateTimeoutError(
+                    f"human gate timed out after {_GATE_TIMEOUT}s — fail CLOSED (deny)"
+                )
+            result = self.state._gate_result
+            if result is None:
+                return GateResult(GateDecision.REJECT, note="no decision — fail closed")
+            return result
 
 
 class DashboardState:
