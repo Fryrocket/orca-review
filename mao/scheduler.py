@@ -199,13 +199,23 @@ class SessionScheduler:
                     continue
                 try:
                     nxt = datetime.fromisoformat(j.next_run)
+                    if nxt.tzinfo is None:
+                        # R11-F80: a naive-but-valid ISO string (no UTC
+                        # offset) parses fine here but blows up the
+                        # subtraction below with TypeError, outside this
+                        # try/except, killing the whole tick() call (and
+                        # the background poll thread silently, since
+                        # Python threads swallow unhandled exceptions).
+                        # Treat it as corrupt input, same as an
+                        # unparseable string.
+                        raise ValueError("next_run has no tzinfo")
+                    overdue = (now - nxt).total_seconds()
                 except Exception:
                     # Corrupt next_run → re-base and record anomaly
                     j.next_run = _iso(now)
                     j.last_status = "rebased_corrupt_next_run"
                     mutated = True
                     continue
-                overdue = (now - nxt).total_seconds()
                 if overdue < 0:
                     continue
                 if overdue > self.max_catch_up_sec:
