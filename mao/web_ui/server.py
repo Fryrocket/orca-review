@@ -19,7 +19,7 @@ from mao.errors import GateTimeoutError, OrcaConfigError, OrcaError
 from mao.human import GateDecision, GateResult, HumanGate
 from mao.models import get_default_model
 from mao.orchestrator import Orchestrator
-from mao.roles import AMPERE, CLAUDE, GROK, Privilege, PrivilegeBroker, RELAY
+from mao.roles import AMPERE, CLAUDE, GROK, RELAY, Privilege, PrivilegeBroker, SENSITIVE_GRANTS
 from mao.tracking import UsageTracker
 from mao.web_ui.auth import authorized, dashboard_token, validate_bind
 
@@ -249,7 +249,29 @@ class Handler(SimpleHTTPRequestHandler):
                 agent = body.get("agent")
                 privs = {Privilege(p) for p in body.get("privs") or []}
                 note = body.get("note") or ""
-                human_approved = bool(body.get("human_approved"))
+                # R11-F79: human_approved must never come from the request
+                # body — a client could POST {"human_approved": true} and
+                # grant SENSITIVE_GRANTS (WRITE, CODE_EDIT, ORCHESTRATE, ...)
+                # with no actual HumanGate decision. Sensitive grants route
+                # through the real gate (same DashboardGate /api/run already
+                # uses); only a genuine APPROVE sets human_approved=True.
+                human_approved = False
+                if privs & SENSITIVE_GRANTS:
+                    gr = st.gate.ask(
+                        {
+                            "agent": agent,
+                            "privs": sorted(p.value for p in privs),
+                            "note": note,
+                        },
+                        context="grant sensitive privileges",
+                    )
+                    human_approved = gr.decision == GateDecision.APPROVE
+                    if not human_approved:
+                        return _json_response(
+                            self,
+                            403,
+                            {"ok": False, "error": "sensitive grant not approved via gate"},
+                        )
                 st.broker.grant(
                     "grok",
                     agent,
