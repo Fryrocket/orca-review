@@ -207,12 +207,32 @@ class DashboardState:
 
 
 STATE: Optional[DashboardState] = None
+_STATE_LOCK = threading.Lock()
 
 
 def _state() -> DashboardState:
+    """R11-F86: this was a bare check-then-set with no lock. ThreadingHTTP-
+    Server dispatches every request on its own thread, and a burst of
+    concurrent first requests to a freshly-started dashboard (multiple
+    browser tabs loading at once, a health check racing a real request,
+    etc.) could all see STATE is None and each construct their own
+    DashboardState. Whichever one is assigned to the module-level STATE
+    last "wins"; every other thread keeps using the DashboardState it
+    already got back from this call for the rest of that request.
+    Reproduced directly: 30 concurrent first calls to _state() produced 3
+    distinct DashboardState instances, most of them immediately orphaned.
+    A request that landed on a losing instance -- e.g. /api/grant -- would
+    mutate a broker nobody else ever sees again, then return a misleading
+    200 {"ok": true}: the grant silently never took effect anywhere
+    subsequent requests can observe. Double-checked locking closes the
+    window: only one thread ever constructs DashboardState, and every
+    caller (including the ones that raced) reads back the same instance.
+    """
     global STATE
     if STATE is None:
-        STATE = DashboardState()
+        with _STATE_LOCK:
+            if STATE is None:
+                STATE = DashboardState()
     return STATE
 
 
