@@ -9,6 +9,8 @@ import json
 from pathlib import Path
 from collections.abc import Mapping
 from urllib.parse import urlparse
+import base64
+import binascii
 import hmac
 
 from .auth import (
@@ -18,6 +20,7 @@ from .auth import (
 )
 from .control_plane import ControlPlane
 from .domain import Action
+from .fleet import Heartbeat
 from .policy import PolicyViolation
 from .security import redact_text
 from .idempotency import IdempotencyConflict, StateRevisionConflict
@@ -318,6 +321,29 @@ class OrcaHandler(BaseHTTPRequestHandler):
             return self._json({"error": "host header is not allowlisted"}, HTTPStatus.MISDIRECTED_REQUEST)
         path = urlparse(self.path).path
         try:
+            if path == "/api/heartbeats":
+                data = self._body()
+                if set(data) != {"heartbeat", "signature", "key"}:
+                    raise ValueError("heartbeat request has an invalid schema")
+                heartbeat_data = data["heartbeat"]
+                if not isinstance(heartbeat_data, dict) or set(heartbeat_data) != {
+                        "node_id", "timestamp", "nonce", "state", "detail"}:
+                    raise ValueError("heartbeat payload has an invalid schema")
+                try:
+                    key = base64.b64decode(data["key"], validate=True)
+                except (TypeError, ValueError, binascii.Error) as exc:
+                    raise ValueError("heartbeat key encoding is invalid") from exc
+                if not 32 <= len(key) <= 512:
+                    raise ValueError("heartbeat key has an invalid length")
+                heartbeat = Heartbeat(**heartbeat_data)
+                self.server.control_plane.accept_heartbeat(
+                    heartbeat, signature=data["signature"], key=key)
+                return self._json({
+                    "accepted": True,
+                    "node_id": heartbeat.node_id,
+                    "nonce": heartbeat.nonce,
+                    "status": "accepted",
+                }, HTTPStatus.OK)
             try:
                 authenticated_identity = self._authenticate_mutation()
             except IdentityAuthenticationError as exc:

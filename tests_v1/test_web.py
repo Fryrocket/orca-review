@@ -4,11 +4,13 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from http.client import HTTPConnection
 from itertools import count
+import base64
 import json
 import pytest
 
 from orca import Action
 from orca.control_plane import ControlPlane
+from orca.fleet import Heartbeat, sign_heartbeat
 from orca.web import OrcaHTTPServer, STATIC_ROOT
 
 
@@ -126,6 +128,37 @@ def test_post_mutations_are_disabled_without_operator_token():
         with pytest.raises(HTTPError) as error:
             urlopen(request)
         assert error.value.code == 503
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_signed_heartbeat_endpoint_authenticates_without_operator_token():
+    control = ControlPlane()
+    key = b"kiln-live-heartbeat-key-material-000001"
+    control.enroll_node("kiln", actor="fry", key=key)
+    server = OrcaHTTPServer(("127.0.0.1", 0), control)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        heartbeat = Heartbeat("kiln", int(__import__("time").time()), 1, "healthy", "models healthy")
+        payload = json.dumps({
+            "heartbeat": heartbeat.__dict__,
+            "signature": sign_heartbeat(heartbeat, key),
+            "key": base64.b64encode(key).decode("ascii"),
+        }).encode()
+        request = Request(
+            f"http://127.0.0.1:{server.server_port}/api/heartbeats",
+            data=payload, method="POST", headers={"Content-Type": "application/json"})
+        with urlopen(request) as response:
+            result = json.load(response)
+        assert result == {"accepted": True, "node_id": "kiln", "nonce": 1,
+                          "status": "accepted"}
+        assert control.node_health["kiln"]["state"] == "healthy"
+
+        with pytest.raises(HTTPError) as replay:
+            urlopen(request)
+        assert replay.value.code == 400
     finally:
         server.shutdown()
         server.server_close()
