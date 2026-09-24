@@ -60,7 +60,7 @@ Supersedes v10 (2026-09-21T1618Z). Read this FIRST every session. Cap 100 lines.
 - No live connector writes or deployed service; advisory read evidence is in `LIVE_ADVISORY_READ_2026-09-23.md`.
 - Alert delivery stays disabled; retention is guarded/audited with zero deletion.
 - Clean install/reconstruction passed 273 tests on schema v4 with integrity checks.
-- Local readiness evidence remains unverified; live provenance and multi-host deployment remain open. Ollama inventory verified `llama3.2:3b` only.
+- Bounded live reads passed for ANVIL/FORGE/KILN/EMBER and six provider systems; IRIS, heartbeat lifecycle, Cloudflare, credential restore, and multi-host deployment remain open. See `LIVE_FLEET_PROVIDER_TEST_2026-09-24.md`.
 - Autonomous cloud budget remains zero. No model/API purchase is authorized.
 - Rendered desktop and 390×844 phone QA passed with no browser warnings/errors.
 - QUENCH verified exact clean commit `9eb7638`: 516 tests and isolated schema-v4 recovery passed. Trusted external evidence, approved-release/secret restore, and deployment drills remain open.
