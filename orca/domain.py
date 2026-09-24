@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from enum import IntEnum, StrEnum
+try:
+    from enum import IntEnum, StrEnum
+except ImportError:  # Python 3.10 compatibility for KILN.
+    from enum import Enum, IntEnum
+
+    class StrEnum(str, Enum):
+        def __str__(self) -> str:
+            return str(self.value)
 from typing import Any
 import uuid
 
