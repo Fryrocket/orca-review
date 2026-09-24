@@ -4,9 +4,15 @@ Date: 2026-09-23
 From: Codex consultant
 To: Claude / ORCA owner
 Lane: ORCA / Forge
-Status: Local implementation tested and reviewed by its implementer; not independently reviewed, committed, pushed, merged, deployed, or connected to live write-capable services.
+Status: Local commit independently QUENCH-verified; not pushed, merged, deployed, or connected to live write-capable services.
 
-## Latest checkpoint - 2026-09-23 21:19 UTC
+## Latest checkpoint - 2026-09-24 14:25 UTC
+
+This checkpoint supersedes the historical test, schema, commit, and review-status statements below. The exact clean commit `9eb7638dc74f54da11a482a3b175b6a1d824af38` passed independent QUENCH verification: **516 tests (273 rebuilt + 243 legacy)**, clean Git object/whitespace checks, Python compilation, and a fresh isolated schema-v4 recovery with a valid evidence chain. The two committed JavaScript bundles were checksum-matched and passed `node --check` on the Node-equipped Mac; Anvil itself has no Node binary.
+
+QUENCH accepts this commit for local code, test, and recovery integrity only. Release, deployment, and cutover remain blocked on a trusted evidence manifest, authenticated external review provenance, credential restoration/rotation, deployment and live fleet/provider verification, and Fry's release decision. The commit is local and unsigned; nothing was pushed, deployed, or enabled.
+
+## Historical checkpoint - 2026-09-23 21:19 UTC
 
 This checkpoint supersedes test counts in the historical slices below. Fry asked to address "-266 failures", provide a printable action list, and review/test the local code. The fresh baseline was 332 passing tests, with no failing tests. The 266 in STATE was a historical deployed-code pass count; the user's specific "-266" display has not been identified.
 
@@ -14,7 +20,7 @@ The review reproduced 23 newly added failing regression cases, then fixed them. 
 
 Fixes cover named-credential redaction, approval-preserving pause/resume, terminal-state protection, strict permission/cloud/cap input validation, same-key heartbeat replay protection, serialized shared-database cost accounting, independent review of R0 ORCA/QUENCH work, explicit LAN bind authentication, legacy cost/metadata recovery validation, supplied message-bus preservation, and request/CSRF protection for the legacy human approval gate.
 
-Full review: `CODE_REVIEW_2026-09-23.md`. Printable owner checklist: `output/pdf/ORCA_action_checklist_2026-09-23.pdf`. No connected browser was available, so rendered desktop/phone QA remains open. No independent QUENCH review, production deployment, cloud spend, connector writes, or live fleet acceptance is claimed.
+Full review: `CODE_REVIEW_2026-09-23.md`. Printable owner checklist: `output/pdf/ORCA_action_checklist_2026-09-23.pdf`. No connected browser was available at this historical checkpoint, so rendered desktop/phone QA remained open. No production deployment, cloud spend, connector writes, or live fleet acceptance was claimed.
 
 ## Request
 

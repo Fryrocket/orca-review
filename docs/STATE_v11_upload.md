@@ -1,5 +1,5 @@
 # STATE.md — v11
-AS OF 2026-09-24T0513Z — Codex consultant, ORCA implementation continuation.
+AS OF 2026-09-24T1425Z — Codex consultant, ORCA implementation continuation.
 Supersedes v10 (2026-09-21T1618Z). Read this FIRST every session. Cap 100 lines.
 
 ## AUTHORITY AND ROSTER
@@ -19,8 +19,8 @@ Supersedes v10 (2026-09-21T1618Z). Read this FIRST every session. Cap 100 lines.
   `352a4e6`, forge-ops `bf9ac09`, forge-vis `3315619`; all had one unpushed
   commit and forge-vis had a dirty `nodes.forge.json`.
 - NEW LOCAL ORCA REBUILD: `/Users/fryrocket/claude-server/orca-rebuild`, branch
-  `agent/orca-rebuild-v1`, cloned from GitHub `Fryrocket/orca-review` tip
-  `a3f524b`. Work is uncommitted, unpushed, not independently reviewed, and undeployed.
+  `agent/orca-rebuild-v1`, cloned from GitHub `Fryrocket/orca-review`; local
+  commit `9eb7638` is QUENCH-reviewed and unpushed. Nothing is deployed.
 - Older local `orca` and `orca_verify` trees are stale/dirty. Do not treat them
   as authority. They remain rollback/history surfaces; nothing deleted.
 
@@ -56,14 +56,14 @@ Supersedes v10 (2026-09-21T1618Z). Read this FIRST every session. Cap 100 lines.
 
 ## ORCA REBUILD — OPEN / UNPROVEN
 
-- No commit, push, PR, merge, Gitea write, deployment, service, or cutover.
+- Local commit `9eb7638` exists; no push, PR, merge, Gitea write, deployment, service, or cutover.
 - No live connector writes or deployed service; advisory read evidence is in `LIVE_ADVISORY_READ_2026-09-23.md`.
 - Alert delivery stays disabled; retention is guarded/audited with zero deletion.
 - Clean install/reconstruction passed 273 tests on schema v4 with integrity checks.
 - Local readiness evidence remains unverified; live provenance and multi-host deployment remain open. Ollama inventory verified `llama3.2:3b` only.
 - Autonomous cloud budget remains zero. No model/API purchase is authorized.
 - Rendered desktop and 390×844 phone QA passed with no browser warnings/errors.
-- No QUENCH independent review or approved-release/secret restore drill yet.
+- QUENCH verified exact clean commit `9eb7638`: 516 tests and isolated schema-v4 recovery passed. Trusted external evidence, approved-release/secret restore, and deployment drills remain open.
 - Legacy removal/archive is R3: stop for Fry after acceptance and rollback proof.
 
 ## VERIFIED FORGE STATE CARRIED FROM v10
@@ -97,4 +97,4 @@ Supersedes v10 (2026-09-21T1618Z). Read this FIRST every session. Cap 100 lines.
 - Disk identity is by SERIAL, never `/dev` name. `ssh-keyscan` is not login proof.
 - Verify live state before acting; this file is a dated snapshot.
 
-END STATE.md — AS OF 2026-09-24T0513Z
+END STATE.md — AS OF 2026-09-24T1425Z

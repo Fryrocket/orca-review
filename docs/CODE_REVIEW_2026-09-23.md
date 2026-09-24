@@ -1,6 +1,6 @@
 # ORCA local code review and regression report
 
-Date: 2026-09-23. Reviewer/implementer: Codex consultant. Scope: the local working tree at `/Users/fryrocket/claude-server/orca-rebuild`, including rebuilt `orca/`, retained `mao/`, both web interfaces, scripts, and all tests in `tests/` and `tests_v1/`. This is not an independent QUENCH review or a review of every deployed repository.
+Date: 2026-09-23, updated 2026-09-24. Reviewer/implementer: Codex consultant. Scope: the local tree at `/Users/fryrocket/claude-server/orca-rebuild`, including rebuilt `orca/`, retained `mao/`, both web interfaces, scripts, and all tests in `tests/` and `tests_v1/`. This implementation report is not itself independent approval; a separate QUENCH pass subsequently verified exact clean commit `9eb7638dc74f54da11a482a3b175b6a1d824af38` for local code, test, and recovery integrity only.
 
 ## Result
 
@@ -39,7 +39,7 @@ No existing set of 266 failing tests was reproduced. STATE's "Orca 266" is a his
 
 ## Remaining engineering and acceptance work
 
-1. **Independent review:** the 2026-09-24 QUENCH pass verified the local code, tests, and isolated reconstruction, but correctly blocked release because no immutable commit or externally trusted evidence manifest existed. Review must be repeated against the exact release commit; production separation-of-duties acceptance still requires a trusted external verifier.
+1. **Independent review:** the first 2026-09-24 QUENCH pass verified the local code, tests, and isolated reconstruction but correctly blocked release because no immutable commit existed. A subsequent pass verified exact clean commit `9eb7638dc74f54da11a482a3b175b6a1d824af38`. Production separation-of-duties acceptance still requires a trusted external verifier and evidence manifest.
 2. **Production identity:** the local console's shared operator token is not independent cryptographic identity for each actor. Keep it local; implement reviewed per-identity authentication/authorization before remote or multi-user control.
 3. **Fleet transport and lifecycle:** tests use simulated signed heartbeats. Live node readiness, key-rotation health invalidation, transport deployment, reboot/reconnect, and node-specific recovery remain unproven on ANVIL, FORGE, KILN, EMBER, and IRIS.
 4. **Real integrations:** injected read adapters, provider action profiles, and a previous advisory connector drill are not production bot integrations. Build provider-specific paths, pagination/error handling, execution receipts, retries, and write gates before enabling them.
