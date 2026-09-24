@@ -31,6 +31,7 @@ from .notifications import (
     NotificationConflict,
     NotificationOutbox,
 )
+from .placement import placement_snapshot
 from hashlib import sha256
 from typing import Callable, Any
 
@@ -1208,6 +1209,7 @@ class ControlPlane:
             "connectors": [asdict(x) for x in CONNECTORS.values()],
             "connector_capabilities": self.connector_gateway.snapshot(),
             "nodes": [self._node_dict(node_id) for node_id in NODES],
+            "placement": placement_snapshot(self.node_health),
             "jobs": [self._job_dict(x) for x in self.jobs.values()],
             "approvals": [asdict(x) for x in self.approvals.values()],
             "incidents": [{**asdict(x), "status": x.status.value} for x in self.incidents.values()],

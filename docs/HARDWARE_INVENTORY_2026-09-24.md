@@ -1,7 +1,23 @@
-# FORGE and KILN Hardware Inventory — 2026-09-24
+# ANVIL, FORGE, and KILN Hardware Inventory — 2026-09-24
 
 Source: live, read-only host inspection over the existing SSH path. Hardware
 serial numbers are intentionally omitted from this document.
+
+## ANVIL — operator worktop
+
+| Component | Verified hardware |
+| --- | --- |
+| System | MacBook Pro, model identifier Mac16,1 |
+| SoC | Apple M4, 10 CPU cores (4 performance + 6 efficiency) |
+| GPU | Integrated Apple M4 GPU, 10 cores, Metal supported |
+| Memory | 16 GB unified memory |
+| Storage | Approximately 460 GiB system filesystem; about 196 GiB available during inspection |
+| Operating system | macOS 26.6.2, Apple silicon |
+
+At capture time system-wide memory free percentage was 77%. ANVIL is best
+suited to interactive operator control, source development, local validation,
+and human review. It should not become the authoritative persistent control
+plane or absorb dedicated server/inference duties.
 
 ## FORGE — primary powerhouse server
 
