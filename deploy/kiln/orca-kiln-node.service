@@ -9,6 +9,7 @@ User=fryrocket
 Group=fryrocket
 UMask=0077
 WorkingDirectory=/opt/orca-node/current
+Environment=PYTHONPATH=/opt/orca-node/current
 ExecStart=/usr/bin/python3 /opt/orca-node/current/scripts/kiln_heartbeat_agent.py --key-file /var/lib/orca-node/kiln-heartbeat.key --state-file /var/lib/orca-node/heartbeat-state.json --interval 30
 Restart=always
 RestartSec=5
