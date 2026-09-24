@@ -1,0 +1,301 @@
+from pathlib import Path
+from threading import Thread
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
+from http.client import HTTPConnection
+from itertools import count
+import json
+import pytest
+
+from orca import Action
+from orca.control_plane import ControlPlane
+from orca.web import OrcaHTTPServer, STATIC_ROOT
+
+
+REQUEST_IDS = count(1)
+
+
+def _operator_headers(server: OrcaHTTPServer, token: str) -> dict[str, str]:
+    return {
+        "Content-Type": "application/json",
+        "X-ORCA-Operator-Token": token,
+        "Idempotency-Key": f"operator-request-{next(REQUEST_IDS):08d}",
+        "X-ORCA-Expected-Revision": str(server.control_plane.state_revision),
+    }
+
+
+def test_operator_console_assets_exist_and_include_required_views():
+    html = (STATIC_ROOT / "index.html").read_text()
+    for required in ("Overview", "Work", "Approvals", "Evidence", "Incidents", "Security", "Agents", "Fleet", "Connectors", "Costs"):
+        assert required in html
+    assert "viewport" in html
+    assert "operator-token" in html
+    assert "toggle-stop" in html
+    assert "cost-breakdown" in html
+    assert "budget-policy" in html
+    assert "security-list" in html
+    assert "retention-summary" in html
+    js = (STATIC_ROOT / "app.js").read_text()
+    assert "data-approval" in js
+    assert "data-pause-job" in js
+    assert "data-job-action" in js
+    assert "renderAgents" in js
+    assert "stop_condition" in js
+    assert "rationale" in js
+
+
+def test_console_mutations_reuse_one_envelope_only_for_transport_retry():
+    js = (STATIC_ROOT / "app.js").read_text()
+
+    # A logical mutation serializes its body and captures its key/revision once,
+    # before either transport attempt. Every POST goes through this one helper.
+    assert "function mutationEnvelope(url,payload,auth)" in js
+    assert "body:JSON.stringify(payload)" in js
+    assert "Object.freeze({url,body:JSON.stringify(payload),headers,key,expectedRevision})" in js
+    assert "for(let attempt=0;attempt<2;attempt+=1)" in js
+    assert "response=await fetch(envelope.url" in js
+    assert js.count("method:'POST'") == 1
+
+    # Once fetch returns an HTTP response, JSON/status handling is outside the
+    # retry catch. HTTP rejection is surfaced and is never retried automatically.
+    transport_guard = js.index("if(!response)throw lastTransportError")
+    response_decode = js.index("response.json()", transport_guard)
+    response_rejection = js.index("if(!response.ok)", response_decode)
+    assert transport_guard < response_decode < response_rejection
+
+    # Mutating controls and credentials are frozen in the UI until the logical
+    # mutation finishes, including its one uncertainty retry.
+    assert "control.disabled=mutationPending" in js
+    assert "setMutationPending(true)" in js
+    assert "finally{setMutationPending(false)}" in js
+    assert "||mutationPending)return" in js
+
+
+def test_state_endpoint_is_readable_and_truthful():
+    server = OrcaHTTPServer(("127.0.0.1", 0), ControlPlane())
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with urlopen(f"http://127.0.0.1:{server.server_port}/api/state") as response:
+            data = json.load(response)
+            assert response.headers["X-Content-Type-Options"] == "nosniff"
+            assert "frame-ancestors 'none'" in response.headers["Content-Security-Policy"]
+        assert data["evidence_chain_valid"] is True
+        assert {a["id"] for a in data["agents"]} == {
+            "orca", "smith", "quench", "security_gate", "fry"}
+        assert {b["id"] for b in data["bots"]} == {
+            "orca", "smith", "quench", "security_gate"}
+        assert all(b["runtime_enabled"] is False for b in data["bots"])
+        assert {n["id"] for n in data["nodes"]} == {"anvil", "forge", "kiln", "ember", "iris"}
+        assert all(n["state"] == "unproven" for n in data["nodes"])
+        assert all(c["writes_enabled"] is False for c in data["connectors"])
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_loopback_console_rejects_unallowlisted_host_header():
+    server = OrcaHTTPServer(("127.0.0.1", 0), ControlPlane())
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        connection = HTTPConnection("127.0.0.1", server.server_port)
+        connection.request("GET", "/api/state", headers={"Host": "attacker.example"})
+        response = connection.getresponse()
+        assert response.status == 421
+        assert json.loads(response.read())["error"] == "host header is not allowlisted"
+        connection.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_console_refuses_non_loopback_bind_until_transport_is_reviewed():
+    for host in ("0.0.0.0", "::", "192.168.7.30", "orca.internal"):
+        with pytest.raises(ValueError, match="non-loopback"):
+            OrcaHTTPServer((host, 0), ControlPlane())
+
+
+def test_post_mutations_are_disabled_without_operator_token():
+    server = OrcaHTTPServer(("127.0.0.1", 0), ControlPlane())
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        request = Request(f"http://127.0.0.1:{server.server_port}/api/jobs",
+                          data=b"{}", method="POST", headers={"Content-Type": "application/json"})
+        with pytest.raises(HTTPError) as error:
+            urlopen(request)
+        assert error.value.code == 503
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_post_mutations_require_exact_operator_token():
+    token = "t" * 32
+    server = OrcaHTTPServer(("127.0.0.1", 0), ControlPlane(), operator_token=token)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        url = f"http://127.0.0.1:{server.server_port}/api/control/emergency-stop"
+        body = json.dumps({"actor": "fry", "active": True, "reason": "test"}).encode()
+        bad = Request(url, data=body, method="POST",
+                      headers={"Content-Type": "application/json", "X-ORCA-Operator-Token": "wrong"})
+        with pytest.raises(HTTPError) as error:
+            urlopen(bad)
+        assert error.value.code == 401
+        good = Request(url, data=body, method="POST",
+                       headers=_operator_headers(server, token))
+        with urlopen(good) as response:
+            assert json.load(response)["emergency_stop"] is True
+
+        malformed = Request(
+            url, data=json.dumps({"actor": "fry", "active": "false", "reason": "bad type"}).encode(),
+            method="POST",
+            headers=_operator_headers(server, token))
+        with pytest.raises(HTTPError) as error:
+            urlopen(malformed)
+        assert error.value.code == 400
+        assert server.control_plane.emergency_stop is True
+
+        # Resume is an authenticated mutation, and even a valid token cannot
+        # override an active stop. Releasing the stop alone does not resume.
+        job = server.control_plane.submit(
+            title="resume HTTP fixture", lane="orca", requested_by="orca",
+            assigned_to="smith", action=Action("read", "fixture"))
+        resume_url = f"http://127.0.0.1:{server.server_port}/api/jobs/{job.id}/resume"
+        resume_body = json.dumps({"actor": "fry", "reason": "HTTP fixture"}).encode()
+        # The API represents policy/state denials as 400, authentication as 401.
+        for supplied, expected_status in (("wrong", 401), (token, 400)):
+            headers = (
+                _operator_headers(server, token)
+                if supplied == token
+                else {"Content-Type": "application/json",
+                      "X-ORCA-Operator-Token": supplied}
+            )
+            request = Request(
+                resume_url, data=resume_body, method="POST",
+                headers=headers)
+            with pytest.raises(HTTPError) as error:
+                urlopen(request)
+            assert error.value.code == expected_status
+            if supplied == token:
+                assert "control boundary" in json.loads(error.value.read())["error"]
+            assert job.status.value == "paused"
+        release = Request(
+            url, data=json.dumps({"actor": "fry", "active": False, "reason": "resume fixture"}).encode(),
+            method="POST",
+            headers=_operator_headers(server, token))
+        with urlopen(release) as response:
+            assert json.load(response)["emergency_stop"] is False
+        assert job.status.value == "paused"
+        resume = Request(
+            resume_url, data=resume_body, method="POST",
+            headers=_operator_headers(server, token))
+        with urlopen(resume) as response:
+            assert json.load(response)["status"] == "ready"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_authenticated_advisory_security_and_retention_controls():
+    token = "t" * 32
+    server = OrcaHTTPServer(("127.0.0.1", 0), ControlPlane(), operator_token=token)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        secret = "xai-abcdefghijklmnopqrstuv"
+        body = json.dumps({
+            "author": "smith", "lane": "orca",
+            "artifacts": {"settings.env": f"api_key={secret}"},
+        }).encode()
+        request = Request(
+            f"http://127.0.0.1:{server.server_port}/api/security/scan",
+            data=body, method="POST",
+            headers=_operator_headers(server, token),
+        )
+        with urlopen(request) as response:
+            payload = json.load(response)
+        assert payload["disposition"] == "block_and_escalate"
+        assert secret not in str(payload)
+        retention = Request(
+            f"http://127.0.0.1:{server.server_port}/api/governance/retention-audit",
+            data=json.dumps({"actor": "fry"}).encode(), method="POST",
+            headers=_operator_headers(server, token),
+        )
+        with urlopen(retention) as response:
+            retention_payload = json.load(response)
+        assert retention_payload["mode"] == "dry_run"
+        assert retention_payload["automatic_deletions"] == 0
+        assert server.control_plane.evidence.verify()
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_operator_token_and_json_envelope_are_strict():
+    with pytest.raises(ValueError, match="32-512"):
+        OrcaHTTPServer(("127.0.0.1", 0), ControlPlane(), operator_token="short")
+
+    token = "t" * 32
+    server = OrcaHTTPServer(("127.0.0.1", 0), ControlPlane(), operator_token=token)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        request = Request(
+            f"http://127.0.0.1:{server.server_port}/api/jobs",
+            data=b"[]", method="POST",
+            headers={"Content-Type": "application/json", "X-ORCA-Operator-Token": token},
+        )
+        with pytest.raises(HTTPError) as error:
+            urlopen(request)
+        assert error.value.code == 400
+        assert "JSON object" in json.loads(error.value.read())["error"]
+
+        stop_url = f"http://127.0.0.1:{server.server_port}/api/control/emergency-stop"
+        missing_envelope = Request(
+            stop_url,
+            data=json.dumps({"actor": "fry", "active": True, "reason": "fixture"}).encode(),
+            method="POST",
+            headers={"Content-Type": "application/json",
+                     "X-ORCA-Operator-Token": token},
+        )
+        with pytest.raises(HTTPError) as error:
+            urlopen(missing_envelope)
+        assert error.value.code == 428
+
+        impersonation = Request(
+            stop_url,
+            data=json.dumps({"actor": "orca", "active": True,
+                             "reason": "must remain Fry"}).encode(),
+            method="POST",
+            headers=_operator_headers(server, token),
+        )
+        with pytest.raises(HTTPError) as error:
+            urlopen(impersonation)
+        assert error.value.code == 403
+        assert server.control_plane.emergency_stop is False
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_integrity_failure_makes_state_and_health_unavailable():
+    control = ControlPlane()
+    control.submit(title="proof", lane="orca", requested_by="orca",
+                   assigned_to="smith", action=Action("read", "fixture"))
+    control.evidence.db.execute("DROP TRIGGER events_no_update")
+    control.evidence.db.execute("UPDATE events SET payload='{}' WHERE seq=1")
+    control.evidence.db.commit()
+    server = OrcaHTTPServer(("127.0.0.1", 0), control)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        for path in ("/api/state", "/api/health"):
+            with pytest.raises(HTTPError) as error:
+                urlopen(f"http://127.0.0.1:{server.server_port}{path}")
+            assert error.value.code == 503
+    finally:
+        server.shutdown()
+        server.server_close()

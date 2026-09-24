@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hmac
+from ipaddress import ip_address
 import os
 
 from mao.errors import OrcaConfigError
@@ -19,9 +20,14 @@ def lan_requested() -> bool:
 
 
 def validate_bind(host: str) -> None:
-    """Refuse 0.0.0.0 unless LAN flag + token are both set."""
-    if host not in _LAN_HOSTS:
+    """Require the LAN flag and token for every non-loopback bind."""
+    if host == "localhost":
         return
+    try:
+        if ip_address(host).is_loopback:
+            return
+    except ValueError:
+        pass
     if not lan_requested():
         raise OrcaConfigError(
             "LAN bind (0.0.0.0) requires ORCA_DASHBOARD_LAN=1"

@@ -68,7 +68,10 @@ def load_blackboard(path: str | Path, board: Blackboard) -> Blackboard:
         if not isinstance(item, dict) or "key" not in item:
             continue
         writer = item.get("writer") or item.get("author") or "system"
-        meta = dict(item.get("meta") or {})
+        raw_meta = item.get("meta")
+        if raw_meta is not None and not isinstance(raw_meta, dict):
+            continue
+        meta = dict(raw_meta or {})
         for reserved in _META_RESERVED:
             meta.pop(reserved, None)
         try:

@@ -112,7 +112,7 @@ class Orchestrator:
                 "begin_task(grant=...). Fail early."
             )
         self.agents = list(agents)
-        self.bus = bus or MessageBus()
+        self.bus = bus if bus is not None else MessageBus()
         self.tools = tools
         self.broker = broker or PrivilegeBroker()
         self.human_gate = human_gate

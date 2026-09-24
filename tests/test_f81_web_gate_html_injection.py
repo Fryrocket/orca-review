@@ -11,6 +11,7 @@ embedding.
 from __future__ import annotations
 
 import http.client
+import re
 import sys
 import threading
 import time
@@ -53,7 +54,9 @@ def _get(port):
 
 
 def _post_decide(port, decision="approve", note=""):
-    raw = urlencode({"decision": decision, "note": note})
+    _, html = _get(port)
+    token = re.search(r'name="csrf_token" value="([^"]+)"', html).group(1)
+    raw = urlencode({"decision": decision, "note": note, "csrf_token": token})
     conn = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
     conn.request(
         "POST",

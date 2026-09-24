@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "orca-control-plane"
+version = "1.0.0a1"
+description = "Policy-first control plane for Fry's agent and connector stack"
+requires-python = ">=3.11"
+
+[tool.setuptools]
+packages = ["orca"]
+
+[tool.setuptools.package-data]
+orca = ["static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests_v1"]

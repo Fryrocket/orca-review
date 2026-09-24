@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ORCA Control Plane</title>
+  <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="/operator-controls.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">FORGE CONTROL PLANE</p>
+      <h1>ORCA</h1>
+    </div>
+    <div class="top-status"><span class="pulse"></span><span id="system-status">Loading state</span></div>
+  </header>
+
+  <main>
+    <section id="approval-banner" class="approval-banner hidden">
+      <div><strong id="approval-count">0 approvals waiting</strong><p>Execution is blocked until Fry decides.</p></div>
+      <button data-view="approvals">Review approvals</button>
+    </section>
+
+    <nav class="tabs" aria-label="ORCA views">
+      <button class="active" data-view="overview">Overview</button>
+      <button data-view="work">Work</button>
+      <button data-view="approvals">Approvals</button>
+      <button data-view="evidence">Evidence</button>
+      <button data-view="incidents">Incidents</button>
+      <button data-view="security">Security</button>
+      <button data-view="agents">Agents</button>
+      <button data-view="fleet">Fleet</button>
+      <button data-view="connectors">Connectors</button>
+      <button data-view="costs">Costs</button>
+    </nav>
+
+    <section id="overview" class="view active">
+      <div class="metric-grid">
+        <article><span>Active work</span><strong id="active-jobs">0</strong></article>
+        <article><span>Waiting approval</span><strong id="waiting-jobs">0</strong></article>
+        <article><span>Evidence chain</span><strong id="chain-state">—</strong></article>
+        <article><span>Paused lanes</span><strong id="paused-lanes">0</strong></article>
+      </div>
+      <div class="grid two">
+        <article class="panel"><div class="panel-head"><h2>Current work</h2><span class="truth">LIVE STATE</span></div><div id="job-list" class="stack empty">No work submitted.</div></article>
+        <article class="panel"><div class="panel-head"><h2>Recent evidence</h2><span class="truth">HASH CHAIN</span></div><div id="event-list" class="stack empty">No evidence recorded.</div></article>
+      </div>
+    </section>
+
+    <section id="work" class="view"><article class="panel"><div class="panel-head"><h2>Job control</h2><span class="truth">POLICY GATED</span></div><div id="work-list" class="stack"></div></article></section>
+    <section id="approvals" class="view"><article class="panel"><div class="panel-head"><h2>Approval queue</h2><span class="truth warn">FRY DECIDES</span></div><div id="approval-list" class="stack"></div></article></section>
+    <section id="evidence" class="view"><div class="grid two"><article class="panel"><div class="panel-head"><h2>Evidence timeline</h2><span class="truth">APPEND ONLY</span></div><div id="evidence-list" class="stack"></div></article><article class="panel"><div class="panel-head"><h2>Retention control</h2><span class="truth warn">NO AUTO DELETE</span></div><div id="retention-summary" class="stack"></div></article></div></section>
+    <section id="incidents" class="view"><article class="panel"><div class="panel-head"><h2>Incidents</h2><span class="truth warn" id="stop-state">NORMAL</span></div><div class="operator-controls"><label>Acting identity <select id="operator-identity"><option value="fry">Fry</option><option value="orca">ORCA</option><option value="smith">SMITH</option><option value="quench">QUENCH</option><option value="security_gate">Security gate</option></select></label><label>Identity token <input id="operator-token" type="password" autocomplete="off" placeholder="Held in memory only"></label><label>Reason <input id="stop-reason" type="text" placeholder="Required reason"></label><button id="toggle-stop" type="button">Toggle emergency stop</button><p class="muted">The credential is bound to the selected identity. ORCA rejects attempts to name a different actor in the request.</p><p id="control-result" class="muted"></p></div><div id="incident-list" class="stack"></div></article></section>
+    <section id="security" class="view"><article class="panel"><div class="panel-head"><h2>Independent security gate</h2><span class="truth warn">ADVISORY ONLY</span></div><p class="muted">Deterministic, redacted findings for ORCA and QUENCH. The gate has no approval, tool, merge, or deployment authority.</p><div id="security-list" class="stack"></div></article></section>
+    <section id="agents" class="view"><div id="agent-grid" class="grid three"></div></section>
+    <section id="fleet" class="view"><div id="fleet-grid" class="grid three"></div></section>
+    <section id="connectors" class="view"><div id="connector-grid" class="grid three"></div></section>
+    <section id="costs" class="view"><article class="panel"><h2>Cost controls</h2><p class="muted">No paid escalation is authorized. Local-first routing is active; warning thresholds and hard caps must be approved before cloud use.</p><div class="cost-zero" id="cost-total">$0.00 <small>recorded usage</small></div><p id="budget-policy" class="meta"></p><div id="cost-breakdown" class="stack"></div></article></section>
+  </main>
+  <footer>Truth over optimism · Evidence over narrative · Fry decides</footer>
+  <script src="/app.js"></script>
+</body>
+</html>

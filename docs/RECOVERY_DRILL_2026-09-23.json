@@ -1,0 +1,39 @@
+{
+  "completed_at": "2026-09-23T21:12:09.969427+00:00",
+  "current_release_evidence": false,
+  "database_sha256": "40f87ac48d8bc4286e5b3390f38369e36d2cb44f8ea4eaaa9c2a502b8d654b6d",
+  "evidence_classification": "historical_local_snapshot",
+  "expected_seed": {
+    "event_count": 9,
+    "incident_id": "incident_10ac930b11934ae2",
+    "job_id": "job_8650b1fbb1a3444e",
+    "node_key_fingerprint": "45b341ff7298f7c799dd993fdad37062495e6685dc9ecbce6fae6f412fdf4233"
+  },
+  "isolation": "fresh temporary directory",
+  "limitations": [
+    "historical schema-v2/112-test snapshot retained for provenance; it does not validate the current schema-v4 tree",
+    "local reconstruction from the current working tree, not an approved release",
+    "no deployment, connector write, remote execution, or secret restoration",
+    "independent QUENCH review remains separate"
+  ],
+  "package_install": {
+    "dependencies_downloaded": false,
+    "status": "passed",
+    "version": "1.0.0a1"
+  },
+  "restored_state": {
+    "authenticated_node_exercised": "forge",
+    "emergency_stop_exercised": true,
+    "evidence_chain_valid": true,
+    "incidents": 1,
+    "jobs": 1,
+    "paused_nodes": [
+      "forge",
+      "kiln"
+    ],
+    "schema_version": 2
+  },
+  "source": "/Users/fryrocket/claude-server/orca-rebuild",
+  "status": "passed",
+  "test_summary": "112 passed in 3.89s"
+}

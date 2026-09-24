@@ -8,6 +8,7 @@ Pricing errors (UnknownModelError, PriceTableStaleError) propagate (R11-F9).
 from __future__ import annotations
 
 from typing import Callable, Optional, Protocol
+import math
 
 from .errors import CostCapExceeded, OrcaConfigError
 from .pricing import estimate_cost as default_estimate_cost
@@ -58,6 +59,8 @@ class UsageTrackerCostGuard:
             approx_out = meta.get("max_output_tokens") or self.max_output_tokens or 512
             # Do NOT swallow UnknownModelError / PriceTableStaleError (R11-F9)
             est = float(self.estimate_cost(model, approx_in, int(approx_out)))
+        if not math.isfinite(float(est)) or float(est) < 0:
+            raise OrcaConfigError("estimated cost must be finite and non-negative")
         if self.hard_ceiling_usd is not None and (self._run_usd + float(est)) > self.hard_ceiling_usd:
             raise CostCapExceeded(
                 f"CostGuard preflight would exceed hard_ceiling_usd={self.hard_ceiling_usd} "
@@ -107,6 +110,8 @@ class UsageTrackerCostGuard:
             if cost <= 0.0 and (tin > 0 or tout > 0):
                 cost = float(self.estimate_cost(model, tin, tout))
 
+        if not math.isfinite(cost) or cost < 0:
+            raise OrcaConfigError("cost_usd must be finite and >= 0")
         self.record_usage(
             agent=agent,
             model=model,

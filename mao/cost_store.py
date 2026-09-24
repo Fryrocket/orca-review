@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -44,15 +45,20 @@ class DayCostStore:
             data = json.loads(self.path.read_text())
             day = data["day"]
             cost = float(data["cost_usd"])
+            date.fromisoformat(day)
+            if not math.isfinite(cost) or cost < 0:
+                raise ValueError("ledger cost must be finite and non-negative")
             return {"day": day, "cost_usd": cost}
         except Exception as e:
             return {"day": self._utc_day(), "cost_usd": 1e12, "corrupt": True, "error": str(e)}
 
     def add(self, amount: float, ceiling: Optional[float] = None) -> float:
-        if float(amount) < 0:
+        if not math.isfinite(float(amount)) or float(amount) < 0:
             raise OrcaConfigError(
-                f"DayCostStore.add amount must be >= 0 (got {amount})"
+                "DayCostStore.add amount must be >= 0 and finite"
             )
+        if ceiling is not None and (not math.isfinite(float(ceiling)) or float(ceiling) < 0):
+            raise OrcaConfigError("cost ceiling must be finite and non-negative")
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.touch(exist_ok=True)
         with open(self.path, "r+") as f:
@@ -66,6 +72,9 @@ class DayCostStore:
                     try:
                         parsed = json.loads(raw)
                         data = {"day": parsed["day"], "cost_usd": float(parsed["cost_usd"])}
+                        date.fromisoformat(data["day"])
+                        if not math.isfinite(data["cost_usd"]) or data["cost_usd"] < 0:
+                            raise ValueError("ledger cost must be finite and non-negative")
                     except Exception as e:
                         raise CostLedgerCorrupt(f"corrupt ledger: {e}") from e
                 day = self._utc_day()

@@ -1,0 +1,81 @@
+.operator-controls {
+  display: grid;
+  grid-template-columns: minmax(140px, .7fr) minmax(220px, 1.2fr) minmax(220px, 1.2fr) auto;
+  gap: 12px;
+  align-items: end;
+  padding: 18px 0 8px;
+}
+
+.operator-controls label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 7px;
+  color: var(--muted);
+  font: 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.operator-controls input,
+.operator-controls select,
+.operator-controls button {
+  box-sizing: border-box;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: 13px system-ui, sans-serif;
+}
+
+.operator-controls input,
+.operator-controls select {
+  width: 100%;
+  padding: 9px 11px;
+  background: #0b1816;
+  color: var(--text);
+}
+
+.operator-controls input:focus,
+.operator-controls select:focus {
+  border-color: var(--cyan);
+  outline: 2px solid color-mix(in srgb, var(--cyan) 24%, transparent);
+  outline-offset: 1px;
+}
+
+.operator-controls button {
+  padding: 9px 16px;
+  background: color-mix(in srgb, var(--red) 18%, #0b1816);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.operator-controls button:hover {
+  border-color: var(--red);
+}
+
+.operator-controls p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .operator-controls {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .operator-controls button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .operator-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .operator-controls input,
+  .operator-controls select {
+    font-size: 16px;
+  }
+}
