@@ -1,0 +1,27 @@
+[Unit]
+Description=ORCA policy-first control plane
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=fryrocket
+Group=fryrocket
+UMask=0077
+WorkingDirectory=/opt/orca/current
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 -m orca --host 127.0.0.1 --port 8787 --database /var/lib/orca/orca-events.db --identity-token-file /var/lib/orca/identity-tokens.json
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/orca
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

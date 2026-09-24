@@ -1,5 +1,5 @@
 # STATE.md — v11
-AS OF 2026-09-24T1425Z — Codex consultant, ORCA implementation continuation.
+AS OF 2026-09-24T1430Z — Codex consultant, ORCA observation deployment.
 Supersedes v10 (2026-09-21T1618Z). Read this FIRST every session. Cap 100 lines.
 
 ## AUTHORITY AND ROSTER
@@ -20,7 +20,7 @@ Supersedes v10 (2026-09-21T1618Z). Read this FIRST every session. Cap 100 lines.
   commit and forge-vis had a dirty `nodes.forge.json`.
 - NEW LOCAL ORCA REBUILD: `/Users/fryrocket/claude-server/orca-rebuild`, branch
   `agent/orca-rebuild-v1`, cloned from GitHub `Fryrocket/orca-review`; local
-  commit `9eb7638` is QUENCH-reviewed and unpushed. Nothing is deployed.
+  release commit `28340bd` is unpushed and deployed loopback-only on FORGE.
 - Older local `orca` and `orca_verify` trees are stale/dirty. Do not treat them
   as authority. They remain rollback/history surfaces; nothing deleted.
 
@@ -56,8 +56,8 @@ Supersedes v10 (2026-09-21T1618Z). Read this FIRST every session. Cap 100 lines.
 
 ## ORCA REBUILD — OPEN / UNPROVEN
 
-- Local commit `9eb7638` exists; no push, PR, merge, Gitea write, deployment, service, or cutover.
-- No live connector writes or deployed service; advisory read evidence is in `LIVE_ADVISORY_READ_2026-09-23.md`.
+- Release `28340bd` runs as a hardened loopback-only FORGE service; no push, PR, merge, Gitea write, provider write, GPU runtime, or cutover. See `DEPLOYMENT_FORGE_2026-09-24.md`.
+- ANVIL reaches the console through a persistent loopback tunnel relayed by KILN; no LAN listener exists.
 - Alert delivery stays disabled; retention is guarded/audited with zero deletion.
 - Clean install/reconstruction passed 273 tests on schema v4 with integrity checks.
 - Bounded live reads passed for ANVIL/FORGE/KILN/EMBER and six provider systems; IRIS, heartbeat lifecycle, Cloudflare, credential restore, and multi-host deployment remain open. See `LIVE_FLEET_PROVIDER_TEST_2026-09-24.md`.
@@ -97,4 +97,4 @@ Supersedes v10 (2026-09-21T1618Z). Read this FIRST every session. Cap 100 lines.
 - Disk identity is by SERIAL, never `/dev` name. `ssh-keyscan` is not login proof.
 - Verify live state before acting; this file is a dated snapshot.
 
-END STATE.md — AS OF 2026-09-24T1425Z
+END STATE.md — AS OF 2026-09-24T1430Z
