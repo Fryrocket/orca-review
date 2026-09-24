@@ -29,22 +29,39 @@ def load_key(path: Path) -> bytes:
 def check_endpoint(url: str) -> None:
     with urlopen(url, timeout=5) as response:
         payload = json.load(response)
-    if not isinstance(payload, dict) or not payload.get("data"):
-        raise RuntimeError("model endpoint returned no model inventory")
+    if not isinstance(payload, dict):
+        raise RuntimeError("health endpoint returned an invalid response")
+    if payload.get("status") == "healthy" or payload.get("data"):
+        return
+    raise RuntimeError("health endpoint did not report available capacity")
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="KILN signed heartbeat agent")
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="ORCA signed node heartbeat agent")
+    parser.add_argument("--node-id", default="kiln")
     parser.add_argument("--key-file", required=True)
     parser.add_argument("--state-file", required=True)
     parser.add_argument("--url", default="http://127.0.0.1:18787/api/heartbeats")
-    parser.add_argument("--smith-url", default="http://100.97.193.39:11434/v1/models")
-    parser.add_argument("--quench-url", default="http://100.97.193.39:11435/v1/models")
+    parser.add_argument("--check-url", action="append", default=[])
+    parser.add_argument("--healthy-detail", default="")
     parser.add_argument("--interval", type=int, default=30)
     parser.add_argument("--once", action="store_true")
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
     if args.interval < 10:
         raise ValueError("heartbeat interval must be at least 10 seconds")
+
+    check_urls = list(args.check_url)
+    if not check_urls and args.node_id == "kiln":
+        check_urls = [
+            "http://100.97.193.39:11434/v1/models",
+            "http://100.97.193.39:11435/v1/models",
+        ]
+    if not check_urls:
+        raise ValueError("node heartbeat requires at least one health endpoint")
 
     key = load_key(Path(args.key_file))
 
@@ -62,16 +79,16 @@ def main() -> None:
             return json.load(response)
 
     agent = HeartbeatAgent(
-        node_id="kiln", key=key, state_path=args.state_file, transport=transport)
+        node_id=args.node_id, key=key, state_path=args.state_file, transport=transport)
     while True:
         state = "healthy"
-        detail = "SMITH and QUENCH endpoints healthy"
+        detail = args.healthy_detail or f"{len(check_urls)} health endpoints available"
         try:
-            check_endpoint(args.smith_url)
-            check_endpoint(args.quench_url)
+            for check_url in check_urls:
+                check_endpoint(check_url)
         except Exception:
             state = "degraded"
-            detail = "one or more inference endpoints unavailable"
+            detail = "one or more required health endpoints unavailable"
         agent.send(state=state, detail=detail)
         if args.once:
             return

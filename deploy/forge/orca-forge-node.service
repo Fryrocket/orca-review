@@ -1,0 +1,27 @@
+[Unit]
+Description=ORCA FORGE signed health agent
+After=network-online.target orca.service
+Wants=network-online.target orca.service
+
+[Service]
+Type=simple
+User=fryrocket
+Group=fryrocket
+UMask=0077
+WorkingDirectory=/opt/orca/current
+Environment=PYTHONPATH=/opt/orca/current
+ExecStart=/usr/bin/python3 /opt/orca/current/scripts/kiln_heartbeat_agent.py --node-id forge --key-file /var/lib/orca-forge-node/forge-heartbeat.key --state-file /var/lib/orca-forge-node/heartbeat-state.json --url http://127.0.0.1:8787/api/heartbeats --check-url http://127.0.0.1:8787/api/health --healthy-detail "FORGE control plane healthy" --interval 30
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/orca-forge-node
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

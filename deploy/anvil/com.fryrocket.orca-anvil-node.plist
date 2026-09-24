@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.fryrocket.orca-anvil-node</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/fryrocket/claude-server/orca-rebuild/.venv/bin/python</string>
+    <string>/Users/fryrocket/Library/Application Support/ORCA/current/scripts/kiln_heartbeat_agent.py</string>
+    <string>--node-id</string>
+    <string>anvil</string>
+    <string>--key-file</string>
+    <string>/Users/fryrocket/Library/Application Support/ORCA/anvil-heartbeat.key</string>
+    <string>--state-file</string>
+    <string>/Users/fryrocket/Library/Application Support/ORCA/heartbeat-state.json</string>
+    <string>--url</string>
+    <string>http://127.0.0.1:8787/api/heartbeats</string>
+    <string>--check-url</string>
+    <string>http://127.0.0.1:8787/api/health</string>
+    <string>--healthy-detail</string>
+    <string>ANVIL operator tunnel healthy</string>
+    <string>--interval</string>
+    <string>30</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/fryrocket/Library/Application Support/ORCA/current</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PYTHONPATH</key>
+    <string>/Users/fryrocket/Library/Application Support/ORCA/current</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>5</integer>
+  <key>StandardOutPath</key>
+  <string>/Users/fryrocket/Library/Logs/orca-anvil-node.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/fryrocket/Library/Logs/orca-anvil-node.log</string>
+</dict>
+</plist>
