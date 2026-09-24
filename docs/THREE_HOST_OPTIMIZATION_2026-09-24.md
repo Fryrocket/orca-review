@@ -38,8 +38,12 @@ existing approval and safety boundaries.
 ## Verification
 
 - Focused placement/control/fleet tests: 79 passed.
-- Complete legacy plus rebuilt regression suite: 530 passed.
+- Complete legacy plus rebuilt regression suite after signed health-agent work: 537 passed.
 - Unknown workloads fail closed.
 - Live-health recommendations reject unproven nodes.
 - No model invocation, provider write, remote command dispatch, cloud spend,
   credential change, or production cutover is enabled by this optimization.
+
+ANVIL, FORGE, and KILN now each publish authenticated signed health through
+owner-only keys and durable nonce state. This makes every accepted workload
+placement operationally eligible while preserving the same execution locks.

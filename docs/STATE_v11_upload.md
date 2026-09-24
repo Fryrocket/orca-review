@@ -20,7 +20,7 @@ Supersedes v10 (2026-09-21T1618Z). Read this FIRST every session. Cap 100 lines.
   commit and forge-vis had a dirty `nodes.forge.json`.
 - NEW LOCAL ORCA REBUILD: `/Users/fryrocket/claude-server/orca-rebuild`, branch
   `agent/orca-rebuild-v1`, cloned from GitHub `Fryrocket/orca-review`; local
-  release `c7b44f3` is unpushed and deployed on FORGE and as KILN's authenticated heartbeat agent.
+  release `52d6488` is unpushed and deployed across ANVIL, FORGE, and KILN health agents.
 - Older local `orca` and `orca_verify` trees are stale/dirty. Do not treat them
   as authority. They remain rollback/history surfaces; nothing deleted.
 
@@ -51,16 +51,16 @@ Supersedes v10 (2026-09-21T1618Z). Read this FIRST every session. Cap 100 lines.
 - Provider/action profiles and R0 Notion→Linear→Gitea→Drive reads are verified.
 - Non-loopback bind and POST default disabled; strong-token/Host/CSP gates apply.
 - Per-identity credentials bind actors; shared compatibility mode is Fry-bound.
-- Rebuild/deployment: **274 passed**; legacy: **243 passed**; combined: **517 passed**.
+- Rebuild/deployment: **294 passed**; legacy: **243 passed**; combined: **537 passed**.
 - Review regressions and later adversarial race cases are fixed; see the code review and implementation log.
 
 ## ORCA REBUILD — OPEN / UNPROVEN
 
-- Release `c7b44f3` runs loopback-only on FORGE; no push, PR, merge, provider write, GPU runtime, or cutover. See `DEPLOYMENT_FORGE_2026-09-24.md` and `KILN_NODE_ENROLLMENT_2026-09-24.md`.
+- Release `52d6488` runs loopback-only on FORGE with signed ANVIL/FORGE/KILN health; no push, PR, merge, provider write, GPU runtime, or cutover. See `THREE_HOST_OPTIMIZATION_DEPLOYMENT_2026-09-24.md`.
 - ANVIL reaches the console through a persistent loopback tunnel relayed by KILN; no LAN listener exists.
 - Alert delivery stays disabled; retention is guarded/audited with zero deletion.
 - Clean install/reconstruction passed 273 tests on schema v4 with integrity checks.
-- Live reads passed for ANVIL/FORGE/KILN/EMBER and six providers. KILN heartbeat is live/restart-verified with remote execution disabled. IRIS, Cloudflare, credential restore, and remaining multi-host deployment are open. See `LIVE_FLEET_PROVIDER_TEST_2026-09-24.md`.
+- Live reads passed for ANVIL/FORGE/KILN/EMBER and six providers. ANVIL/FORGE/KILN heartbeats are live/restart-verified with remote execution disabled. IRIS, Cloudflare, credentials, and remaining rollout are open.
 - Autonomous cloud budget remains zero. No model/API purchase is authorized.
 - Rendered desktop and 390×844 phone QA passed with no browser warnings/errors.
 - QUENCH verified exact clean commit `9eb7638`: 516 tests and isolated schema-v4 recovery passed. Trusted external evidence, approved-release/secret restore, and deployment drills remain open.
