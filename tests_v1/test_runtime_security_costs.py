@@ -308,8 +308,6 @@ def test_openai_adapter_runs_one_bounded_tool_round_then_returns_final(tmp_path)
     broker = ReadOnlyToolBroker(WorkspaceReadTools(tmp_path).handlers())
     calls = []
     first = {
-        "summary": "I need evidence", "evidence": ["tool pending"],
-        "uncertainty": "file not read", "next_gate": "none",
         "tool_requests": [{"name": "file.read", "arguments": {"path": "fact.txt"}}],
     }
     final = {

@@ -214,8 +214,6 @@ class SandboxedOpenAIAdapter:
         if redact_text(prompt) != prompt:
             raise ValueError("prompt contains secret-shaped data")
         contract = PROMPT_CONTRACTS[bot_id]
-        tool_instruction = ""
-        tool_request_property = {}
         if tool_broker is not None:
             available = {
                 name: TOOL_ARGUMENT_SCHEMAS[name]
@@ -223,25 +221,86 @@ class SandboxedOpenAIAdapter:
                 if name in tool_broker.handlers and name in TOOL_ARGUMENT_SCHEMAS
             }
             if available:
-                tool_instruction = (
-                    " If read-only evidence is needed, add tool_requests as a list of up to four "
-                    "objects with exactly name and arguments. Available tool schemas: "
-                    + json.dumps(available, sort_keys=True)
-                )
-                tool_request_property = {
-                    "tool_requests": {
-                        "type": "array", "maxItems": 4,
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "name": {"type": "string", "enum": sorted(available)},
-                                "arguments": {"type": "object"},
-                            },
-                            "required": ["name", "arguments"],
-                            "additionalProperties": False,
+                plan_payload = {
+                    "model": model,
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": (
+                                contract.system
+                                + " Decide which read-only tools are required before answering. "
+                                  "When the user explicitly names an available tool or asks to "
+                                  "read, search, fetch, or inspect its source, request it. Return "
+                                  "only tool_requests; use an empty list when no tool is needed. "
+                                  "Available schemas: "
+                                + json.dumps(available, sort_keys=True)
+                            ),
                         },
-                    }
+                        {"role": "user", "content": prompt},
+                    ],
+                    "stream": False,
+                    "response_format": {
+                        "type": "json_schema",
+                        "json_schema": {
+                            "name": "orca_tool_plan", "strict": True,
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "tool_requests": {
+                                        "type": "array", "maxItems": 4,
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "name": {"type": "string", "enum": sorted(available)},
+                                                "arguments": {"type": "object"},
+                                            },
+                                            "required": ["name", "arguments"],
+                                            "additionalProperties": False,
+                                        },
+                                    },
+                                },
+                                "required": ["tool_requests"],
+                                "additionalProperties": False,
+                            },
+                        },
+                    },
+                    "max_tokens": min(self.max_output_tokens, 512),
+                    "tools": [],
                 }
+                raw_plan = self.transport(
+                    self.endpoint, plan_payload, self.timeout_seconds)
+                try:
+                    plan_content = raw_plan["choices"][0]["message"]["content"]
+                except (KeyError, IndexError, TypeError) as exc:
+                    raise ValueError("local model returned an invalid tool-plan envelope") from exc
+                plan = _decode_contract_output(plan_content)
+                requests = plan.get("tool_requests") if isinstance(plan, dict) else None
+                if (not isinstance(requests, list) or len(requests) > 4
+                        or not all(
+                            isinstance(item, dict)
+                            and set(item) == {"name", "arguments"}
+                            and item["name"] in available
+                            and isinstance(item["arguments"], dict)
+                            for item in requests
+                        )):
+                    raise ValueError("local model returned an invalid tool plan")
+                if requests:
+                    results = tool_broker.execute(
+                        bot_id=bot_id,
+                        requests=[ToolRequest(item["name"], item["arguments"])
+                                  for item in requests],
+                    )
+                    prompt = (
+                        prompt + "\n\nVerified read-only tool results:\n"
+                        + json.dumps(
+                            [{"name": result.name, "output": result.output}
+                             for result in results],
+                            sort_keys=True, separators=(",", ":"), allow_nan=False,
+                        )
+                        + "\nUse only verified results for tool-derived claims."
+                    )
+                    if len(prompt) > self.max_prompt_chars:
+                        raise ValueError("tool evidence exceeds the local runtime prompt limit")
         payload = {
             "model": model,
             "messages": [
@@ -251,7 +310,6 @@ class SandboxedOpenAIAdapter:
                         contract.system
                         + " Return one JSON object with exactly summary, evidence, "
                           "uncertainty, and next_gate."
-                        + tool_instruction
                     ),
                 },
                 {"role": "user", "content": prompt},
@@ -276,7 +334,6 @@ class SandboxedOpenAIAdapter:
                                 "type": "string",
                                 "enum": sorted(OfflineEvaluator.allowed_next_gates),
                             },
-                            **tool_request_property,
                         },
                         "required": sorted(PROMPT_CONTRACTS[bot_id].required_output_fields),
                         "additionalProperties": False,
@@ -297,26 +354,6 @@ class SandboxedOpenAIAdapter:
         valid, failures = OfflineEvaluator().evaluate(bot_id, output)
         if not valid:
             raise ValueError("local model output failed contract: " + "; ".join(failures))
-        requests = output.get("tool_requests") if isinstance(output, dict) else None
-        if requests:
-            if tool_broker is None:
-                raise PermissionError("model requested tools without a broker")
-            results = tool_broker.execute(
-                bot_id=bot_id,
-                requests=[ToolRequest(item["name"], item["arguments"]) for item in requests],
-            )
-            evidence_prompt = (
-                prompt + "\n\nVerified read-only tool results:\n"
-                + json.dumps(
-                    [{"name": result.name, "output": result.output} for result in results],
-                    sort_keys=True, separators=(",", ":"), allow_nan=False,
-                )
-                + "\nUse only this evidence. Return the final contract without tool_requests."
-            )
-            if len(evidence_prompt) > self.max_prompt_chars:
-                raise ValueError("tool evidence exceeds the local runtime prompt limit")
-            return self.invoke(
-                bot_id=bot_id, model=model, prompt=evidence_prompt, tool_broker=None)
         if isinstance(output, dict):
             output.pop("tool_requests", None)
         return output
