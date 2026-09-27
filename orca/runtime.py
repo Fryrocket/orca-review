@@ -282,6 +282,7 @@ class SandboxedOpenAIAdapter:
                     "tools": [],
                 }
                 requests = None
+                planning_unavailable = False
                 for attempt in range(2):
                     request_payload = plan_payload
                     if attempt:
@@ -307,18 +308,15 @@ class SandboxedOpenAIAdapter:
                         plan_content = raw_plan["choices"][0]["message"]["content"]
                     except (KeyError, IndexError, TypeError) as exc:
                         if attempt:
-                            raise ValueError(
-                                "local model returned an invalid tool-plan envelope after "
-                                "one automatic retry"
-                            ) from exc
+                            planning_unavailable = True
+                            break
                         continue
                     try:
                         plan = _decode_contract_output(plan_content)
                     except ValueError as exc:
                         if attempt:
-                            raise ValueError(
-                                "local model tool plan is not valid JSON after one automatic retry"
-                            ) from exc
+                            planning_unavailable = True
+                            break
                         continue
                     candidate = plan.get("tool_requests") if isinstance(plan, dict) else None
                     if (isinstance(candidate, list) and len(candidate) <= 4
@@ -332,11 +330,16 @@ class SandboxedOpenAIAdapter:
                         requests = candidate
                         break
                     if attempt:
-                        raise ValueError(
-                            "local model returned an invalid tool plan after one automatic retry"
-                        )
+                        planning_unavailable = True
+                        break
                 if requests is None:
-                    raise ValueError("local model returned an invalid tool plan")
+                    requests = []
+                if planning_unavailable:
+                    prompt += (
+                        "\n\nNo tool evidence is available because the read-only tool plan "
+                        "could not be validated. Do not claim that any read, search, fetch, "
+                        "or inspection occurred; state this limitation when it matters."
+                    )
                 if requests:
                     results = tool_broker.execute(
                         bot_id=bot_id,
