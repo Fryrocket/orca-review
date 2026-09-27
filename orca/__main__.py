@@ -1,5 +1,7 @@
 import argparse
 import os
+from pathlib import Path
+from .chat_memory import ChatMemory
 
 from .evidence import EvidenceStore
 from .control_plane import ControlPlane
@@ -67,6 +69,7 @@ def main() -> None:
           operator_token=os.environ.get("ORCA_OPERATOR_TOKEN"),
           identity_tokens=identity_authenticator, runtime_gateway=runtime_gateway,
           inventory_provider=inventory_provider,
+          chat_memory=ChatMemory(Path(args.database).with_name("orca-chat-memory.db")),
           trusted_network_no_auth=args.trusted_network_no_auth)
 
 

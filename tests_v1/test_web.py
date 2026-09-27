@@ -316,6 +316,37 @@ def test_auto_chat_is_authenticated_and_preserves_history():
         server.server_close()
 
 
+def test_memory_endpoint_is_authenticated_and_retrieved_in_chat(tmp_path):
+    from orca.chat_memory import ChatMemory
+    memory = ChatMemory(tmp_path / 'memory.db')
+    class Gateway:
+        def chat(self, **payload):
+            assert any('Cedar' in m['content'] for m in payload['history'])
+            return {'mode': 'reason', 'result': {'summary': 'Cedar'}}
+    token = 't' * 32
+    server = OrcaHTTPServer(('127.0.0.1', 0), ControlPlane(), operator_token=token,
+                           runtime_gateway=Gateway(), chat_memory=memory)
+    Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        base = f'http://127.0.0.1:{server.server_port}'
+        body = json.dumps({'request_id': 'request-one', 'messages': [
+            {'role': 'user', 'content': 'My telescope project is Cedar.'}]}).encode()
+        headers = {'Content-Type': 'application/json'}
+        with pytest.raises(HTTPError) as denied:
+            urlopen(Request(base + '/api/memory', data=body, headers=headers))
+        assert denied.value.code == 401
+        headers['X-ORCA-Operator-Token'] = token
+        with urlopen(Request(base + '/api/memory', data=body, headers=headers)) as response:
+            assert json.load(response)['capacity'] == 300000
+        with urlopen(Request(base + '/api/chat', data=json.dumps({
+                'prompt': 'What is the telescope project?', 'history': []}).encode(), headers=headers)) as response:
+            assert json.load(response)['result']['summary'] == 'Cedar'
+    finally:
+        server.shutdown()
+        server.server_close()
+        memory.close()
+
+
 def test_signed_heartbeat_endpoint_authenticates_without_operator_token():
     control = ControlPlane()
     key = b"kiln-live-heartbeat-key-material-000001"

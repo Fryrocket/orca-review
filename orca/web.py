@@ -54,7 +54,7 @@ class OrcaHTTPServer(ThreadingHTTPServer):
                  identity_tokens: Mapping[str, str] | IdentityTokenAuthenticator | None = None,
                  runtime_gateway: ModelRuntimeGateway | None = None,
                  inventory_provider: InventoryProvider | None = None,
-                 trusted_network_no_auth: bool = False):
+                 trusted_network_no_auth: bool = False, chat_memory=None):
         if not _is_loopback_bind(address[0]):
             raise ValueError(
                 "non-loopback ORCA binding is disabled pending reviewed transport security")
@@ -70,6 +70,7 @@ class OrcaHTTPServer(ThreadingHTTPServer):
             identity_tokens, IdentityTokenAuthenticator
         ) else IdentityTokenAuthenticator(identity_tokens) if identity_tokens is not None else None
         self.runtime_gateway = runtime_gateway
+        self.chat_memory = chat_memory
         self.inventory_provider = inventory_provider
         self.trusted_network_no_auth = trusted_network_no_auth
         self.allowed_hosts = frozenset({address[0], "127.0.0.1", "localhost", "::1"})
@@ -376,7 +377,7 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     "nonce": heartbeat.nonce,
                     "status": "accepted",
                 }, HTTPStatus.OK)
-            if path in {"/api/inference", "/api/chat"}:
+            if path in {"/api/inference", "/api/chat", "/api/memory"}:
                 try:
                     authenticated_identity = self._authenticate_mutation()
                 except IdentityAuthenticationError as exc:
@@ -389,9 +390,17 @@ class OrcaHandler(BaseHTTPRequestHandler):
                 if authenticated_identity != "fry":
                     raise IdentityAuthorizationError(
                         "only Fry may initiate local model inference")
+                data = self._body()
+                if path == "/api/memory":
+                    if self.server.chat_memory is None:
+                        raise PermissionError("conversation archive is unavailable")
+                    if set(data) != {"request_id", "messages"}:
+                        raise ValueError("invalid memory request schema")
+                    return self._json(self.server.chat_memory.append(data["request_id"], data["messages"]))
                 if self.server.runtime_gateway is None:
                     raise PermissionError("model invocation is disabled")
-                data = self._body()
+                if self.server.chat_memory is not None and "prompt" in data:
+                    data["history"] = self.server.chat_memory.context(data["prompt"], data.get("history", []))
                 if path == "/api/chat":
                     if not {"prompt"} <= set(data) or set(data) - {"prompt", "history"}:
                         raise ValueError("chat request has an invalid schema")
@@ -455,12 +464,13 @@ def serve(control_plane: ControlPlane | None = None, *, host: str = "127.0.0.1",
           identity_tokens: Mapping[str, str] | IdentityTokenAuthenticator | None = None,
           runtime_gateway: ModelRuntimeGateway | None = None,
           inventory_provider: InventoryProvider | None = None,
-          trusted_network_no_auth: bool = False) -> None:
+          trusted_network_no_auth: bool = False, chat_memory=None) -> None:
     server = OrcaHTTPServer(
         (host, port), control_plane or ControlPlane(), operator_token,
         identity_tokens=identity_tokens, runtime_gateway=runtime_gateway,
         inventory_provider=inventory_provider,
         trusted_network_no_auth=trusted_network_no_auth,
+        chat_memory=chat_memory,
     )
     print(f"ORCA operator console: http://{host}:{server.server_port}")
     server.serve_forever()

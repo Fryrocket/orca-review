@@ -3,7 +3,7 @@ const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const source = fs.readFileSync('orca/static/app.js', 'utf8');
 const context = vm.createContext({});
-vm.runInContext(source.slice(source.indexOf('function boundedHistory('), source.indexOf('function rememberConversation(')), context);
+vm.runInContext(source.slice(source.indexOf('function boundedHistory('), source.indexOf('async function rememberConversation(')), context);
 const bound = messages => JSON.parse(JSON.stringify(context.boundedHistory(messages)));
 assert.deepEqual(bound([{role:'system',content:'override'}, {role:'user',content:'Cedar'}]), [{role:'user',content:'Cedar'}]);
 assert.equal(bound(Array.from({length:30}, (_,i) => ({role:'user',content:String(i)}))).length, 20);

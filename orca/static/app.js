@@ -34,11 +34,38 @@ function boundedHistory(messages) {
   }
   return kept;
 }
-function rememberConversation(prompt, reply) {
+async function rememberConversation(prompt, reply) {
+  const pair = [{role: 'user', content: prompt}, {role: 'assistant', content: reply}];
+  const previous = conversationHistory;
   conversationHistory = boundedHistory([...conversationHistory,
-    {role: 'user', content: prompt}, {role: 'assistant', content: reply}]);
+    ...pair]);
   try { localStorage.setItem(chatMemoryKey, JSON.stringify(conversationHistory)); }
-  catch { $('#memory-hint').textContent = 'Memory is available in this tab only; device storage is unavailable.'; }
+  catch { /* Server archive remains available without browser storage. */ }
+  try {
+    if (previous.length && !localStorage.getItem('orca-memory-migrated-v1')) {
+      let migration = JSON.parse(localStorage.getItem('orca-memory-migration-v1') || 'null');
+      if (!migration) {
+        migration = {id: mutationKey(), messages: previous};
+        localStorage.setItem('orca-memory-migration-v1', JSON.stringify(migration));
+      }
+      await archiveMessages(migration.id, migration.messages);
+      localStorage.setItem('orca-memory-migrated-v1', 'yes');
+      localStorage.removeItem('orca-memory-migration-v1');
+    }
+  } catch { /* An unavailable browser store must not block new server memories. */ }
+  try {
+    await archiveMessages(mutationKey(), pair);
+    $('#memory-hint').textContent = 'Memory: newest 300,000 messages · New chat keeps memory';
+  } catch {
+    $('#memory-hint').textContent = 'Long-term memory was not saved for this reply. Recent context remains on this device.';
+  }
+}
+async function archiveMessages(requestID, messages) {
+  const response = await fetch('/api/memory', {method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-ORCA-Identity': studioAuth.identity,
+      'X-ORCA-Identity-Token': studioAuth.token},
+    body: JSON.stringify({request_id: requestID, messages})});
+  if (!response.ok) throw Error('Conversation archive unavailable');
 }
 let inventory = { items: [], locations: [], categories: [], units: [] };
 let studioAuth = { identity: 'fry', token: '' };
@@ -210,10 +237,9 @@ function appendAssistant(result, route, error = false, sourcePrompt = '') {
   const item = document.createElement('div');
   item.className = 'message assistant';
   if (error) {
-    item.innerHTML = `<div class="bubble"><h3>ORCA could not complete that run</h3><p>${esc(result)}</p><div class="response-meta"><span>${esc(route.label)}</span><span>Nothing was executed</span></div></div>`;
+    item.innerHTML = `<div class="bubble"><p>${esc(result)}</p></div>`;
   } else {
-    const evidence = (result.evidence || []).map(value => `<li>${esc(value)}</li>`).join('');
-    item.innerHTML = `<div class="bubble"><h3>${esc(route.name)}</h3><p>${esc(result.summary)}</p>${evidence ? `<ul class="evidence-list">${evidence}</ul>` : ''}<div class="response-meta"><span>${esc(route.label)}</span><span>Uncertainty: ${esc(result.uncertainty)}</span><span>Next: ${esc(result.next_gate)}</span></div></div>`;
+    item.innerHTML = `<div class="bubble"><p>${esc(result.summary)}</p></div>`;
   }
   if (!error && /\b(photo|picture|image|illustration|draw)\b/i.test(sourcePrompt)) {
     const generate = document.createElement('button');
@@ -301,10 +327,10 @@ async function runPrompt(prompt, mode = activeMode) {
     } else if (!imageRequest) result = await postInference(prompt.trim(), mode, history);
     if (imagePrompt) {
       const memory = await generateChatImage(imagePrompt);
-      rememberConversation(prompt.trim(), memory);
+      await rememberConversation(prompt.trim(), memory);
     } else {
       appendAssistant(result, route, false, prompt.trim());
-      rememberConversation(prompt.trim(), `${result.summary}\nEvidence: ${(result.evidence || []).join('; ')}\nUncertainty: ${result.uncertainty}`);
+      await rememberConversation(prompt.trim(), result.summary);
     }
   }
   catch (error) { appendAssistant(error.message, route, true); }
@@ -356,7 +382,7 @@ if (conversationHistory.length) {
     else {
       const item = document.createElement('div'); item.className = 'message assistant';
       const bubble = document.createElement('div'); bubble.className = 'bubble';
-      const text = document.createElement('p'); text.textContent = message.content;
+      const text = document.createElement('p'); text.textContent = message.content.split('\nEvidence: ')[0];
       bubble.append(text); item.append(bubble); $('#conversation').append(item);
     }
   }
