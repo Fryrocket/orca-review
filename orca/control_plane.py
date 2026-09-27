@@ -1201,10 +1201,26 @@ class ControlPlane:
     @read_synchronized
     def snapshot(self) -> dict:
         self._assert_fresh()
+        ai_stack = ladder_snapshot(self.node_health)
+        enabled_services = {
+            service_id for service_id, service in ai_stack["services"].items()
+            if service["runtime_enabled"]
+        }
+        runtime_services_by_bot = {
+            "orca": {"forge_deepseek"},
+            "smith": {"forge_deepseek", "forge_smith"},
+            "quench": {"kiln_quench"},
+            "security_gate": {"kiln_quench"},
+        }
+        bots = self.bots.snapshot()
+        for bot in bots:
+            bot["runtime_enabled"] = bool(
+                runtime_services_by_bot.get(bot["id"], set()) & enabled_services
+            )
         return {
             "agents": [asdict(x) for x in AGENTS.values()],
             "role_catalog": role_snapshot(),
-            "bots": self.bots.snapshot(),
+            "bots": bots,
             "migration_candidates": MIGRATION_CANDIDATES,
             "bot_build_queue": BOT_BUILD_QUEUE,
             "prompt_contracts": {key: asdict(value) for key, value in PROMPT_CONTRACTS.items()},
@@ -1213,7 +1229,7 @@ class ControlPlane:
             "connector_capabilities": self.connector_gateway.snapshot(),
             "nodes": [self._node_dict(node_id) for node_id in NODES],
             "placement": placement_snapshot(self.node_health),
-            "ai_stack": ladder_snapshot(self.node_health),
+            "ai_stack": ai_stack,
             "jobs": [self._job_dict(x) for x in self.jobs.values()],
             "approvals": [asdict(x) for x in self.approvals.values()],
             "incidents": [{**asdict(x), "status": x.status.value} for x in self.incidents.values()],

@@ -122,6 +122,8 @@ def test_runtime_activation_is_explicit_and_crucible_evidence_gated(
     assert stack["services"]["forge_deepseek"]["runtime_enabled"] is True
     assert stack["services"]["forge_smith"]["runtime_enabled"] is True
     assert stack["services"]["kiln_quench"]["runtime_enabled"] is True
+    bots = {row["id"]: row for row in ControlPlane().snapshot()["bots"]}
+    assert all(bot["runtime_enabled"] for bot in bots.values())
 
     path.write_text("{}")
     stack = ladder_snapshot()
