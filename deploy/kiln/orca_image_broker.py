@@ -89,6 +89,8 @@ def comfy_json(method: str, path: str, body: object | None = None, timeout: int 
         data = response.read()
         if response.status >= 400:
             raise RuntimeError(f"ComfyUI returned HTTP {response.status}")
+        if not data and path == "/free":
+            return {}
         return json.loads(data)
     finally:
         connection.close()

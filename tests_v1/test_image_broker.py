@@ -47,3 +47,19 @@ def test_crucible_failure_releases_models_without_changing_services(monkeypatch)
     with pytest.raises(RuntimeError, match="test generation failure"):
         broker.generate_image(broker.validate_request({"prompt": "test"}))
     assert calls[-1] == ("POST", "/free", {"unload_models": True, "free_memory": True})
+
+
+def test_comfy_free_accepts_empty_success_body(monkeypatch):
+    class Response:
+        status = 200
+        def read(self):
+            return b""
+    class Connection:
+        def __init__(self, *args, **kwargs): pass
+        def request(self, *args, **kwargs): pass
+        def getresponse(self): return Response()
+        def close(self): pass
+    monkeypatch.setattr(broker, "HTTPConnection", Connection)
+    assert broker.comfy_json("POST", "/free", {"free_memory": True}) == {}
+    with pytest.raises(ValueError):
+        broker.comfy_json("GET", "/history/example")
