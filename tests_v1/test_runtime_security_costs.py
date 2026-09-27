@@ -330,6 +330,29 @@ def test_openai_adapter_runs_one_bounded_tool_round_then_returns_final(tmp_path)
     assert "verified fact" in calls[1]["messages"][1]["content"]
 
 
+def test_openai_adapter_retries_one_invalid_json_response():
+    final = {
+        "summary": "Recovered as strict JSON",
+        "evidence": ["automatic retry returned the required object"],
+        "uncertainty": "none",
+        "next_gate": "none",
+    }
+    responses = iter(("I cannot provide JSON.", __import__("json").dumps(final)))
+    calls = []
+    adapter = SandboxedOpenAIAdapter(
+        endpoint="http://127.0.0.1:11434/v1/chat/completions",
+        allowed_models=("ORCA",),
+        transport=lambda url, payload, timeout: calls.append(payload) or {
+            "choices": [{"message": {"content": next(responses)}}]
+        },
+    )
+
+    assert adapter.invoke(bot_id="orca", model="ORCA", prompt="Return JSON") == final
+    assert len(calls) == 2
+    assert calls[0]["temperature"] == 0
+    assert "previous response could not be parsed" in calls[1]["messages"][0]["content"]
+
+
 def test_public_web_search_is_bounded_and_parsed_without_browser_authority():
     html = b'<a class="result-link" href="https://example.com/a">Example result</a>'
     web = PublicWebReadTools(

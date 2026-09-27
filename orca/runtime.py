@@ -105,6 +105,19 @@ def _decode_contract_output(content: str) -> object:
         raise ValueError("local model response is not valid JSON") from exc
 
 
+def _validated_contract_output(bot_id: str, content: object) -> dict:
+    if not isinstance(content, str) or len(content) > OfflineEvaluator.max_output_chars:
+        raise ValueError("local model response is missing or exceeds the size limit")
+    output = _decode_contract_output(content)
+    valid, failures = OfflineEvaluator().evaluate(bot_id, output)
+    if not valid:
+        raise ValueError("local model output failed contract: " + "; ".join(failures))
+    if not isinstance(output, dict):
+        raise ValueError("local model output must be a JSON object")
+    output.pop("tool_requests", None)
+    return output
+
+
 class DisabledRuntime:
     """Fail-closed placeholder until a reviewed local adapter is configured."""
 
@@ -341,22 +354,46 @@ class SandboxedOpenAIAdapter:
                 },
             },
             "max_tokens": self.max_output_tokens,
+            "temperature": 0,
             "tools": [],
         }
-        raw = self.transport(self.endpoint, payload, self.timeout_seconds)
-        try:
-            content = raw["choices"][0]["message"]["content"]
-        except (KeyError, IndexError, TypeError) as exc:
-            raise ValueError("local model returned an invalid OpenAI-compatible envelope") from exc
-        if not isinstance(content, str) or len(content) > OfflineEvaluator.max_output_chars:
-            raise ValueError("local model response is missing or exceeds the size limit")
-        output = _decode_contract_output(content)
-        valid, failures = OfflineEvaluator().evaluate(bot_id, output)
-        if not valid:
-            raise ValueError("local model output failed contract: " + "; ".join(failures))
-        if isinstance(output, dict):
-            output.pop("tool_requests", None)
-        return output
+        first_error = None
+        for attempt in range(2):
+            request_payload = payload
+            if attempt:
+                request_payload = {**payload, "messages": [
+                    {
+                        "role": "system",
+                        "content": (
+                            contract.system
+                            + " Your previous response could not be parsed. Return only one "
+                              "compact JSON object—no prose, markdown, code fences, comments, "
+                              "or trailing commas—with exactly summary (string), evidence "
+                              "(non-empty array of strings), uncertainty (string), and "
+                              "next_gate (allowed enum value)."
+                        ),
+                    },
+                    {"role": "user", "content": prompt},
+                ]}
+            raw = self.transport(self.endpoint, request_payload, self.timeout_seconds)
+            try:
+                content = raw["choices"][0]["message"]["content"]
+            except (KeyError, IndexError, TypeError) as exc:
+                error = ValueError("local model returned an invalid OpenAI-compatible envelope")
+                if attempt:
+                    raise error from exc
+                first_error = error
+                continue
+            try:
+                return _validated_contract_output(bot_id, content)
+            except ValueError as exc:
+                if attempt:
+                    raise ValueError(
+                        "local model response is not valid JSON or failed the contract "
+                        "after one automatic retry"
+                    ) from exc
+                first_error = exc
+        raise first_error or ValueError("local model failed the JSON contract")
 
 
 def bounded_json_transport(endpoint: str, payload: dict, timeout_seconds: int) -> dict:
