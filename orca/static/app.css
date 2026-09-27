@@ -200,7 +200,14 @@ kbd { opacity: .65; font: 9px ui-monospace, monospace; }
 .canvas-tools .primary-action { background: var(--mint); border-color: var(--mint); }
 .canvas-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 14px; }
 .drawing-board { position: relative; border: 1px solid var(--line); background: #050b09; border-radius: 16px; overflow: hidden; min-height: 590px; display: grid; place-items: center; }
-#drawing-canvas { display: block; width: 100%; height: min(66vh, 760px); cursor: crosshair; touch-action: none; background-image: linear-gradient(#0c1815 1px, transparent 1px), linear-gradient(90deg, #0c1815 1px, transparent 1px); background-size: 24px 24px; }
+#drawing-canvas { display: block; width: 100%; height: auto; cursor: crosshair; touch-action: none; background-image: linear-gradient(#0c1815 1px, transparent 1px), linear-gradient(90deg, #0c1815 1px, transparent 1px); background-size: 24px 24px; }
+.drawing-board { min-height: 0; align-self: start; }
+#mask-canvas { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .5; cursor: crosshair; touch-action: none; }
+#mask-canvas[hidden] { display: none; }
+.canvas-tools { flex-wrap: wrap; }
+.canvas-tools input[type=file] { max-width: 210px; }
+.canvas-tools select { color-scheme: dark; background: #10251e; color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+.visual-brief label small { display: block; color: var(--muted); font-size: 11px; }
 #generated-image { display: block; position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #050b09; }
 #generated-image[hidden] { display: none; }
 .visual-brief { border: 1px solid var(--line); background: var(--panel); border-radius: 16px; padding: 17px; }

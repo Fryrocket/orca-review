@@ -516,44 +516,136 @@ $('#refresh-inventory').addEventListener('click', () => loadInventory(true));
 
 const canvas = $('#drawing-canvas');
 const context = canvas.getContext('2d');
-context.lineCap = 'round'; context.lineJoin = 'round';
-let drawing = false;
-function canvasPoint(event) { const rect = canvas.getBoundingClientRect(); return { x: (event.clientX - rect.left) * canvas.width / rect.width, y: (event.clientY - rect.top) * canvas.height / rect.height }; }
-canvas.addEventListener('pointerdown', event => { drawing = true; canvas.setPointerCapture(event.pointerId); const point = canvasPoint(event); context.beginPath(); context.moveTo(point.x, point.y); });
-canvas.addEventListener('pointermove', event => { if (!drawing) return; const point = canvasPoint(event); context.strokeStyle = $('#brush-color').value; context.lineWidth = Number($('#brush-size').value) * canvas.width / canvas.clientWidth; context.lineTo(point.x, point.y); context.stroke(); });
-canvas.addEventListener('pointerup', () => { drawing = false; });
-canvas.addEventListener('pointercancel', () => { drawing = false; });
-$('#clear-canvas').addEventListener('click', () => context.clearRect(0, 0, canvas.width, canvas.height));
-$('#save-canvas').addEventListener('click', () => { const link = document.createElement('a'); link.download = `ORCA-canvas-${new Date().toISOString().slice(0, 10)}.png`; link.href = canvas.toDataURL('image/png'); link.click(); });
-let generatedImageURL = '';
-$('#generate-image').addEventListener('click', async () => {
-  const prompt = $('#visual-prompt').value.trim(), target = $('#visual-result'), button = $('#generate-image');
-  if (!prompt) { target.textContent = 'Describe the image you want first.'; return; }
-  const [width, height] = $('#image-size').value.split('x').map(Number);
-  button.disabled = true;
-  button.textContent = 'Generating on CRUCIBLE…';
-  target.textContent = 'CRUCIBLE is rendering your image. This can take a few minutes.';
+const maskCanvas = $('#mask-canvas'), maskContext = maskCanvas.getContext('2d');
+let canvasBusy = false, canvasHasImage = false, maskPainted = false;
+const canvasUndo = [];
+let canvasDescription = '';
+function setCanvasBusy(busy) {
+  canvasBusy = busy;
+  $$('#canvas button,#canvas input,#canvas select,#canvas textarea').forEach(control => { control.disabled = busy; });
+  $('#undo-canvas').disabled = busy || !canvasUndo.length;
+}
+function clearSelection() {
+  maskContext.clearRect(0, 0, maskCanvas.width, maskCanvas.height); maskPainted = false;
+}
+function snapshotCanvas() {
+  if (!canvasHasImage) return;
+  canvasUndo.push({image: canvas.toDataURL('image/png'), description: canvasDescription});
+  if (canvasUndo.length > 5) canvasUndo.shift();
+}
+function decodeCanvasImage(source) {
+  return new Promise((resolve, reject) => {
+    const image = new Image(); image.onload = () => resolve(image);
+    image.onerror = () => reject(Error('Could not open that image. Use PNG, JPEG or WebP.'));
+    image.src = source;
+  });
+}
+async function showCanvasImage(source, saveUndo = true) {
+  const image = await decodeCanvasImage(source);
+  if (image.naturalWidth * image.naturalHeight > 40_000_000) throw Error('Image is too large; resize it below 40 megapixels first.');
+  const scale = Math.min(1, 768 / Math.max(image.naturalWidth, image.naturalHeight));
+  const width = Math.max(64, Math.round(image.naturalWidth * scale / 8) * 8);
+  const height = Math.max(64, Math.round(image.naturalHeight * scale / 8) * 8);
+  if (saveUndo) snapshotCanvas();
+  canvas.width = maskCanvas.width = width; canvas.height = maskCanvas.height = height;
+  context.fillStyle = '#ffffff'; context.fillRect(0, 0, width, height);
+  context.drawImage(image, 0, 0, width, height);
+  canvasHasImage = true; clearSelection();
+  $('#undo-canvas').disabled = !canvasUndo.length;
+}
+for (const surface of [canvas, maskCanvas]) {
+  let drawing = false;
+  const ctx = surface.getContext('2d');
+  const point = event => { const rect = surface.getBoundingClientRect(); return {
+    x: (event.clientX - rect.left) * surface.width / rect.width,
+    y: (event.clientY - rect.top) * surface.height / rect.height}; };
+  surface.addEventListener('pointerdown', event => {
+    if (canvasBusy) return;
+    if (surface === maskCanvas && !canvasHasImage) { $('#visual-result').textContent = 'Upload or generate an image first.'; return; }
+    if (surface === canvas) { snapshotCanvas(); canvasHasImage = true; }
+    drawing = true; surface.setPointerCapture(event.pointerId);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = surface === maskCanvas ? '#ffffff' : $('#brush-color').value;
+    ctx.lineWidth = Number($('#brush-size').value) * surface.width / surface.clientWidth;
+    const p = point(event); ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + .01, p.y); ctx.stroke();
+    if (surface === maskCanvas) maskPainted = true;
+  });
+  surface.addEventListener('pointermove', event => {
+    if (!drawing || canvasBusy) return;
+    const p = point(event); ctx.lineTo(p.x, p.y); ctx.stroke();
+  });
+  for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) surface.addEventListener(name, () => {
+    drawing = false; $('#undo-canvas').disabled = canvasBusy || !canvasUndo.length;
+  });
+}
+$('#canvas-tool').addEventListener('change', () => { maskCanvas.hidden = $('#canvas-tool').value !== 'mask'; });
+$('#clear-mask').addEventListener('click', clearSelection);
+$('#canvas-upload').addEventListener('change', async event => {
+  const file = event.target.files[0]; if (!file || canvasBusy) return;
+  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 20_000_000) {
+    $('#visual-result').textContent = 'Choose a PNG, JPEG or WebP file under 20 MB.'; event.target.value = ''; return;
+  }
+  setCanvasBusy(true); const url = URL.createObjectURL(file);
   try {
-    const response = await fetch('/api/images/generate', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({prompt, width, height, steps: 20})
-    });
-    if (!response.ok) { let detail; try { detail = (await response.json()).error; } catch {} throw Error(detail || `Image generation failed (${response.status})`); }
-    const blob = await response.blob();
-    if (generatedImageURL) URL.revokeObjectURL(generatedImageURL);
-    generatedImageURL = URL.createObjectURL(blob);
-    const image = $('#generated-image');
-    image.src = generatedImageURL; image.hidden = false;
-    target.textContent = `Generated on CRUCIBLE · seed ${response.headers.get('X-ORCA-Image-Seed') || 'recorded by broker'}.`;
-  } catch (error) { target.textContent = error.message; }
-  finally { button.disabled = false; button.textContent = 'Generate on CRUCIBLE'; }
+    await showCanvasImage(url); canvasDescription = '';
+    $('#visual-result').textContent = `Ready to edit locally · ${canvas.width} × ${canvas.height}. Describe the result you want.`;
+  } catch (error) { $('#visual-result').textContent = error.message; }
+  finally { URL.revokeObjectURL(url); event.target.value = ''; setCanvasBusy(false); }
 });
+$('#undo-canvas').addEventListener('click', async () => {
+  if (canvasBusy || !canvasUndo.length) return;
+  setCanvasBusy(true); const previous = canvasUndo[canvasUndo.length - 1];
+  try { await showCanvasImage(previous.image, false); canvasDescription = previous.description; canvasUndo.pop(); $('#visual-result').textContent = 'Previous image restored.'; }
+  catch (error) { $('#visual-result').textContent = error.message; }
+  finally { setCanvasBusy(false); }
+});
+$('#clear-canvas').addEventListener('click', () => {
+  snapshotCanvas(); context.clearRect(0, 0, canvas.width, canvas.height); clearSelection(); canvasHasImage = false;
+  canvasDescription = ''; setCanvasBusy(false);
+});
+$('#save-canvas').addEventListener('click', () => { const link = document.createElement('a'); link.download = `ORCA-canvas-${new Date().toISOString().slice(0, 10)}.png`; link.href = canvas.toDataURL('image/png'); link.click(); });
+async function runCanvasImage(edit = false, selection = false) {
+  if (canvasBusy) return;
+  const prompt = $('#visual-prompt').value.trim(), target = $('#visual-result');
+  if (!prompt) { target.textContent = 'Describe the image you want first.'; return; }
+  if (edit && !canvasHasImage) { target.textContent = 'Upload, draw or generate an image first.'; return; }
+  if (selection && !maskPainted) { target.textContent = 'Choose Select area to edit, then brush over the part you want changed.'; return; }
+  const [width, height] = $('#image-size').value.split('x').map(Number);
+  const payload = edit ? {prompt, strength: Number($('#edit-strength').value) / 100, steps: 20,
+    image: canvas.toDataURL('image/png').split(',')[1]} : {prompt, width, height, steps: 20};
+  if (selection) {
+    const mask = document.createElement('canvas'); mask.width = canvas.width; mask.height = canvas.height;
+    const ctx = mask.getContext('2d'); ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, mask.width, mask.height);
+    ctx.drawImage(maskCanvas, 0, 0); payload.mask = mask.toDataURL('image/png').split(',')[1];
+  }
+  setCanvasBusy(true);
+  target.textContent = `${edit ? 'Editing' : 'Generating'} locally on CRUCIBLE… This can take a few minutes.`;
+  try {
+    const response = await fetch(edit ? '/api/images/edit' : '/api/images/generate', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) { let detail; try { detail = (await response.json()).error; } catch {} throw Error(detail || `Image request failed (${response.status})`); }
+    const url = URL.createObjectURL(await response.blob());
+    try { await showCanvasImage(url); } finally { URL.revokeObjectURL(url); }
+    canvasDescription = prompt;
+    target.textContent = selection ? 'Selected area edited. The rest is preserved.' : edit ? 'Edited locally. Undo is available.' : 'Generated locally. Ready to edit or export.';
+  } catch (error) { target.textContent = error.message; }
+  finally { setCanvasBusy(false); }
+}
+$('#generate-image').addEventListener('click', () => runCanvasImage());
+$('#edit-image').addEventListener('click', () => runCanvasImage(true));
+$('#edit-selection').addEventListener('click', () => runCanvasImage(true, true));
 $('#develop-visual').addEventListener('click', async () => {
   const prompt = $('#visual-prompt').value.trim(), target = $('#visual-result');
-  if (!prompt) return;
-  target.textContent = 'Developing visual direction…';
-  try { const result = await postInference(`Develop a practical visual concept for: ${prompt}. Describe composition, hierarchy, materials or style, and the next production step.`, 'visual'); target.textContent = `${result.summary}\n\nEvidence\n• ${result.evidence.join('\n• ')}\n\nUncertainty: ${result.uncertainty}`; }
+  if (!prompt || canvasBusy) return;
+  setCanvasBusy(true); target.textContent = 'Improving the prompt with ORCA…';
+  try {
+    const result = await postInference(`Write a standalone SDXL image prompt under 1500 characters in summary. Only the prompt, no explanations. Describe the desired visible result, lighting and composition. Current image description (text only, no pixels): ${canvasDescription || 'unknown; do not invent unseen details'}. User direction: ${prompt}`, 'visual');
+    $('#visual-prompt').value = result.summary.slice(0, 1500); target.textContent = 'Prompt improved. Review it, then generate or edit.';
+  }
   catch (error) { target.textContent = error.message; }
+  finally { setCanvasBusy(false); }
 });
 
 $('#calculate-ohm').addEventListener('click', () => {

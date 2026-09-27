@@ -29,7 +29,8 @@ class Gateway(BaseHTTPRequestHandler):
         except ValueError:
             self.send_error(400, "invalid content length")
             return
-        if length < 0 or length > 1_000_000:
+        limit = 8_000_000 if self.path == "/api/images/edit" else 1_000_000
+        if length < 0 or length > limit:
             self.send_error(413, "request body too large")
             return
         body = self.rfile.read(length) if length else None
@@ -37,11 +38,12 @@ class Gateway(BaseHTTPRequestHandler):
             name: value for name, value in self.headers.items()
             if name.lower() not in HOP_BY_HOP | {"host", "content-length"}
         }
-        is_image_request = self.path in {"/api/images/generate", "/api/images/health"}
+        is_image_request = self.path in {"/api/images/generate", "/api/images/edit", "/api/images/health"}
         upstream_host = self.image_host if is_image_request else self.upstream_host
         upstream_port = self.image_port if is_image_request else self.upstream_port
         upstream_path = ({
             "/api/images/generate": "/generate",
+            "/api/images/edit": "/edit",
             "/api/images/health": "/health",
         }.get(self.path, self.path))
         headers["Host"] = f"{upstream_host}:{upstream_port}"

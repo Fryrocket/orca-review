@@ -1,4 +1,7 @@
 import importlib.util
+import base64
+import struct
+import zlib
 from pathlib import Path
 
 import pytest
@@ -8,6 +11,52 @@ MODULE_PATH = Path(__file__).parents[1] / "deploy" / "kiln" / "orca_image_broker
 SPEC = importlib.util.spec_from_file_location("orca_image_broker", MODULE_PATH)
 broker = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(broker)
+
+
+def png(width=64, height=64, color=(70, 100, 120)):
+    def chunk(kind, data):
+        return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data) & 0xffffffff)
+    return (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 2, 0, 0, 0))
+            + chunk(b'IDAT', zlib.compress((b'\x00' + bytes(color) * width) * height)) + chunk(b'IEND', b''))
+
+
+def test_edit_workflows_use_real_source_pixels_and_preserve_unmasked_regions():
+    source = base64.b64encode(png()).decode()
+    request = broker.validate_edit_request({'prompt': 'a red cube', 'image': source, 'strength': .5})
+    workflow = broker.build_workflow(request)
+    assert workflow['4']['class_type'] == 'VAEEncode'
+    assert workflow['5']['inputs']['denoise'] == .5
+    assert workflow['8']['inputs']['image'] == 'orca-edit-source.png [temp]'
+    request = broker.validate_edit_request({'prompt': 'a red cube', 'image': source, 'mask': source})
+    workflow = broker.build_workflow(request)
+    assert workflow['4']['class_type'] == 'VAEEncodeForInpaint'
+    assert workflow['11']['class_type'] == 'ImageCompositeMasked'
+    assert workflow['11']['inputs']['destination'] == ['8', 0]
+    assert workflow['7']['inputs']['images'] == ['11', 0]
+
+
+@pytest.mark.parametrize('extra', [
+    {'strength': float('nan')}, {'strength': True}, {'strength': 0}, {'strength': 1.1},
+    {'image': 'http://example.com/image.png'}, {'image': '../secret'}, {'workflow': {}},
+    {'mask': base64.b64encode(png(128, 64)).decode()},
+    {'image': base64.b64encode(png(1024, 64)).decode()},
+    {'image': base64.b64encode(png()[:-1]).decode()},
+])
+def test_edit_rejects_untrusted_inputs(extra):
+    with pytest.raises(ValueError):
+        broker.validate_edit_request({'prompt': 'test', 'image': base64.b64encode(png()).decode(), **extra})
+
+
+def test_png_rejects_broken_crc_and_trailing_data():
+    for data in [png() + b'extra', png()[:40] + b'wrong' + png()[45:]]:
+        with pytest.raises(ValueError):
+            broker.decode_png(base64.b64encode(data).decode())
+
+
+def test_edit_gateway_routes_only_edit_uploads_with_larger_limit():
+    source = (MODULE_PATH.parents[1] / 'orca_studio_gateway.py').read_text()
+    assert '8_000_000 if self.path == "/api/images/edit" else 1_000_000' in source
+    assert '"/api/images/edit": "/edit"' in source
 
 
 def test_image_request_defaults_are_bounded_and_workflow_is_sdxl():
