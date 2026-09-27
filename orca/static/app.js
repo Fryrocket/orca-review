@@ -193,11 +193,15 @@ async function runPrompt(prompt, mode = activeMode) {
 $('#prompt-form').addEventListener('submit', async event => {
   event.preventDefault();
   const prompt = $('#prompt-input').value;
+  if (inferencePending || !prompt.trim()) return;
   $('#prompt-input').value = '';
   await runPrompt(prompt);
 });
 $('#prompt-input').addEventListener('keydown', event => {
-  if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) $('#prompt-form').requestSubmit();
+  if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.keyCode !== 229) {
+    event.preventDefault();
+    if (!event.repeat && !inferencePending) $('#prompt-form').requestSubmit();
+  }
 });
 $$('[data-starter]').forEach(button => button.addEventListener('click', () => {
   $('#prompt-input').value = button.dataset.starter;

@@ -338,9 +338,10 @@ class OrcaHandler(BaseHTTPRequestHandler):
         if STATIC_ROOT.resolve() not in file.parents or not file.is_file():
             return self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)
         body = file.read_bytes()
-        mime = {".html": "text/html", ".css": "text/css", ".js": "text/javascript"}.get(file.suffix, "application/octet-stream")
+        mime = {".html": "text/html", ".css": "text/css", ".js": "text/javascript",
+                ".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp"}.get(file.suffix, "application/octet-stream")
         self.send_response(200)
-        self.send_header("Content-Type", f"{mime}; charset=utf-8")
+        self.send_header("Content-Type", f"{mime}; charset=utf-8" if mime.startswith("text/") else mime)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self._security_headers()

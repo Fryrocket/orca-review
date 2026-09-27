@@ -8,7 +8,7 @@
   --line: #213c34;
   --line-soft: #172a25;
   --text: #edf7f3;
-  --muted: #8da9a0;
+  --muted: #b0c4bd;
   --mint: #70e7b2;
   --mint-soft: #193c30;
   --amber: #ffbf69;
@@ -22,7 +22,8 @@ html, body { min-height: 100%; }
 body {
   margin: 0;
   background:
-    radial-gradient(circle at 65% -20%, rgb(42 102 78 / .28), transparent 36%),
+    linear-gradient(rgb(3 10 14 / .12), rgb(3 10 14 / .3)),
+    url('/moonlit-forest.png') center center / cover fixed,
     var(--bg);
   color: var(--text);
   font: 14px/1.45 Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -114,7 +115,8 @@ input:focus, textarea:focus, select:focus {
 
 .studio-grid { display: grid; grid-template-columns: minmax(0, 1fr) 285px; gap: 16px; height: calc(100vh - 130px); min-height: 600px; }
 .conversation-panel, .context-card, .panel, .tool-card, .project-card { border: 1px solid var(--line); background: linear-gradient(145deg, rgb(14 29 24 / .96), rgb(9 21 17 / .97)); border-radius: 16px; }
-.conversation-panel { display: flex; min-height: 0; flex-direction: column; overflow: hidden; box-shadow: var(--shadow); }
+.conversation-panel { display: flex; min-height: 0; flex-direction: column; overflow: hidden; box-shadow: var(--shadow); background: rgb(5 17 18 / .62); }
+.context-card { background: rgb(7 20 21 / .82); }
 .conversation-head { min-height: 69px; border-bottom: 1px solid var(--line-soft); padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; }
 .conversation-head h2 { margin: 3px 0 0; font-size: 16px; }
 .route-chip { border: 1px solid #315d4c; background: #10281f; color: var(--mint); font: 700 10px ui-monospace, monospace; border-radius: 999px; padding: 6px 9px; }
@@ -130,7 +132,7 @@ input:focus, textarea:focus, select:focus {
 .message { max-width: 780px; margin: 0 auto 18px; }
 .message.user { display: flex; justify-content: flex-end; }
 .message.user .bubble { max-width: 78%; background: #1a3b30; border: 1px solid #315d4c; padding: 12px 14px; border-radius: 15px 15px 4px 15px; white-space: pre-wrap; }
-.message.assistant .bubble { border-left: 2px solid var(--mint); padding: 3px 0 3px 15px; }
+.message.assistant .bubble { border-left: 2px solid var(--mint); padding: 12px 15px; background: rgb(5 16 18 / .82); border-radius: 0 10px 10px 0; }
 .message.assistant h3 { margin: 0 0 7px; font-size: 15px; }
 .message.assistant p { color: #c5d7d0; white-space: pre-wrap; margin: 0 0 11px; }
 .evidence-list { color: var(--muted); padding-left: 18px; }
@@ -143,6 +145,7 @@ input:focus, textarea:focus, select:focus {
 .composer { border-top: 1px solid var(--line-soft); padding: 13px; background: #091612; }
 .composer textarea { width: 100%; min-height: 68px; max-height: 190px; border: 0; background: transparent; padding: 8px 9px; box-shadow: none; }
 .composer-foot { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+#composer-hint { display: block; margin: 8px 9px 0; color: var(--muted); font-size: 10px; }
 .mode-picker { display: flex; gap: 4px; flex-wrap: wrap; }
 .mode-picker button { border: 0; background: transparent; color: var(--muted); padding: 6px 9px; border-radius: 8px; font-size: 11px; }
 .mode-picker button.active { color: var(--mint); background: var(--mint-soft); }

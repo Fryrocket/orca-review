@@ -101,6 +101,28 @@ def test_state_endpoint_is_readable_and_truthful():
         server.server_close()
 
 
+def test_forest_background_is_served_as_an_image():
+    server = OrcaHTTPServer(("127.0.0.1", 0), ControlPlane())
+    Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        with urlopen(f"http://127.0.0.1:{server.server_port}/moonlit-forest.png") as response:
+            assert response.headers["Content-Type"] == "image/png"
+            assert response.read(8) == b"\x89PNG\r\n\x1a\n"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_chat_keyboard_hints_and_safety_guards():
+    html = (STATIC_ROOT / "index.html").read_text()
+    js = (STATIC_ROOT / "app.js").read_text()
+    assert "Enter to send · Shift+Enter for a new line" in html
+    assert "!event.shiftKey && !event.isComposing && event.keyCode !== 229" in js
+    assert "if (!event.repeat && !inferencePending)" in js
+    submit = js.split("$('#prompt-form').addEventListener('submit'", 1)[1].split("});", 1)[0]
+    assert submit.index("if (inferencePending || !prompt.trim()) return") < submit.index(".value = ''")
+
+
 def test_inventory_endpoint_is_read_only_and_fails_closed():
     class Provider:
         def snapshot(self):
