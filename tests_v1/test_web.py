@@ -123,6 +123,17 @@ def test_chat_keyboard_hints_and_safety_guards():
     assert submit.index("if (inferencePending || !prompt.trim()) return") < submit.index(".value = ''")
 
 
+def test_chat_images_are_local_and_downloadable():
+    html = (STATIC_ROOT / "index.html").read_text()
+    js = (STATIC_ROOT / "app.js").read_text()
+    assert 'data-mode="photo"' in html
+    assert "if (imageRequest) await generateChatImage(prompt)" in js
+    assert "download.download = `ORCA-photo-" in js
+    assert "image.alt = imagePrompt" in js
+    assert "imagePrompt.length > 1500" in js
+    assert "for (const url of chatImageURLs) URL.revokeObjectURL(url)" in js
+
+
 def test_inventory_endpoint_is_read_only_and_fails_closed():
     class Provider:
         def snapshot(self):

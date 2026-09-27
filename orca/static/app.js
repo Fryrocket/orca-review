@@ -32,6 +32,11 @@ let state = {
 };
 
 const routes = {
+  photo: {
+    label: 'Images · CRUCIBLE', name: 'ORCA Image Studio',
+    duty: 'Generate photos and images directly in this conversation. Save any image you want to keep.',
+    node: 'FORGE · SDXL', context: '768 × 768'
+  },
   reason: {
     service_id: 'forge_qwen', bot_id: 'orca', label: 'Qwen 3.5 · CRUCIBLE',
     name: 'ORCA · Qwen 3.5', duty: 'Conversation, explanations, brainstorming and planning on CRUCIBLE.',
@@ -144,6 +149,7 @@ function selectMode(mode) {
   $('#route-node').textContent = route.node;
   $('#route-context').textContent = route.context;
   const service = state.ai_stack?.services?.[route.service_id];
+  $('#route-health').hidden = mode === 'photo';
   $('#route-health').classList.toggle('healthy', service?.runtime_enabled === true);
 }
 $$('[data-mode]').forEach(button => button.addEventListener('click', () => selectMode(button.dataset.mode)));
@@ -156,11 +162,11 @@ function appendUserMessage(prompt) {
   $('#conversation').append(item);
   $('#conversation').scrollTop = $('#conversation').scrollHeight;
 }
-function appendThinking() {
+function appendThinking(label = 'ORCA is working') {
   const item = document.createElement('div');
   item.className = 'message assistant';
   item.id = 'active-thinking';
-  item.innerHTML = `<div class="bubble thinking"><span class="welcome-orb small">O</span><span>ORCA is working</span><span class="thinking-dots"><i></i><i></i><i></i></span></div>`;
+  item.innerHTML = `<div class="bubble thinking"><span class="welcome-orb small">O</span><span>${esc(label)}</span><span class="thinking-dots"><i></i><i></i><i></i></span></div>`;
   $('#conversation').append(item);
   $('#conversation').scrollTop = $('#conversation').scrollHeight;
 }
@@ -178,14 +184,59 @@ function appendAssistant(result, route, error = false) {
   $('#conversation').scrollTop = $('#conversation').scrollHeight;
 }
 
+const chatImageURLs = new Set();
+function wantsChatImage(prompt, mode) {
+  if (mode === 'photo' || /^\/image\s+\S/i.test(prompt.trim())) return true;
+  if (mode !== 'reason') return false;
+  return /^(?:(?:please|can you|could you|would you)\s+)*(?:generate|create|make|render|draw)\s+(?:me\s+)?(?:an?\s+)?(?:(?:realistic|photorealistic|beautiful|cinematic)\s+)*(?:photo|photograph|picture|image|illustration)(?:\s+(?:of|showing|depicting)\b|\s*[:.!?]|\s*$)/i.test(prompt.trim());
+}
+async function generateChatImage(prompt) {
+  const imagePrompt = prompt.trim().replace(/^\/image\s+/i, '');
+  if (!imagePrompt || imagePrompt.length > 1500) throw Error('Please use an image description of 1–1,500 characters.');
+  const response = await fetch('/api/images/generate', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({prompt: imagePrompt, width: 768, height: 768, steps: 20})
+  });
+  if (!response.ok) {
+    let detail;
+    try { detail = (await response.json()).error; } catch {}
+    throw Error(detail || `Image generation failed (${response.status})`);
+  }
+  const blob = await response.blob();
+  if (blob.type.split(';')[0] !== 'image/png') throw Error('The image service returned an unreadable image.');
+  const url = URL.createObjectURL(blob);
+  chatImageURLs.add(url);
+  $('#active-thinking')?.remove();
+  const item = document.createElement('div');
+  item.className = 'message assistant';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble chat-image-result';
+  const heading = document.createElement('h3');
+  heading.textContent = 'Generated on CRUCIBLE';
+  const image = document.createElement('img');
+  image.src = url; image.alt = imagePrompt; image.className = 'chat-generated-image';
+  const download = document.createElement('a');
+  download.href = url; download.download = `ORCA-photo-${Date.now()}.png`;
+  download.textContent = 'Save PNG'; download.className = 'chat-image-download';
+  const note = document.createElement('p');
+  note.textContent = `768 × 768 · seed ${response.headers.get('X-ORCA-Image-Seed') || 'recorded by broker'} · Save before starting a new chat or refreshing.`;
+  bubble.append(heading, image, download, note); item.append(bubble);
+  $('#conversation').append(item);
+  image.addEventListener('load', () => { $('#conversation').scrollTop = $('#conversation').scrollHeight; });
+}
+
 async function runPrompt(prompt, mode = activeMode) {
   if (inferencePending || !prompt.trim()) return;
   inferencePending = true;
   $('#send-prompt').disabled = true;
-  const route = routes[mode];
+  const imageRequest = wantsChatImage(prompt, mode);
+  const route = routes[imageRequest ? 'photo' : mode];
   appendUserMessage(prompt.trim());
-  appendThinking();
-  try { appendAssistant(await postInference(prompt.trim(), mode), route); }
+  appendThinking(imageRequest ? 'CRUCIBLE is generating your image…' : 'ORCA is working');
+  try {
+    if (imageRequest) await generateChatImage(prompt);
+    else appendAssistant(await postInference(prompt.trim(), mode), route);
+  }
   catch (error) { appendAssistant(error.message, route, true); }
   finally { inferencePending = false; $('#send-prompt').disabled = false; }
 }
@@ -214,6 +265,9 @@ $$('[data-engineering-prompt]').forEach(button => button.addEventListener('click
   show('studio'); selectMode('engineer'); $('#prompt-input').value = 'Engineer and verify '; $('#prompt-input').focus();
 }));
 $('#new-thread').addEventListener('click', () => {
+  if (inferencePending) return;
+  for (const url of chatImageURLs) URL.revokeObjectURL(url);
+  chatImageURLs.clear();
   $('#conversation').innerHTML = `<div class="welcome-card"><span class="welcome-orb">O</span><h2>New room</h2><p>Describe the outcome and choose a specialist route.</p></div>`;
   show('studio'); $('#prompt-input').focus();
 });
