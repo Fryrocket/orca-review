@@ -80,10 +80,6 @@ async function postMutation(url, payload, auth) {
 }
 
 async function postInference(prompt, mode = activeMode) {
-  if (!studioAuth.token) {
-    openAuth('Connect Studio before prompting the local model fabric.');
-    throw Error('Studio is not connected');
-  }
   const route = routes[mode];
   const response = await fetch('/api/inference', {
     method: 'POST',
@@ -172,10 +168,6 @@ function appendAssistant(result, route, error = false) {
 
 async function runPrompt(prompt, mode = activeMode) {
   if (inferencePending || !prompt.trim()) return;
-  if (!studioAuth.token) {
-    openAuth('Connect Studio before prompting the local model fabric.');
-    return;
-  }
   inferencePending = true;
   $('#send-prompt').disabled = true;
   const route = routes[mode];
@@ -189,7 +181,6 @@ async function runPrompt(prompt, mode = activeMode) {
 $('#prompt-form').addEventListener('submit', async event => {
   event.preventDefault();
   const prompt = $('#prompt-input').value;
-  if (!studioAuth.token) { openAuth('Connect Studio before prompting the local model fabric.'); return; }
   $('#prompt-input').value = '';
   await runPrompt(prompt);
 });
@@ -211,33 +202,14 @@ $('#new-thread').addEventListener('click', () => {
   show('studio'); $('#prompt-input').focus();
 });
 
-function openAuth(message = '') {
-  $('#auth-modal').classList.remove('hidden');
-  $('#studio-token').value = studioAuth.token;
-  $('#auth-result').textContent = message;
-  setTimeout(() => $('#studio-token').focus(), 40);
-}
-function closeAuth() { $('#auth-modal').classList.add('hidden'); }
 function setAuth(identity, token, native = false) {
   studioAuth = { identity, token };
   $('#operator-identity').value = identity;
   $('#operator-token').value = token;
-  $('#auth-state').textContent = token ? 'Studio connected' : 'Connect Studio';
   if (token && !native) {
     window.webkit?.messageHandlers?.orcaCredential?.postMessage({ identity, token });
   }
 }
-$('#open-auth').addEventListener('click', () => openAuth());
-$('#close-auth').addEventListener('click', closeAuth);
-$('#auth-modal').addEventListener('click', event => { if (event.target === $('#auth-modal')) closeAuth(); });
-$('#save-auth').addEventListener('click', () => {
-  const identity = $('#studio-identity').value;
-  const token = $('#studio-token').value.trim();
-  if (token.length < 32) { $('#auth-result').textContent = 'A valid identity token is required.'; return; }
-  setAuth(identity, token);
-  $('#auth-result').textContent = 'Connected.';
-  setTimeout(closeAuth, 350);
-});
 window.orcaReceiveDesktopAuth = auth => {
   if (auth?.identity && auth?.token) setAuth(auth.identity, auth.token, true);
 };

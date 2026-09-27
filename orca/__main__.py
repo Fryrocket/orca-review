@@ -16,6 +16,12 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8787)
     parser.add_argument("--database", default="orca-events.db")
     parser.add_argument(
+        "--trusted-network-no-auth",
+        action="store_true",
+        default=os.environ.get("ORCA_TRUSTED_NETWORK_NO_AUTH", "").lower() in {"1", "true", "yes"},
+        help="treat all loopback requests as Fry; use only behind a trusted-network gateway",
+    )
+    parser.add_argument(
         "--identity-token-file",
         default=os.environ.get("ORCA_IDENTITY_TOKEN_FILE"),
         help="owner-only JSON mapping of registered identities to bootstrap tokens",
@@ -44,7 +50,8 @@ def main() -> None:
     serve(ControlPlane(EvidenceStore(args.database)), host=args.host, port=args.port,
           operator_token=os.environ.get("ORCA_OPERATOR_TOKEN"),
           identity_tokens=identity_authenticator, runtime_gateway=runtime_gateway,
-          inventory_provider=inventory_provider)
+          inventory_provider=inventory_provider,
+          trusted_network_no_auth=args.trusted_network_no_auth)
 
 
 if __name__ == "__main__":

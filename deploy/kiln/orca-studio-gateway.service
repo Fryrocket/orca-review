@@ -1,0 +1,23 @@
+[Unit]
+Description=Login-free ORCA Studio gateway on KILN
+After=network-online.target orca-forge-tunnel.service
+Wants=network-online.target orca-forge-tunnel.service
+
+[Service]
+Type=simple
+User=fryrocket
+Group=fryrocket
+ExecStart=/usr/bin/python3 /opt/orca-studio/orca_studio_gateway.py --host 0.0.0.0 --port 8788 --upstream-port 18787
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

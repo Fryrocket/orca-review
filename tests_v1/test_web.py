@@ -170,6 +170,42 @@ def test_post_mutations_are_disabled_without_operator_token():
         server.server_close()
 
 
+def test_trusted_network_mode_allows_login_free_fry_inference():
+    class Gateway:
+        def invoke(self, **payload):
+            assert payload == {
+                "service_id": "forge_smith", "bot_id": "smith", "prompt": "plan"
+            }
+            return {"summary": "done", "evidence": [],
+                    "uncertainty": "none", "next_gate": "review"}
+
+    server = OrcaHTTPServer(
+        ("127.0.0.1", 0), ControlPlane(), runtime_gateway=Gateway(),
+        trusted_network_no_auth=True,
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with urlopen(f"http://127.0.0.1:{server.server_port}/api/config") as response:
+            assert json.load(response) == {
+                "authentication_required": False,
+                "deployment": "trusted-network",
+            }
+        request = Request(
+            f"http://127.0.0.1:{server.server_port}/api/inference",
+            data=json.dumps({
+                "service_id": "forge_smith", "bot_id": "smith", "prompt": "plan"
+            }).encode(),
+            method="POST",
+            headers={"Content-Type": "application/json"},
+        )
+        with urlopen(request) as response:
+            assert json.load(response)["summary"] == "done"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
 def test_inference_endpoint_is_fry_authenticated_and_schema_bounded():
     class Gateway:
         def invoke(self, **payload):

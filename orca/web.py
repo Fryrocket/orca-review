@@ -53,7 +53,8 @@ class OrcaHTTPServer(ThreadingHTTPServer):
                  operator_token: str | None = None,
                  identity_tokens: Mapping[str, str] | IdentityTokenAuthenticator | None = None,
                  runtime_gateway: ModelRuntimeGateway | None = None,
-                 inventory_provider: InventoryProvider | None = None):
+                 inventory_provider: InventoryProvider | None = None,
+                 trusted_network_no_auth: bool = False):
         if not _is_loopback_bind(address[0]):
             raise ValueError(
                 "non-loopback ORCA binding is disabled pending reviewed transport security")
@@ -70,6 +71,7 @@ class OrcaHTTPServer(ThreadingHTTPServer):
         ) else IdentityTokenAuthenticator(identity_tokens) if identity_tokens is not None else None
         self.runtime_gateway = runtime_gateway
         self.inventory_provider = inventory_provider
+        self.trusted_network_no_auth = trusted_network_no_auth
         self.allowed_hosts = frozenset({address[0], "127.0.0.1", "localhost", "::1"})
         super().__init__(address, OrcaHandler)
 
@@ -129,6 +131,8 @@ class OrcaHandler(BaseHTTPRequestHandler):
         return payload
 
     def _authenticate_mutation(self) -> str:
+        if self.server.trusted_network_no_auth:
+            return "fry"
         authenticator = self.server.identity_authenticator
         if authenticator is not None:
             return authenticator.authenticate(
@@ -289,6 +293,11 @@ class OrcaHandler(BaseHTTPRequestHandler):
         if not self._host_allowed():
             return self._json({"error": "host header is not allowlisted"}, HTTPStatus.MISDIRECTED_REQUEST)
         path = urlparse(self.path).path
+        if path == "/api/config":
+            return self._json({
+                "authentication_required": not self.server.trusted_network_no_auth,
+                "deployment": "trusted-network" if self.server.trusted_network_no_auth else "secured",
+            })
         if path == "/api/state":
             try:
                 snapshot = self.server.control_plane.snapshot()
@@ -435,11 +444,13 @@ def serve(control_plane: ControlPlane | None = None, *, host: str = "127.0.0.1",
           operator_token: str | None = None,
           identity_tokens: Mapping[str, str] | IdentityTokenAuthenticator | None = None,
           runtime_gateway: ModelRuntimeGateway | None = None,
-          inventory_provider: InventoryProvider | None = None) -> None:
+          inventory_provider: InventoryProvider | None = None,
+          trusted_network_no_auth: bool = False) -> None:
     server = OrcaHTTPServer(
         (host, port), control_plane or ControlPlane(), operator_token,
         identity_tokens=identity_tokens, runtime_gateway=runtime_gateway,
         inventory_provider=inventory_provider,
+        trusted_network_no_auth=trusted_network_no_auth,
     )
     print(f"ORCA operator console: http://{host}:{server.server_port}")
     server.serve_forever()

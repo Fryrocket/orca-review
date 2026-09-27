@@ -1,46 +1,9 @@
 import AppKit
-import Security
 import WebKit
 
-private let studioURL = URL(string: "http://127.0.0.1:8787/")!
-private let keychainService = "com.fryrocket.orca-studio"
-private let keychainAccount = "fry"
+private let studioURL = URL(string: "http://127.0.0.1:8788/")!
 
-private enum CredentialStore {
-    static func read() -> String? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: keychainService,
-            kSecAttrAccount as String: keychainAccount,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-        ]
-        var result: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data else { return nil }
-        return String(data: data, encoding: .utf8)
-    }
-
-    static func save(_ token: String) {
-        guard (32...512).contains(token.utf8.count), let data = token.data(using: .utf8) else { return }
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: keychainService,
-            kSecAttrAccount as String: keychainAccount,
-        ]
-        let attributes: [String: Any] = [
-            kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
-        ]
-        if SecItemUpdate(query as CFDictionary, attributes as CFDictionary) == errSecItemNotFound {
-            var item = query
-            attributes.forEach { item[$0.key] = $0.value }
-            SecItemAdd(item as CFDictionary, nil)
-        }
-    }
-}
-
-final class StudioController: NSWindowController, WKNavigationDelegate, WKScriptMessageHandler {
+final class StudioController: NSWindowController, WKNavigationDelegate {
     private let webView: WKWebView
 
     init() {
@@ -48,7 +11,7 @@ final class StudioController: NSWindowController, WKNavigationDelegate, WKScript
         configuration.websiteDataStore = .default()
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
         configuration.userContentController.addUserScript(WKUserScript(
-            source: Self.desktopBootstrap(),
+            source: "window.ORCA_DESKTOP_APP=true;",
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true
         ))
@@ -67,7 +30,6 @@ final class StudioController: NSWindowController, WKNavigationDelegate, WKScript
         window.contentView = webView
         super.init(window: window)
 
-        configuration.userContentController.add(self, name: "orcaCredential")
         webView.navigationDelegate = self
         webView.allowsMagnification = true
         webView.load(URLRequest(url: studioURL, cachePolicy: .reloadIgnoringLocalCacheData))
@@ -75,27 +37,10 @@ final class StudioController: NSWindowController, WKNavigationDelegate, WKScript
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    deinit { webView.configuration.userContentController.removeScriptMessageHandler(forName: "orcaCredential") }
-
-    private static func desktopBootstrap() -> String {
-        guard let token = CredentialStore.read(),
-              let data = try? JSONSerialization.data(withJSONObject: ["identity": "fry", "token": token]),
-              let json = String(data: data, encoding: .utf8) else {
-            return "window.ORCA_DESKTOP_APP=true;"
-        }
-        return "window.ORCA_DESKTOP_APP=true;window.ORCA_DESKTOP_AUTH=\(json);"
-    }
-
-    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard message.name == "orcaCredential", let body = message.body as? [String: Any],
-              body["identity"] as? String == "fry", let token = body["token"] as? String else { return }
-        CredentialStore.save(token)
-    }
-
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                  decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void) {
         guard let url = navigationAction.request.url else { decisionHandler(.cancel); return }
-        if url.host == "127.0.0.1" && url.port == 8787 {
+        if url.host == "127.0.0.1" && url.port == 8788 {
             decisionHandler(.allow)
         } else if navigationAction.navigationType == .linkActivated {
             NSWorkspace.shared.open(url)
@@ -118,8 +63,8 @@ final class StudioController: NSWindowController, WKNavigationDelegate, WKScript
         body{margin:0;background:#081012;color:#e8f3ef;font:16px -apple-system;display:grid;place-items:center;height:100vh}
         main{max-width:520px;text-align:center;padding:44px}h1{font-size:42px;margin:0 0 12px}p{color:#9bb0a9;line-height:1.55}
         button{background:#9ef0c6;border:0;border-radius:12px;padding:12px 20px;font-weight:700;cursor:pointer}
-        </style><main><h1>ORCA is waking up</h1><p>The secure connection to FORGE is not ready yet.</p>
-        <p>\(escaped)</p><button onclick="location.href='http://127.0.0.1:8787/'">Try again</button></main>
+        </style><main><h1>ORCA is waking up</h1><p>The Studio gateway is not ready yet.</p>
+        <p>\(escaped)</p><button onclick="location.href='http://127.0.0.1:8788/'">Try again</button></main>
         """, baseURL: studioURL)
     }
 

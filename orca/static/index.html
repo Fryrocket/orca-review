@@ -22,7 +22,7 @@
       </nav>
       <div class="sidebar-bottom">
         <div class="fleet-mini"><span class="pulse"></span><div><strong id="fleet-mini-status">Connecting</strong><small id="fleet-mini-detail">FORGE fabric</small></div></div>
-        <button id="open-auth" class="account-button"><span class="avatar">F</span><span><strong>Fry</strong><small id="auth-state">Connect Studio</small></span></button>
+        <div class="account-button"><span class="avatar">F</span><span><strong>Fry</strong><small id="auth-state">No login required</small></span></div>
       </div>
     </aside>
 
@@ -85,7 +85,7 @@
         <div id="work" class="ops-view"><article class="panel"><div class="panel-head"><h2>Job control</h2><span class="truth">POLICY GATED</span></div><div id="work-list" class="stack"></div></article></div>
         <div id="approvals" class="ops-view"><article class="panel"><div class="panel-head"><h2>Approval queue</h2><span class="truth warn">FRY DECIDES</span></div><div id="approval-list" class="stack"></div></article></div>
         <div id="evidence" class="ops-view"><div class="grid two"><article class="panel"><div class="panel-head"><h2>Evidence timeline</h2><span class="truth">APPEND ONLY</span></div><div id="evidence-list" class="stack"></div></article><article class="panel"><div class="panel-head"><h2>Retention control</h2><span class="truth warn">NO AUTO DELETE</span></div><div id="retention-summary" class="stack"></div></article></div></div>
-        <div id="incidents" class="ops-view"><article class="panel"><div class="panel-head"><h2>Incidents</h2><span class="truth warn" id="stop-state">NORMAL</span></div><div class="operator-controls"><label>Acting identity <select id="operator-identity"><option value="fry">Fry</option><option value="orca">ORCA</option><option value="smith">SMITH</option><option value="quench">QUENCH</option><option value="security_gate">Security gate</option></select></label><label>Identity token <input id="operator-token" type="password" autocomplete="off" placeholder="Held in memory only"></label><label>Reason <input id="stop-reason" type="text" placeholder="Required reason"></label><button id="toggle-stop" type="button">Toggle emergency stop</button><p class="muted">The credential is bound to the selected identity. ORCA rejects attempts to name a different actor in the request.</p><p id="control-result" class="muted"></p></div><div id="incident-list" class="stack"></div></article></div>
+        <div id="incidents" class="ops-view"><article class="panel"><div class="panel-head"><h2>Incidents</h2><span class="truth warn" id="stop-state">NORMAL</span></div><div class="operator-controls"><input id="operator-identity" type="hidden" value="fry"><input id="operator-token" type="hidden" value=""><label>Reason <input id="stop-reason" type="text" placeholder="Required reason"></label><button id="toggle-stop" type="button">Toggle emergency stop</button><p class="muted">Trusted-network Studio actions are attributed to Fry. ORCA policy gates and approval requirements remain active.</p><p id="control-result" class="muted"></p></div><div id="incident-list" class="stack"></div></article></div>
         <div id="security" class="ops-view"><article class="panel"><div class="panel-head"><h2>Independent security gate</h2><span class="truth warn">ADVISORY ONLY</span></div><p class="muted">Deterministic, redacted findings for ORCA and QUENCH. The gate has no approval, tool, merge, or deployment authority.</p><div id="security-list" class="stack"></div></article></div>
         <div id="agents" class="ops-view"><div id="agent-grid" class="grid three"></div></div><div id="fleet" class="ops-view"><div id="fleet-grid" class="grid three"></div></div><div id="connectors" class="ops-view"><div id="connector-grid" class="grid three"></div></div>
         <div id="costs" class="ops-view"><article class="panel"><h2>Cost controls</h2><p class="muted">No paid escalation is authorized. Local-first routing is active; warning thresholds and hard caps must be approved before cloud use.</p><div class="cost-zero" id="cost-total">$0.00 <small>recorded usage</small></div><p id="budget-policy" class="meta"></p><div id="cost-breakdown" class="stack"></div></article></div>
@@ -93,7 +93,6 @@
     </main>
   </div>
 
-  <div id="auth-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="auth-title"><div class="modal-card"><button id="close-auth" class="modal-close" aria-label="Close">×</button><span class="welcome-orb small">O</span><h2 id="auth-title">Connect ORCA Studio</h2><p>The desktop app keeps this credential in your Mac Keychain. The browser keeps it only in memory.</p><label>Identity<select id="studio-identity"><option value="fry">Fry</option></select></label><label>Identity token<input id="studio-token" type="password" autocomplete="off" placeholder="Paste your ORCA identity token"></label><button id="save-auth" class="primary-action">Connect securely</button><p id="auth-result" class="muted"></p></div></div>
   <script src="/app.js"></script>
 </body>
 </html>
