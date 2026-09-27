@@ -182,10 +182,12 @@ kbd { opacity: .65; font: 9px ui-monospace, monospace; }
 .canvas-tools button, .inventory-actions button, .tool-card button { border: 1px solid var(--line); background: var(--panel-2); padding: 9px 12px; border-radius: 9px; }
 .canvas-tools .primary-action { background: var(--mint); border-color: var(--mint); }
 .canvas-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 14px; }
-.drawing-board { border: 1px solid var(--line); background: #050b09; border-radius: 16px; overflow: hidden; min-height: 590px; }
+.drawing-board { position: relative; border: 1px solid var(--line); background: #050b09; border-radius: 16px; overflow: hidden; min-height: 590px; display: grid; place-items: center; }
 #drawing-canvas { display: block; width: 100%; height: min(66vh, 760px); cursor: crosshair; touch-action: none; background-image: linear-gradient(#0c1815 1px, transparent 1px), linear-gradient(90deg, #0c1815 1px, transparent 1px); background-size: 24px 24px; }
+#generated-image { display: block; position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #050b09; }
+#generated-image[hidden] { display: none; }
 .visual-brief { border: 1px solid var(--line); background: var(--panel); border-radius: 16px; padding: 17px; }
-.visual-brief h3 { margin: 9px 0 5px; }.visual-brief textarea { width: 100%; padding: 10px; margin: 12px 0; }
+.visual-brief h3 { margin: 9px 0 5px; }.visual-brief textarea { width: 100%; padding: 10px; margin: 12px 0; }.visual-brief button { width: 100%; margin-top: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel-2); }.visual-brief .primary-action { background: var(--mint); color: #06110d; font-weight: 800; }.image-size { display: grid; gap: 6px; color: var(--muted); font-size: 10px; }.image-size select { width: 100%; padding: 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); color: var(--text); }
 .result-card { margin-top: 12px; padding: 12px; background: #091511; border: 1px solid var(--line-soft); border-radius: 10px; white-space: pre-wrap; font-size: 12px; }
 
 .inventory-actions input { width: min(340px, 52vw); padding: 10px 12px; }

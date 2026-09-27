@@ -17,6 +17,8 @@ HOP_BY_HOP = {
 class Gateway(BaseHTTPRequestHandler):
     upstream_host = "127.0.0.1"
     upstream_port = 8787
+    image_host = "127.0.0.1"
+    image_port = 8790
 
     def log_message(self, format: str, *args) -> None:
         return
@@ -35,12 +37,20 @@ class Gateway(BaseHTTPRequestHandler):
             name: value for name, value in self.headers.items()
             if name.lower() not in HOP_BY_HOP | {"host", "content-length"}
         }
-        headers["Host"] = f"{self.upstream_host}:{self.upstream_port}"
+        is_image_request = self.path in {"/api/images/generate", "/api/images/health"}
+        upstream_host = self.image_host if is_image_request else self.upstream_host
+        upstream_port = self.image_port if is_image_request else self.upstream_port
+        upstream_path = ({
+            "/api/images/generate": "/generate",
+            "/api/images/health": "/health",
+        }.get(self.path, self.path))
+        headers["Host"] = f"{upstream_host}:{upstream_port}"
         if body is not None:
             headers["Content-Length"] = str(len(body))
-        connection = HTTPConnection(self.upstream_host, self.upstream_port, timeout=120)
+        connection = HTTPConnection(
+            upstream_host, upstream_port, timeout=360 if is_image_request else 120)
         try:
-            connection.request(self.command, self.path, body=body, headers=headers)
+            connection.request(self.command, upstream_path, body=body, headers=headers)
             response = connection.getresponse()
             payload = response.read()
             self.send_response(response.status, response.reason)
@@ -52,7 +62,11 @@ class Gateway(BaseHTTPRequestHandler):
             if self.command != "HEAD":
                 self.wfile.write(payload)
         except OSError:
-            self.send_error(502, "FORGE ORCA is unavailable")
+            self.send_error(
+                502,
+                "KILN image generation is unavailable"
+                if is_image_request else "FORGE ORCA is unavailable",
+            )
         finally:
             connection.close()
 

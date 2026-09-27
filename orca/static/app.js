@@ -351,6 +351,29 @@ canvas.addEventListener('pointerup', () => { drawing = false; });
 canvas.addEventListener('pointercancel', () => { drawing = false; });
 $('#clear-canvas').addEventListener('click', () => context.clearRect(0, 0, canvas.width, canvas.height));
 $('#save-canvas').addEventListener('click', () => { const link = document.createElement('a'); link.download = `ORCA-canvas-${new Date().toISOString().slice(0, 10)}.png`; link.href = canvas.toDataURL('image/png'); link.click(); });
+let generatedImageURL = '';
+$('#generate-image').addEventListener('click', async () => {
+  const prompt = $('#visual-prompt').value.trim(), target = $('#visual-result'), button = $('#generate-image');
+  if (!prompt) { target.textContent = 'Describe the image you want first.'; return; }
+  const [width, height] = $('#image-size').value.split('x').map(Number);
+  button.disabled = true;
+  button.textContent = 'Generating on KILN…';
+  target.textContent = 'KILN is yielding the GPU from QUENCH, loading SDXL, and rendering one image. This can take a few minutes.';
+  try {
+    const response = await fetch('/api/images/generate', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({prompt, width, height, steps: 20})
+    });
+    if (!response.ok) { let detail; try { detail = (await response.json()).error; } catch {} throw Error(detail || `Image generation failed (${response.status})`); }
+    const blob = await response.blob();
+    if (generatedImageURL) URL.revokeObjectURL(generatedImageURL);
+    generatedImageURL = URL.createObjectURL(blob);
+    const image = $('#generated-image');
+    image.src = generatedImageURL; image.hidden = false;
+    target.textContent = `Generated locally on KILN · seed ${response.headers.get('X-ORCA-Image-Seed') || 'recorded by broker'} · QUENCH is being restored.`;
+  } catch (error) { target.textContent = error.message; }
+  finally { button.disabled = false; button.textContent = 'Generate on KILN'; }
+});
 $('#develop-visual').addEventListener('click', async () => {
   const prompt = $('#visual-prompt').value.trim(), target = $('#visual-result');
   if (!prompt) return;

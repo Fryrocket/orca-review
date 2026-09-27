@@ -38,6 +38,8 @@ def test_operator_console_assets_exist_and_include_required_views():
     assert "budget-policy" in html
     assert "security-list" in html
     assert "retention-summary" in html
+    assert "generate-image" in html
+    assert "Generate on KILN" in html
     js = (STATIC_ROOT / "app.js").read_text()
     assert "data-approval" in js
     assert "data-pause-job" in js
@@ -45,6 +47,7 @@ def test_operator_console_assets_exist_and_include_required_views():
     assert "renderAgents" in js
     assert "stop_condition" in js
     assert "rationale" in js
+    assert "/api/images/generate" in js
 
 
 def test_console_mutations_reuse_one_envelope_only_for_transport_retry():
@@ -81,8 +84,9 @@ def test_state_endpoint_is_readable_and_truthful():
     try:
         with urlopen(f"http://127.0.0.1:{server.server_port}/api/state") as response:
             data = json.load(response)
-            assert response.headers["X-Content-Type-Options"] == "nosniff"
-            assert "frame-ancestors 'none'" in response.headers["Content-Security-Policy"]
+        assert response.headers["X-Content-Type-Options"] == "nosniff"
+        assert "frame-ancestors 'none'" in response.headers["Content-Security-Policy"]
+        assert "img-src 'self' blob:" in response.headers["Content-Security-Policy"]
         assert data["evidence_chain_valid"] is True
         assert {a["id"] for a in data["agents"]} == {
             "orca", "smith", "quench", "security_gate", "fry"}
