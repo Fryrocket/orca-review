@@ -170,7 +170,7 @@ function appendThinking(label = 'ORCA is working') {
   $('#conversation').append(item);
   $('#conversation').scrollTop = $('#conversation').scrollHeight;
 }
-function appendAssistant(result, route, error = false) {
+function appendAssistant(result, route, error = false, sourcePrompt = '') {
   $('#active-thinking')?.remove();
   const item = document.createElement('div');
   item.className = 'message assistant';
@@ -180,6 +180,13 @@ function appendAssistant(result, route, error = false) {
     const evidence = (result.evidence || []).map(value => `<li>${esc(value)}</li>`).join('');
     item.innerHTML = `<div class="bubble"><h3>${esc(route.name)}</h3><p>${esc(result.summary)}</p>${evidence ? `<ul class="evidence-list">${evidence}</ul>` : ''}<div class="response-meta"><span>${esc(route.label)}</span><span>Uncertainty: ${esc(result.uncertainty)}</span><span>Next: ${esc(result.next_gate)}</span></div></div>`;
   }
+  if (!error && /\b(photo|picture|image|illustration|draw)\b/i.test(sourcePrompt)) {
+    const generate = document.createElement('button');
+    generate.type = 'button'; generate.className = 'chat-image-download';
+    generate.textContent = 'Generate image from this prompt';
+    generate.addEventListener('click', () => runPrompt(sourcePrompt, 'photo'));
+    item.querySelector('.bubble').append(generate);
+  }
   $('#conversation').append(item);
   $('#conversation').scrollTop = $('#conversation').scrollHeight;
 }
@@ -187,8 +194,18 @@ function appendAssistant(result, route, error = false) {
 const chatImageURLs = new Set();
 function wantsChatImage(prompt, mode) {
   if (mode === 'photo' || /^\/image\s+\S/i.test(prompt.trim())) return true;
-  if (mode !== 'reason') return false;
-  return /^(?:(?:please|can you|could you|would you)\s+)*(?:generate|create|make|render|draw)\s+(?:me\s+)?(?:an?\s+)?(?:(?:realistic|photorealistic|beautiful|cinematic)\s+)*(?:photo|photograph|picture|image|illustration)(?:\s+(?:of|showing|depicting)\b|\s*[:.!?]|\s*$)/i.test(prompt.trim());
+  let text = prompt.trim().toLowerCase();
+  if (/\b(?:don't|do not|never)\s+(?:generate|create|make|render|draw)\b/.test(text)) return false;
+  if (/\b(?:photo|image|picture)\s+(?:editor|generator|generation|app|application|tool|api|button|feature|website)\b/.test(text)) return false;
+  // Explicit image requests work in Chat and Visual as well as other rooms.
+  // Conversational prefixes must not turn explanations or negations into jobs.
+  text = text.replace(/^(?:(?:hey[ ,]+)?orca[,:]?\s+)?(?:(?:please|can you|could you|would you|will you)\s+)*/, '');
+  text = text.replace(/^(?:i\s+(?:want|need|would like)|i'd like)\s+(?:you to\s+)?/, '');
+  text = text.replace(/^please\s+/, '');
+  if (/^(?:draw|paint)\s+(?:me\s+)?(?:a|an)\s+/.test(text)) return true;
+  const requested = /^(?:(?:generate|create|make|render)\s+(?:me\s+)?)?(?:a|an|some)\s+[^.!?\n]{0,70}\b(?:photo|photograph|picture|image|illustration)s?\b/.test(text);
+  const direct = /^(?:generate|create|make|render)\s+(?:me\s+)?(?:photo|photograph|picture|image|illustration)s?\b/.test(text);
+  return (requested || direct) && !/^(?:how|why|explain|describe|write|can i)\b/.test(text);
 }
 async function generateChatImage(prompt) {
   const imagePrompt = prompt.trim().replace(/^\/image\s+/i, '');
@@ -235,7 +252,7 @@ async function runPrompt(prompt, mode = activeMode) {
   appendThinking(imageRequest ? 'CRUCIBLE is generating your image…' : 'ORCA is working');
   try {
     if (imageRequest) await generateChatImage(prompt);
-    else appendAssistant(await postInference(prompt.trim(), mode), route);
+    else appendAssistant(await postInference(prompt.trim(), mode), route, false, prompt.trim());
   }
   catch (error) { appendAssistant(error.message, route, true); }
   finally { inferencePending = false; $('#send-prompt').disabled = false; }

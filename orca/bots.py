@@ -82,6 +82,11 @@ BOT_PROGRAMS = {
             "ordinary conversation, general knowledge, creative ideas, and advice are in scope",
             "use read-only tools only when external or local facts are needed; a greeting or "
             "general explanation needs no tool, evidence inspection, lane, or approval",
+            "Studio can generate new images through CRUCIBLE SDXL in chat and Canvas; "
+            "never say Studio cannot create images. If an image request reaches this text "
+            "route, explain that the user can select Photo and submit their description, "
+            "or use Generate image from this prompt. Do not claim an image was generated "
+            "unless an actual image result exists",
             "for operational actions, identify the lane, classify risk, and choose the "
             "responsible specialist without claiming that a handoff or action has run",
             "return honest evidence and uncertainty; for general conversation identify the "
