@@ -4,7 +4,13 @@ from concurrent.futures import ThreadPoolExecutor
 from orca.costs import CostLedger
 from orca.domain import PermissionLevel
 from orca.evidence import EvidenceStore
-from orca.runtime import DisabledRuntime, OfflineEvaluator, PROMPT_CONTRACTS, SandboxedLocalAdapter
+from orca.runtime import (
+    DisabledRuntime,
+    OfflineEvaluator,
+    PROMPT_CONTRACTS,
+    SandboxedLocalAdapter,
+    SandboxedOpenAIAdapter,
+)
 from orca.tools import ToolAuthorizer
 from orca.models import ModelRoute, ModelRouter
 
@@ -183,3 +189,41 @@ def test_sandboxed_local_adapter_rejects_remote_endpoint_and_bad_output():
         transport=lambda *_: {"response": '{"summary":"missing fields"}'})
     with pytest.raises(ValueError, match="failed contract"):
         adapter.invoke(bot_id="quench", model="x", prompt="review")
+
+
+def test_openai_compatible_adapter_supports_forge_and_tunneled_kiln_services():
+    calls = []
+    valid = {
+        "summary": "reviewed",
+        "evidence": ["fixture"],
+        "uncertainty": "none",
+        "next_gate": "fry_approval",
+    }
+    adapter = SandboxedOpenAIAdapter(
+        endpoint="http://127.0.0.1:11435/v1/chat/completions",
+        allowed_models=("QUENCH",),
+        transport=lambda url, payload, timeout: calls.append(
+            (url, payload, timeout)) or {
+                "choices": [{"message": {"content": __import__("json").dumps(valid)}}]
+            },
+    )
+    assert adapter.invoke(bot_id="quench", model="QUENCH", prompt="review") == valid
+    assert calls[0][1]["stream"] is False
+    assert calls[0][1]["tools"] == []
+    assert calls[0][1]["response_format"] == {"type": "json_object"}
+
+
+def test_openai_compatible_adapter_denies_direct_remote_workers_and_bad_envelopes():
+    with pytest.raises(ValueError, match="loopback"):
+        SandboxedOpenAIAdapter(
+            endpoint="http://100.97.193.39:11435/v1/chat/completions",
+            allowed_models=("QUENCH",), transport=lambda *_: {})
+    with pytest.raises(ValueError, match="/v1/chat/completions"):
+        SandboxedOpenAIAdapter(
+            endpoint="http://127.0.0.1:11435/v1/models",
+            allowed_models=("QUENCH",), transport=lambda *_: {})
+    adapter = SandboxedOpenAIAdapter(
+        endpoint="http://127.0.0.1:11434/v1/chat/completions",
+        allowed_models=("SMITH",), transport=lambda *_: {"choices": []})
+    with pytest.raises(ValueError, match="invalid OpenAI-compatible envelope"):
+        adapter.invoke(bot_id="smith", model="SMITH", prompt="implement")

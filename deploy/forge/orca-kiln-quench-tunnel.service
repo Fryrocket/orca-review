@@ -1,0 +1,24 @@
+[Unit]
+Description=ORCA loopback projection of KILN QUENCH inference
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=fryrocket
+Group=fryrocket
+UMask=0077
+ExecStart=/usr/bin/ssh -NT -L 127.0.0.1:11435:100.97.193.39:11435 -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=yes fryrocket@100.97.193.39
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

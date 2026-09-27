@@ -26,7 +26,7 @@ the authoritative FORGE control plane.
 | Small inference | KILN |
 | Embeddings | KILN |
 | Local review | KILN |
-| Large inference | Blocked until RX9700 installation and runtime acceptance |
+| Large inference | Blocked until CRUCIBLE (AMD Radeon RX 9700) installation and runtime acceptance |
 
 ## Signed health
 
@@ -55,5 +55,5 @@ the authoritative FORGE control plane.
 - Provider writes: disabled.
 - Model invocation by ORCA: disabled.
 - Cloud spend: zero authorization.
-- Large inference: blocked.
+- Large inference: blocked pending CRUCIBLE installation and runtime acceptance.
 - No push, PR, merge, credential restoration, or production cutover occurred.

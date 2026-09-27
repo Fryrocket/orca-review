@@ -1,5 +1,11 @@
 # ORCA Three-Host Optimization — 2026-09-24
 
+> Historical deployment record. The target placement and AI ladder are
+> superseded by
+> [`FOUR_HOST_AI_STACK_2026-09-25.md`](FOUR_HOST_AI_STACK_2026-09-25.md).
+> Existing deployed services remain unchanged until the newer plan is reviewed
+> and deliberately activated.
+
 ## Goal
 
 Use each verified machine for the work it is best equipped to perform while
@@ -18,7 +24,7 @@ existing approval and safety boundaries.
 | Small local inference | KILN | Dedicated GTX 1660 Ti with 6 GB VRAM and existing model services |
 | Embeddings | KILN | Lightweight inference fits the dedicated secondary GPU node |
 | Local QUENCH review | KILN | Existing QUENCH service and authenticated heartbeat make KILN the dedicated review brain |
-| Large inference | Blocked pending FORGE | Requires RX9700 installation and runtime acceptance before the capability enters the registry |
+| Large inference | Blocked pending FORGE | Requires CRUCIBLE (AMD Radeon RX 9700) installation and runtime acceptance before the capability enters the registry |
 
 ## Implementation
 
@@ -47,3 +53,12 @@ existing approval and safety boundaries.
 ANVIL, FORGE, and KILN now each publish authenticated signed health through
 owner-only keys and durable nonce state. This makes every accepted workload
 placement operationally eligible while preserving the same execution locks.
+
+## Planned distributed inference
+
+The current placement policy assigns a complete workload to one node. True
+cross-machine model sharding is a required future capability and is tracked in
+[`DISTRIBUTED_MODEL_SHARDING_BACKLOG.md`](DISTRIBUTED_MODEL_SHARDING_BACKLOG.md)
+and Linear `FOR-6`. ORCA must not represent system RAM, ANVIL unified memory,
+BELLOWS VRAM, or future CRUCIBLE VRAM as one interchangeable pool until a
+compatible runtime and failure-safe sharding plan pass independent acceptance.

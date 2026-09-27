@@ -1,0 +1,32 @@
+[Unit]
+Description=ORCA QUENCH independent GPU review on KILN
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/home/fryrocket/forge-workspace/forge/llama.cpp/build-cuda/bin/llama-server
+ConditionPathExists=/home/fryrocket/forge-workspace/models/quench-candidates/Ministral-3-8B-Instruct-2512-IQ4_XS.gguf
+
+[Service]
+Type=simple
+User=fryrocket
+Group=fryrocket
+UMask=0077
+ExecStartPre=/usr/bin/timeout 90 /bin/sh -c 'until /usr/bin/ip -4 addr show tailscale0 2>/dev/null | grep -q "inet 100.97.193.39/"; do sleep 1; done'
+ExecStartPre=/usr/bin/timeout 60 /bin/sh -c 'until /usr/bin/nvidia-smi -L >/dev/null 2>&1; do sleep 1; done'
+TimeoutStartSec=180
+ExecStart=/home/fryrocket/forge-workspace/forge/llama.cpp/build-cuda/bin/llama-server --model /home/fryrocket/forge-workspace/models/quench-candidates/Ministral-3-8B-Instruct-2512-IQ4_XS.gguf --host 100.97.193.39 --port 11435 -ngl 99 -c 4096 -np 1 -fa on -ctk q8_0 -ctv q8_0 --no-mmproj --alias QUENCH
+Restart=always
+RestartSec=5
+MemoryHigh=6G
+MemoryMax=8G
+TasksMax=256
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

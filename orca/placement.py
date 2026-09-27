@@ -31,25 +31,57 @@ WORKLOAD_PLACEMENTS = {
         "cpu_batch", ("cpu_batch",), ("forge",),
         "use FORGE's 32 CPU threads and 62 GiB memory",
     ),
+    "build_ci": WorkloadPlacement(
+        "build_ci", ("build_ci",), ("forge",),
+        "centralize repeatable builds and CI on FORGE's 16-core CPU and durable storage",
+    ),
     "durable_storage": WorkloadPlacement(
         "durable_storage", ("durable_storage",), ("forge",),
         "use FORGE's dedicated model and data volumes",
     ),
+    "model_storage": WorkloadPlacement(
+        "model_storage", ("model_storage",), ("forge",),
+        "keep canonical model artifacts on FORGE's dedicated 3.7 TiB model volume",
+    ),
+    "document_ingest": WorkloadPlacement(
+        "document_ingest", ("document_ingest",), ("forge",),
+        "use FORGE for ingestion, parsing, indexing and shared-context preparation",
+    ),
+    "fast_interactive_inference": WorkloadPlacement(
+        "fast_interactive_inference", ("fast_local_inference",), ("anvil",),
+        "use ANVIL's installed 3B local model for low-latency operator assistance",
+    ),
     "small_inference": WorkloadPlacement(
         "small_inference", ("small_inference",), ("kiln",),
-        "use KILN's dedicated 6 GiB GTX 1660 Ti services",
+        "reserve KILN's dedicated 6 GiB GTX 1660 Ti for bounded GPU inference",
     ),
     "embeddings": WorkloadPlacement(
-        "embeddings", ("embeddings",), ("kiln",),
-        "keep lightweight inference on KILN",
+        "embeddings", ("embeddings",), ("forge",),
+        "run retrieval and embeddings on FORGE so KILN's nearly full GPU remains isolated for review",
     ),
     "local_review": WorkloadPlacement(
         "local_review", ("local_review",), ("kiln",),
         "use KILN for dedicated QUENCH review workloads",
     ),
     "large_inference": WorkloadPlacement(
-        "large_inference", ("large_inference",), ("forge",),
-        "blocked until FORGE's RX9700 is installed and runtime-accepted",
+        "large_inference", ("large_cpu_inference",), ("forge",),
+        "run the existing 30.5B Q4 SMITH model CPU-resident on FORGE's 32 threads and 62 GiB RAM",
+    ),
+    "large_gpu_inference": WorkloadPlacement(
+        "large_gpu_inference", ("large_gpu_inference",), ("forge",),
+        "CRUCIBLE hardware and ROCm are accepted; blocked until a model-serving runtime, reboot repeat, and independent review pass",
+    ),
+    "monitoring": WorkloadPlacement(
+        "monitoring", ("monitoring",), ("ember",),
+        "keep continuous fleet, UPS and watchdog observation on low-power always-on EMBER",
+    ),
+    "ups_watch": WorkloadPlacement(
+        "ups_watch", ("ups_watch",), ("ember",),
+        "use EMBER's directly attached CyberPower UPS interface",
+    ),
+    "backup_observer": WorkloadPlacement(
+        "backup_observer", ("backup_observer",), ("ember",),
+        "use EMBER for independent backup observation without making it an authoritative writer",
     ),
 }
 

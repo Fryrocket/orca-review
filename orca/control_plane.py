@@ -15,6 +15,7 @@ from .bots import BOT_BUILD_QUEUE, BotRegistry, MIGRATION_CANDIDATES
 from .evidence import EvidenceStore
 from .policy import PolicyEngine, PolicyViolation
 from .registry import AGENTS, CONNECTORS, LANES, NODES
+from .roles import role_snapshot
 from .state import StateStore, job_from_dict, job_to_dict
 from .costs import CostLedger
 from .runtime import PROMPT_CONTRACTS
@@ -32,6 +33,7 @@ from .notifications import (
     NotificationOutbox,
 )
 from .placement import placement_snapshot
+from .ai_stack import ladder_snapshot
 from hashlib import sha256
 from typing import Callable, Any
 
@@ -1201,6 +1203,7 @@ class ControlPlane:
         self._assert_fresh()
         return {
             "agents": [asdict(x) for x in AGENTS.values()],
+            "role_catalog": role_snapshot(),
             "bots": self.bots.snapshot(),
             "migration_candidates": MIGRATION_CANDIDATES,
             "bot_build_queue": BOT_BUILD_QUEUE,
@@ -1210,6 +1213,7 @@ class ControlPlane:
             "connector_capabilities": self.connector_gateway.snapshot(),
             "nodes": [self._node_dict(node_id) for node_id in NODES],
             "placement": placement_snapshot(self.node_health),
+            "ai_stack": ladder_snapshot(self.node_health),
             "jobs": [self._job_dict(x) for x in self.jobs.values()],
             "approvals": [asdict(x) for x in self.approvals.values()],
             "incidents": [{**asdict(x), "status": x.status.value} for x in self.incidents.values()],

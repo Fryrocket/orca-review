@@ -271,7 +271,7 @@ def test_legacy_specialists_are_candidates_not_active_bots():
     assert set(state["migration_candidates"]) == {"ampere", "relay"}
     assert not ({"ampere", "relay"} & {b["id"] for b in state["bots"]})
     assert state["bot_build_queue"][0]["status"] == "complete"
-    assert state["bot_build_queue"][5]["status"] == "decision_required"
+    assert state["bot_build_queue"][5]["status"] == "complete"
 
 
 def test_state_survives_restart(tmp_path):

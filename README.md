@@ -1,146 +1,79 @@
-# ORCA rebuild workspace
+# ORCA control plane
 
-The new policy-first implementation lives in [`orca/`](orca/) with its specification in [`docs/REBUILD_SPEC.md`](docs/REBUILD_SPEC.md). The historical `mao/` package remains temporarily as a rollback and regression-reference surface; it is not the architecture of the rebuilt control plane.
+ORCA is a policy-first, evidence-backed control plane for the Forge fleet. The
+current observation deployment uses one authoritative writer on FORGE, with
+signed health agents on ANVIL, FORGE, and KILN. Remote execution, connector
+writes, ORCA-triggered model inference, cloud spend, and production cutover
+remain disabled.
 
-Run the new tests:
+## Current topology
 
-```sh
-python -m pytest tests_v1
-```
+| Host | Role | Verified hardware/runtime |
+| --- | --- | --- |
+| ANVIL (`192.168.4.20`) | Operator worktop, development, and review | Apple M4, 16 GB unified memory; signed health and private loopback tunnel |
+| FORGE (`192.168.7.30`, wired LAN `.29`, Wi-Fi `.30`) | Authoritative control plane, shared context, deep CPU inference, builds, ingestion, and durable storage | Ryzen 9 5900XT, 64 GB RAM, CRUCIBLE 32 GB plus Lexa display GPU, model/data volumes; loopback-only ORCA service and signed health |
+| KILN (`192.168.4.28`, Tailscale `100.97.193.39`) | Independent QUENCH GPU review and relay | BILLOWS — NVIDIA GeForce GTX 1660 Ti 6 GB; QUENCH inventory and signed health |
+| EMBER (`192.168.4.26`, Tailscale `100.87.165.66`) | Always-on sentinel, UPS/watchdog, and backup observer | Raspberry Pi 4, 8 GB RAM, USB SSD, Gigabit Ethernet, CyberPower UPS |
 
-Run the retained legacy regressions together with the rebuilt suite:
+**CRUCIBLE** is FORGE's installed AMD Radeon AI PRO R9700: 32 GB GDDR6, 64 CUs,
+`gfx1201`, amdgpu, and ROCm 7.2.1. Hardware detection, driver/runtime checks,
+and controlled compute/load tests passed on 2026-09-26. ORCA GPU inference
+remains disabled until a model-serving runtime, post-reboot model test, and
+independent QUENCH acceptance are recorded.
+
+## AI stack
+
+- ANVIL is the fast private reflex using its installed `llama3.2:3b` model.
+- FORGE is the deep SMITH author target for the existing 30.5B Q4 coder model,
+  plus embeddings, retrieval, builds, ingestion, shared context, and model/data storage.
+- KILN reserves its nearly full 6 GiB CUDA device for independent QUENCH review.
+- EMBER runs deterministic monitoring only; it does not host a generative model.
+
+The ordered hardware-aware ladders are exposed in the control-plane snapshot.
+They remain advisory: model invocation and automatic execution are still off.
+See [`docs/FOUR_HOST_AI_STACK_2026-09-25.md`](docs/FOUR_HOST_AI_STACK_2026-09-25.md).
+
+## Verification baseline
+
+- Deployed source: `52d64889145fb5eb7b0338b8fed8c633ccd307a4`.
+- Last completed full regression: 294 rebuilt tests + 243 legacy tests = **537 passed**.
+- Schema v4 state/evidence integrity and signed-heartbeat replay/restart behavior pass.
+- Desktop and 390×844 phone rendering pass.
+- The current repository may contain later documentation-only or registry-name
+  changes; verify `git status`, `git log`, and the test output before release.
+
+## Safety boundary
+
+- Fry owns push, merge, deploy/cutover, provider writes, spending, secrets,
+  destructive actions, and physical work.
+- ORCA routes and enforces policy; SMITH implements; QUENCH independently
+  reviews; the security gate is advisory only.
+- No identity may author, review/approve, and deploy the same change.
+- Secrets never belong in git, Drive, Notion, Linear, Slack, logs, or evidence.
+- The service binds to loopback and fails closed on integrity, identity,
+  idempotency, revision, health, or permission failures.
+
+## Run locally
 
 ```sh
 python -m pytest tests tests_v1
-```
-
-Run the local operator console:
-
-```sh
 python -m orca --host 127.0.0.1 --port 8787 --database orca-events.db
 ```
 
-For identity-bound mutations, provide an owner-only JSON credential file from
-the host secret system and select the matching identity in the console:
+Identity-bound mutations require an owner-only JSON credential file selected
+with `ORCA_IDENTITY_TOKEN_FILE`. The compatibility `ORCA_OPERATOR_TOKEN` mode is
+loopback-only, Fry-bound, and cannot be combined with identity mode.
 
-```sh
-chmod 600 /path/to/orca-identities.json
-ORCA_IDENTITY_TOKEN_FILE=/path/to/orca-identities.json python -m orca \
-  --host 127.0.0.1 --port 8787 --database orca-events.db
-```
+## Documentation
 
-The file is a JSON object mapping registered identity IDs (`fry`, `orca`,
-`smith`, `quench`, or `security_gate`) to unique 32–512 character bootstrap
-tokens. Token values are held in memory as digests and are never written to
-ORCA state or evidence. The older `ORCA_OPERATOR_TOKEN` mode remains available
-for loopback-only compatibility, but is bound to Fry, requires the same
-idempotency/revision envelope, and cannot be combined with identity mode.
+- Current state: [`docs/STATE_v12_upload.md`](docs/STATE_v12_upload.md)
+- Active-document index: [`docs/README.md`](docs/README.md)
+- Hardware: [`docs/HARDWARE_INVENTORY_2026-09-24.md`](docs/HARDWARE_INVENTORY_2026-09-24.md) and the verified 2026-09-25 four-host audit summarized in the AI-stack plan
+- Four-host AI stack: [`docs/FOUR_HOST_AI_STACK_2026-09-25.md`](docs/FOUR_HOST_AI_STACK_2026-09-25.md)
+- Three-host deployment: [`docs/THREE_HOST_OPTIMIZATION_DEPLOYMENT_2026-09-24.md`](docs/THREE_HOST_OPTIMIZATION_DEPLOYMENT_2026-09-24.md)
+- Recovery: [`docs/RECOVERY_RUNBOOK.md`](docs/RECOVERY_RUNBOOK.md)
+- Historical evidence: [`docs/archive/`](docs/archive/)
 
-The console binds to loopback, rejects non-local Host headers, requires a 32–512-character runtime token before POST mutations are enabled, validates bounded JSON objects, and emits restrictive browser security headers. Integrity failures make state and health unavailable. Connector writes are disabled. Push, merge, deployment, remote execution, publication, spend, deletion, secrets, cutover, and production impact are Fry-only R3. No secret belongs in the database, UI, logs, repository, Drive, Notion, or Linear.
-
-The Fleet view inventories ANVIL, FORGE, KILN, EMBER and IRIS. Fry-only key-fingerprint enrollment, signed heartbeat freshness/nonces, inter-process nonce locking, replay defense, key-rotation invalidation, stale-contact pause, and scoped transport/command validation are implemented and tested for every node. Node-targeted work fails closed while health is unproven. This is control-plane state only: remote execution is disabled and live node health remains unproven until authenticated probes and independent review occur.
-
-The local build also includes an advisory-only deterministic security gate with
-secret, configuration, dependency, provenance, and supplied repository-control
-checks; append-only/hash-chained evidence; schema-v4 state/evidence integrity and
-receipt-set omission detection with cross-connection snapshot reads; persistent incident and retention state; a
-zero-spend budget; per-identity loopback authentication with actor binding;
-atomic idempotency receipts and expected-revision mutation guards; bounded
-connector responses; one canonical, redacted notification outbox with durable
-pre-provider attempt reservations, explicit unconfirmed outcomes, and unlocked
-sequential injected transports; secure
-restart-safe heartbeat nonces; an explicit offline maintenance ticker; a
-read-only structural preflight that cannot authenticate local evidence or grant
-release readiness; and an isolated no-dependency recovery
-drill. Browser mutations reuse the exact same envelope once after uncertain
-transport failure. The rebuilt suite passes 273 tests and the combined
-legacy-plus-rebuild corpus passes 516. Bot model/tool runtimes, live notification
-delivery, connector writes, live advisory/signature lookup, autonomous scheduling,
-and autonomous enforcement remain disabled.
-
-The September 23 code review added 23 regression cases and fixed the reproduced defects, including approval-preserving resume, credential-field redaction, heartbeat replay protection, strict cost/configuration validation, and legacy approval-form request protection. See [`docs/CODE_REVIEW_2026-09-23.md`](docs/CODE_REVIEW_2026-09-23.md) for evidence and remaining limits. These are local checks, not independent review or production acceptance.
-
----
-
-# Legacy orca-review (PUBLIC)
-
-**Purpose:** Review channel for [Orca](https://github.com/Fryrocket/multi-agent-orchestration) so Claude can read **raw source** without private-repo auth or Drive Doc conversion.
-
-**Orca ≠ BGM.** This mirror holds only review-surface files. No API keys. No secrets. Not a pip-installable package.
-
-Current sync: **v0.5.12** (Round-7 + R11) from private `multi-agent-orchestration` main.
-
-## Roles
-
-| Role | Who | Does |
-|------|-----|------|
-| **Editor** | Claude | Reads raw files here, writes proposals / patches / tests |
-| **Implementer** | Grok | Applies approved changes in private `multi-agent-orchestration` |
-| **Owner** | Fry | Approves scope and merges |
-
-## Workflow (locked)
-
-1. **Grok** syncs the files under review into this public repo (raw `.py`, real indentation).
-2. **Claude** reviews via raw URLs or clone — cites path + function / line intent.
-3. **Claude programs the fix** as concrete patch text or full file replacement (not vague asks only).
-4. Fry approves (or adjusts).
-5. **Grok implements** in the private repo, runs `pytest -v`, syncs this mirror again.
-
-Claude does **not** push to private repos and does **not** ship production. Editor proposes + codes; Implementer lands.
-
-## Raw file URLs (always prefer these)
-
-Base: `https://raw.githubusercontent.com/Fryrocket/orca-review/main/`
-
-**Core (v0.5.12)**
-
-- `mao/__init__.py`
-- `mao/orchestrator.py`
-- `mao/models.py`
-- `mao/tools.py`
-- `mao/roles.py`
-- `mao/errors.py`
-- `mao/costguard.py`
-- `mao/cost_store.py`
-- `mao/tracking.py`
-- `mao/pricing.py`
-- `mao/human.py`
-- `mao/blackboard.py`
-- `mao/bus.py`
-- `mao/agent.py`
-- `mao/scheduler.py`
-- `mao/scheduler_ntp.py`
-- `mao/web_ui/auth.py`
-
-**Tests**
-
-- `tests/test_privileges.py`
-- `tests/test_product.py`
-
-## For Claude — how to send work to Grok
-
-Reply in this shape:
-
-```
-TO: Grok (Implementer)
-FROM: Claude (Editor)
-RE: <topic>
-
-## Review of <path>
-- finding…
-
-## Patch / full file
-```python
-# complete replacement or unified diff
-```
-
-## Tests to add
-```python
-# pytest
-```
-
-## Disposition
-DONE / DEFERRED / REJECTED per item
-```
-
-Grok will implement only what Fry green-lights.
+The retained `mao/` package and August records are historical rollback and
+regression surfaces, not the architecture or current status of the rebuilt
+control plane.

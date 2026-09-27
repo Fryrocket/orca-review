@@ -1,7 +1,7 @@
 # ORCA multi-host rollout and migration plan
 
 Date: 2026-09-23
-Status: Design and acceptance plan only; no deployment or remote execution authorized
+Status: Observation deployment active on three hosts; remaining acceptance plan retained
 
 ## Safety boundary
 
@@ -18,14 +18,15 @@ approval after independent QUENCH review.
 
 | Node | Planned relationship to ORCA | Current proof boundary |
 | --- | --- | --- |
-| ANVIL | Operator console, development, and review client | Inventory only; no production service placement |
-| FORGE | Primary infrastructure/Gitea; candidate authoritative ORCA host | Authenticated heartbeat logic tested locally; live state unproven |
-| KILN | Inference/supporting-services worker | Local model inventory read only; runtime and commands disabled |
+| ANVIL | Operator console, development, and review client | Signed health agent healthy; private loopback tunnel active |
+| FORGE | Authoritative ORCA control plane and primary infrastructure/Gitea | Loopback-only service healthy; signed health agent healthy; remote execution disabled |
+| KILN | Inference/supporting-services worker and relay | Signed health and model inventories healthy; ORCA model invocation and commands disabled |
 | EMBER | Backup, monitoring, UPS/NUT, and recovery observer | No live ORCA enrollment or restore role proven |
 | IRIS | BGM edge client for MQTT/logging/calibration/inference/dashboard signals | Separate BGM lane; physical/production effects are R3 |
 
-This table does not choose the production ORCA host. That placement is a release
-decision. Until then every node is a client identity and starts `unproven`.
+FORGE is the active authoritative observation host. This does not constitute
+production cutover acceptance; connector writes, remote execution, model
+invocation, and automatic failover remain disabled.
 
 ## Production topology requirements
 
@@ -103,7 +104,8 @@ calibration change, cellular action, physical output, or body-adjacent workflow.
 - Fry's exact R3 approval naming commit/push/merge/deploy/cutover and any legacy
   archive or deletion separately.
 
-This plan is not deployment approval and does not establish live node health.
+This plan is not cutover approval. Signed health is established for ANVIL,
+FORGE, and KILN only; EMBER and IRIS remain outside the active ORCA deployment.
 The offline readiness checker can inventory fixed-schema, revision-bound local
 artifacts, but reports them only as `present_unverified` and keeps them blocking.
 Local JSON cannot authenticate QUENCH, credential restoration, or deployment;

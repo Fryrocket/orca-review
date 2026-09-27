@@ -1,0 +1,33 @@
+[Unit]
+Description=ORCA DeepSeek reasoning on FORGE CRUCIBLE
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/opt/llama.cpp/llama-server
+ConditionPathExists=/srv/models/orca/DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf
+
+[Service]
+Type=simple
+User=fryrocket
+Group=fryrocket
+UMask=0077
+WorkingDirectory=/srv/models/orca
+Environment=LD_LIBRARY_PATH=/opt/llama.cpp/lib
+ExecStart=/opt/llama.cpp/llama-server --model /srv/models/orca/DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf --host 127.0.0.1 --port 11436 -ngl 99 -c 16384 -np 1 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --no-mmproj --alias DEEPSEEK-REASONER
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=600
+MemoryHigh=40G
+MemoryMax=48G
+TasksMax=512
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/srv/models/orca /opt/llama.cpp
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

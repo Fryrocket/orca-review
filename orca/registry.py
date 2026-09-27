@@ -45,40 +45,64 @@ class FleetNode:
     permission_floor: str = "R0"
     remote_execution_enabled: bool = False
     cpu: str = "unverified"
+    cpu_cores: int | None = None
     cpu_threads: int | None = None
+    architecture: str = "unverified"
     memory_gib: int | None = None
     gpu: str = "unverified"
     gpu_vram_gib: int | None = None
+    planned_gpu: str | None = None
+    planned_gpu_name: str | None = None
     storage_gib: int | None = None
+    wired_network_mbps: int | None = None
     capabilities: tuple[str, ...] = ()
 
 
 # Inventory facts only. Runtime health starts unproven until a verified probe exists.
 NODES = {
     "anvil": FleetNode("anvil", "ANVIL", "forge", "workstation",
-                       "operator console, development and review", "local workstation",
-                       cpu="Apple M4 (10 cores)", cpu_threads=10, memory_gib=16,
-                       gpu="Apple M4 integrated GPU (10 cores)", storage_gib=460,
+                       "operator console, development and review", "192.168.4.20 (local workstation)",
+                       cpu="Apple M4 (10 cores)", cpu_cores=10, cpu_threads=10,
+                       architecture="arm64", memory_gib=16,
+                       gpu="Apple M4 integrated GPU (10 cores, shared memory)",
+                       storage_gib=466,
                        capabilities=("operator_interactive", "development",
-                                     "interactive_review", "local_arm64")),
+                                     "interactive_review", "fast_local_inference",
+                                     "media_acceleration", "local_arm64")),
     "forge": FleetNode("forge", "FORGE", "forge", "server",
-                       "authoritative control plane, storage and primary infrastructure",
+                       "authoritative control plane, shared memory, storage, deep CPU inference and primary infrastructure",
                        "192.168.7.30", "R2",
-                       cpu="AMD Ryzen 9 5900XT", cpu_threads=32, memory_gib=62,
-                       gpu="Radeon 550-class display adapter; RX9700 pending",
+                       cpu="AMD Ryzen 9 5900XT", cpu_cores=16, cpu_threads=32,
+                       architecture="x86_64", memory_gib=62,
+                       gpu="CRUCIBLE — AMD Radeon AI PRO R9700 32 GiB; AMD Lexa Pro display adapter 4 GiB",
+                       gpu_vram_gib=32,
                        storage_gib=10_350,
+                       wired_network_mbps=2_500,
                        capabilities=("control_plane", "cpu_batch", "durable_storage",
-                                     "model_storage", "data_storage", "network_2_5gbe")),
+                                     "model_storage", "data_storage", "network_2_5gbe",
+                                     "shared_context", "build_ci", "document_ingest",
+                                     "cpu_inference", "large_cpu_inference",
+                                     "embeddings", "monitoring_fallback",
+                                     "gpu_compute_rocm")),
     "kiln": FleetNode("kiln", "KILN", "forge", "worker",
-                      "secondary inference, review and supporting services",
+                      "independent GPU review, verification and supporting services",
                       "100.97.193.39", "R2",
-                      cpu="AMD Ryzen 5 4600G", cpu_threads=12, memory_gib=31,
-                      gpu="NVIDIA GeForce GTX 1660 Ti", gpu_vram_gib=6,
+                      cpu="AMD Ryzen 5 4600G", cpu_cores=6, cpu_threads=12,
+                      architecture="x86_64", memory_gib=31,
+                      gpu="BILLOWS — NVIDIA GeForce GTX 1660 Ti", gpu_vram_gib=6,
                       storage_gib=466,
-                      capabilities=("small_inference", "embeddings", "local_review",
-                                    "relay", "local_x86_64")),
+                      wired_network_mbps=1_000,
+                      capabilities=("small_inference", "gpu_inference", "local_review",
+                                    "independent_review", "relay", "local_x86_64")),
     "ember": FleetNode("ember", "EMBER", "forge", "sre-backup",
-                       "backup, monitoring and UPS/NUT", "LAN / tailnet", "R2"),
+                       "always-on backup observer, monitoring, UPS/NUT and watchdog",
+                       "192.168.4.26 / 100.87.165.66", "R2",
+                       cpu="Broadcom BCM2711 / Cortex-A72", cpu_cores=4,
+                       cpu_threads=4, architecture="arm64", memory_gib=8,
+                       gpu="VideoCore VI integrated GPU (shared memory)",
+                       storage_gib=477, wired_network_mbps=1_000,
+                       capabilities=("monitoring", "ups_watch", "watchdog",
+                                     "backup_observer", "wake_signals", "local_arm64")),
     "iris": FleetNode("iris", "IRIS", "bgm", "edge-ai",
                       "MQTT, logging, calibration, inference and dashboards",
                       "BGM LAN / cellular path", "R3"),

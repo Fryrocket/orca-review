@@ -146,3 +146,85 @@ class SandboxedLocalAdapter:
         if not valid:
             raise ValueError("local model output failed contract: " + "; ".join(failures))
         return output
+
+
+class SandboxedOpenAIAdapter:
+    """Bounded loopback adapter for local llama.cpp OpenAI-compatible services.
+
+    Remote workers must be projected onto loopback through an independently
+    authenticated tunnel. Direct LAN or tailnet model endpoints remain denied.
+    """
+
+    def __init__(self, *, endpoint: str, allowed_models: tuple[str, ...], transport,
+                 timeout_seconds: int = 300, max_prompt_chars: int = 24_000,
+                 max_output_tokens: int = 4_096) -> None:
+        parsed = urlparse(endpoint)
+        if parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
+            raise ValueError("local OpenAI-compatible endpoint must be loopback HTTP")
+        if (parsed.path != "/v1/chat/completions" or parsed.username or parsed.password
+                or parsed.query or parsed.fragment):
+            raise ValueError("local OpenAI-compatible endpoint must use /v1/chat/completions")
+        if (not allowed_models
+                or any(not isinstance(model, str) or not model.strip() or len(model) > 200
+                       or redact_text(model) != model for model in allowed_models)):
+            raise ValueError("at least one local model must be allowlisted")
+        if type(timeout_seconds) is not int or not 1 <= timeout_seconds <= 900:
+            raise ValueError("local model timeout must be 1-900 seconds")
+        if type(max_prompt_chars) is not int or not 1 <= max_prompt_chars <= 64_000:
+            raise ValueError("local model prompt bound must be 1-64000 characters")
+        if type(max_output_tokens) is not int or not 1 <= max_output_tokens <= 32_768:
+            raise ValueError("local model output bound must be 1-32768 tokens")
+        self.endpoint = endpoint
+        self.allowed_models = frozenset(allowed_models)
+        self.transport = transport
+        self.timeout_seconds = timeout_seconds
+        self.max_prompt_chars = max_prompt_chars
+        self.max_output_tokens = max_output_tokens
+
+    def invoke(self, *, bot_id: str, model: str, prompt: str) -> dict:
+        if bot_id not in PROMPT_CONTRACTS:
+            raise PermissionError("unknown bot runtime identity")
+        if model not in self.allowed_models:
+            raise PermissionError("local model is not allowlisted")
+        if not isinstance(prompt, str) or not prompt or len(prompt) > self.max_prompt_chars:
+            raise ValueError("prompt is empty or exceeds the local runtime limit")
+        if redact_text(prompt) != prompt:
+            raise ValueError("prompt contains secret-shaped data")
+        contract = PROMPT_CONTRACTS[bot_id]
+        payload = {
+            "model": model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        contract.system
+                        + " Return one JSON object with exactly summary, evidence, "
+                          "uncertainty, and next_gate."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ],
+            "stream": False,
+            "response_format": {"type": "json_object"},
+            "max_tokens": self.max_output_tokens,
+            "tools": [],
+        }
+        raw = self.transport(self.endpoint, payload, self.timeout_seconds)
+        try:
+            content = raw["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise ValueError("local model returned an invalid OpenAI-compatible envelope") from exc
+        if not isinstance(content, str) or len(content) > OfflineEvaluator.max_output_chars:
+            raise ValueError("local model response is missing or exceeds the size limit")
+        try:
+            output = json.loads(
+                content,
+                parse_constant=lambda value: (_ for _ in ()).throw(
+                    ValueError(f"invalid JSON constant: {value}")),
+            )
+        except (json.JSONDecodeError, ValueError) as exc:
+            raise ValueError("local model response is not valid JSON") from exc
+        valid, failures = OfflineEvaluator().evaluate(bot_id, output)
+        if not valid:
+            raise ValueError("local model output failed contract: " + "; ".join(failures))
+        return output

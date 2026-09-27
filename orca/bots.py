@@ -68,7 +68,7 @@ BOT_BUILD_QUEUE = (
     {"order": 3, "item": "add deny-by-default tool capability manifests", "status": "complete"},
     {"order": 4, "item": "build sandboxed local-model adapters with zero cloud budget", "status": "complete"},
     {"order": 5, "item": "add offline evaluation fixtures for routing, evidence and refusal", "status": "complete"},
-    {"order": 6, "item": "decide AMPERE and RELAY migration or replacement", "status": "decision_required"},
+    {"order": 6, "item": "define AMPERE and RELAY as inactive bounded specialist candidates", "status": "complete"},
     {"order": 7, "item": "design independent security bot without merge or deploy authority", "status": "complete"},
 )
 
