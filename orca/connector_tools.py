@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import socket
 import stat
+import subprocess
 from urllib.parse import parse_qs, quote, urlencode, urlparse
 from urllib.error import HTTPError
 from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
@@ -157,6 +158,63 @@ class GoogleDriveReadTools:
             url = f"{self.api}/files/{quote(file_id)}?alt=media"
         _, body = self.transport(url, self.token, 256_000)
         return {"metadata": metadata, "text": body.decode("utf-8", errors="replace")}
+
+    def handlers(self) -> dict:
+        return {"drive.search": self.search, "drive.read": self.read}
+
+
+class RcloneDriveReadTools:
+    """Durable read-only Drive adapter using an owner-only rclone config."""
+
+    def __init__(self, config_file: str | Path, *, executable: str = "/usr/bin/rclone",
+                 runner=None) -> None:
+        self.config_file = Path(config_file)
+        mode = stat.S_IMODE(self.config_file.stat().st_mode)
+        if mode & 0o077:
+            raise PermissionError("rclone config must be owner-only")
+        self.executable = executable
+        if runner is None and not Path(executable).is_file():
+            raise ValueError("rclone executable is unavailable")
+        self.runner = runner or self._run
+
+    def _run(self, arguments: list[str], limit: int = 512_000) -> str:
+        process = subprocess.Popen(
+            [self.executable, "--config", str(self.config_file), *arguments],
+            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=False, env={"PATH": "/usr/bin:/bin"},
+        )
+        try:
+            stdout, stderr = process.communicate(timeout=30)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.communicate()
+            raise RuntimeError("Drive read timed out") from None
+        if len(stdout) > limit or len(stderr) > 32_000:
+            raise ValueError("Drive response exceeds the bounded envelope")
+        if process.returncode:
+            raise RuntimeError("Drive read failed")
+        return stdout.decode("utf-8", errors="replace")
+
+    def search(self, *, query: str) -> dict:
+        if not isinstance(query, str) or not query.strip() or len(query) > 500:
+            raise ValueError("Drive search query must be bounded text")
+        escaped = query.strip().replace("\\", "\\\\").replace("'", "\\'")
+        output = self.runner([
+            "backend", "query", "gdrive:",
+            f"name contains '{escaped}' and trashed = false",
+        ])
+        value = json.loads(output)
+        if not isinstance(value, list):
+            raise ValueError("Drive search returned an invalid response")
+        return {"query": query.strip(), "results": value[:20],
+                "truncated": len(value) > 20}
+
+    def read(self, *, path: str) -> dict:
+        if (not isinstance(path, str) or not path or len(path) > 1_000
+                or path.startswith("/") or ".." in Path(path).parts):
+            raise ValueError("Drive path must be a bounded relative path")
+        output = self.runner(["cat", f"gdrive:{path}"] , 256_000)
+        return {"path": path, "text": output}
 
     def handlers(self) -> dict:
         return {"drive.search": self.search, "drive.read": self.read}

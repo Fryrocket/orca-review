@@ -8,7 +8,7 @@ from .crucible import current_crucible_acceptance
 from .runtime import ModelRuntimeGateway
 from .inventory import InventoryProvider
 from .read_tools import WorkspaceReadTools
-from .connector_tools import GoogleDriveReadTools, PublicWebReadTools
+from .connector_tools import GoogleDriveReadTools, PublicWebReadTools, RcloneDriveReadTools
 from .tools import ReadOnlyToolBroker
 from .web import serve
 
@@ -43,8 +43,11 @@ def main() -> None:
     tool_workspace = os.environ.get("ORCA_TOOL_WORKSPACE_ROOT", os.getcwd())
     read_tools = WorkspaceReadTools(tool_workspace)
     handlers = {**read_tools.handlers(), **PublicWebReadTools().handlers()}
+    rclone_config = os.environ.get("ORCA_RCLONE_CONFIG")
     drive_token_file = os.environ.get("ORCA_GOOGLE_DRIVE_TOKEN_FILE")
-    if drive_token_file:
+    if rclone_config:
+        handlers.update(RcloneDriveReadTools(rclone_config).handlers())
+    elif drive_token_file:
         handlers.update(GoogleDriveReadTools(drive_token_file).handlers())
     tool_broker = ReadOnlyToolBroker(handlers)
     runtime_gateway = (

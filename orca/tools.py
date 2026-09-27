@@ -59,7 +59,7 @@ TOOL_ARGUMENT_SCHEMAS = {
     "web.search": {"query": "public web search query"},
     "web.fetch": {"url": "public HTTP or HTTPS URL"},
     "drive.search": {"query": "Drive file-name query"},
-    "drive.read": {"file_id": "Google Drive file ID"},
+    "drive.read": {"path": "Google Drive path relative to My Drive"},
 }
 
 

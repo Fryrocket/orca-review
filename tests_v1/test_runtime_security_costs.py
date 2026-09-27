@@ -17,7 +17,9 @@ from orca.tools import (
     ToolRequest,
 )
 from orca.read_tools import WorkspaceReadTools
-from orca.connector_tools import GoogleDriveReadTools, PublicWebReadTools
+from orca.connector_tools import (
+    GoogleDriveReadTools, PublicWebReadTools, RcloneDriveReadTools,
+)
 from orca.models import ModelRoute, ModelRouter
 
 
@@ -366,6 +368,30 @@ def test_google_drive_tools_are_read_only_and_require_owner_only_token(tmp_path)
     token.chmod(0o644)
     with pytest.raises(PermissionError, match="owner-only"):
         GoogleDriveReadTools(token, transport=transport)
+
+
+def test_rclone_drive_tools_use_only_query_and_cat_with_owner_only_config(tmp_path):
+    config = tmp_path / "rclone.conf"
+    config.write_text("[gdrive]\ntype = drive\n")
+    config.chmod(0o600)
+    calls = []
+
+    def runner(arguments, limit=512_000):
+        calls.append((arguments, limit))
+        if arguments[:2] == ["backend", "query"]:
+            return '[{"id":"abc","name":"CC_note.md"}]'
+        return "handoff text"
+
+    drive = RcloneDriveReadTools(config, runner=runner)
+    assert drive.search(query="CC_note")["results"][0]["id"] == "abc"
+    assert drive.read(path="cc-bridge/CC_note.md")["text"] == "handoff text"
+    assert calls[0][0][:3] == ["backend", "query", "gdrive:"]
+    assert calls[1] == (["cat", "gdrive:cc-bridge/CC_note.md"], 256_000)
+    with pytest.raises(ValueError, match="relative"):
+        drive.read(path="../secret")
+    config.chmod(0o644)
+    with pytest.raises(PermissionError, match="owner-only"):
+        RcloneDriveReadTools(config, runner=runner)
 
 
 def test_local_adapters_accept_only_one_empty_json_fence():
