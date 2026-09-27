@@ -2,7 +2,7 @@
 Description=ORCA SMITH deep coding inference on FORGE CPU
 After=network-online.target
 Wants=network-online.target
-ConditionPathExists=/opt/llama.cpp/bin/llama-server
+ConditionPathExists=/opt/llama.cpp/llama-server
 ConditionPathExists=/srv/models/orca/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf
 
 [Service]
@@ -11,7 +11,8 @@ User=fryrocket
 Group=fryrocket
 UMask=0077
 WorkingDirectory=/srv/models/orca
-ExecStart=/opt/llama.cpp/bin/llama-server --model /srv/models/orca/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf --host 127.0.0.1 --port 11434 --threads 24 --threads-batch 32 -ngl 0 --device none -c 16384 -np 1 --alias SMITH
+Environment=LD_LIBRARY_PATH=/opt/llama.cpp/lib
+ExecStart=/opt/llama.cpp/llama-server --model /srv/models/orca/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf --host 127.0.0.1 --port 11434 --threads 24 --threads-batch 32 -ngl 0 --device none -c 16384 -np 1 --alias SMITH
 Restart=on-failure
 RestartSec=5
 Nice=5
