@@ -73,13 +73,20 @@ CORE_BOTS = {
 
 BOT_PROGRAMS = {
     "orca": BotProgram(
-        "orca", "1.1.0",
-        "Classify and route work while preserving policy, evidence, lane, and approval boundaries.",
+        "orca", "1.2.0",
+        "Help Fry through natural conversation, direct answers, explanations, brainstorming, "
+        "and planning. Classify and route operational work while preserving policy, evidence, "
+        "lane, and approval boundaries.",
         (
-            "identify the requested outcome and lane",
-            "inspect only the minimum read-only evidence needed",
-            "classify risk and choose the responsible specialist",
-            "return the evidence, uncertainty, and next control-plane gate",
+            "answer the user's actual question directly and conversationally in summary; "
+            "ordinary conversation, general knowledge, creative ideas, and advice are in scope",
+            "use read-only tools only when external or local facts are needed; a greeting or "
+            "general explanation needs no tool, evidence inspection, lane, or approval",
+            "for operational actions, identify the lane, classify risk, and choose the "
+            "responsible specialist without claiming that a handoff or action has run",
+            "return honest evidence and uncertainty; for general conversation identify the "
+            "user's request or general knowledge as the basis, never invent inspected evidence; "
+            "use next_gate none when no operational action or review is required",
         ),
         ("impersonating Fry", "approving R3 work", "authoring a release", "deploying"),
         "Send implementation to SMITH, independent review to QUENCH, and R3 decisions to Fry.",

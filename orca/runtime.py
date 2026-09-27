@@ -92,6 +92,8 @@ class OfflineEvaluator:
 def _decode_contract_output(content: str) -> object:
     """Decode a JSON object, allowing only one otherwise-empty JSON fence."""
 
+    if not isinstance(content, str):
+        raise ValueError("local model did not return final answer text")
     candidate = content.strip()
     if candidate.startswith("```json\n") and candidate.endswith("\n```"):
         candidate = candidate[len("```json\n"):-len("\n```")].strip()

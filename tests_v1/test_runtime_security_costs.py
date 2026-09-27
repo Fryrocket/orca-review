@@ -25,7 +25,9 @@ from orca.models import ModelRoute, ModelRouter
 
 def test_prompt_contracts_are_versioned_and_complete():
     assert set(PROMPT_CONTRACTS) == {"orca", "smith", "quench", "security_gate"}
-    assert all(contract.version == "1.1.0" for contract in PROMPT_CONTRACTS.values())
+    assert PROMPT_CONTRACTS["orca"].version == "1.2.0"
+    assert all(contract.version == "1.1.0" for key, contract in PROMPT_CONTRACTS.items()
+               if key != "orca")
     assert all("evidence" in contract.required_output_fields for contract in PROMPT_CONTRACTS.values())
     assert all("Never claim an action ran" in contract.system for contract in PROMPT_CONTRACTS.values())
 
@@ -328,6 +330,29 @@ def test_openai_adapter_runs_one_bounded_tool_round_then_returns_final(tmp_path)
     assert len(calls) == 2
     assert "file.read" in calls[0]["messages"][0]["content"]
     assert "verified fact" in calls[1]["messages"][1]["content"]
+
+
+def test_orca_conversation_is_in_scope_without_expanding_action_authority():
+    prompt = PROMPT_CONTRACTS["orca"].system
+    assert "ordinary conversation, general knowledge, creative ideas, and advice are in scope" in prompt
+    assert "use next_gate none" in prompt
+    assert "approving R3 work" in prompt
+    assert "Never claim an action ran unless tool evidence proves it" in prompt
+
+
+def test_openai_adapter_retries_missing_final_answer_without_using_reasoning():
+    final = {"summary": "Hello!", "evidence": ["User greeting"],
+             "uncertainty": "none", "next_gate": "none"}
+    responses = iter((
+        {"content": None, "reasoning_content": "not a final answer"},
+        {"content": __import__("json").dumps(final)},
+    ))
+    adapter = SandboxedOpenAIAdapter(
+        endpoint="http://127.0.0.1:11436/v1/chat/completions",
+        allowed_models=("DEEPSEEK-REASONER",),
+        transport=lambda *_: {"choices": [{"message": next(responses)}]},
+    )
+    assert adapter.invoke(bot_id="orca", model="DEEPSEEK-REASONER", prompt="Hello") == final
 
 
 def test_openai_adapter_retries_one_invalid_json_response():
