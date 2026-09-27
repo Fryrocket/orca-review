@@ -255,6 +255,8 @@ class SandboxedOpenAIAdapter:
                                   "When the user explicitly names an available tool or asks to "
                                   "read, search, fetch, or inspect its source, request it. Return "
                                   "only tool_requests; use an empty list when no tool is needed. "
+                                  "For code or text already supplied in the conversation, work "
+                                  "directly from that text. Never invent a file path to inspect. "
                                   "Available schemas: "
                                 + json.dumps(available, sort_keys=True)
                             ),
@@ -308,6 +310,7 @@ class SandboxedOpenAIAdapter:
                                       "tool_requests. Its value must be an array of zero to four "
                                       "objects containing exactly name and arguments. Do not use "
                                       "prose, markdown, code fences, comments, or trailing commas. "
+                                      "Never invent a file path; supplied code can be reviewed directly. "
                                       "Available schemas: "
                                     + json.dumps(available, sort_keys=True)
                                 ),

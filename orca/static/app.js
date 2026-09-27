@@ -341,7 +341,7 @@ $('#new-thread').addEventListener('click', () => {
   conversationHistory = [];
   try { localStorage.removeItem(chatMemoryKey); } catch {}
   selectMode('auto');
-  $('#conversation').innerHTML = `<div class="welcome-card"><span class="welcome-orb">O</span><h2>New room</h2><p>Describe the outcome and choose a specialist route.</p></div>`;
+  $('#conversation').innerHTML = `<div class="welcome-card"><span class="welcome-orb">O</span><h2>New room</h2><p>Describe the outcome. Auto chooses the capability for you.</p></div>`;
   show('studio'); $('#prompt-input').focus();
 });
 

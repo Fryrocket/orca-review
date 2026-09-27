@@ -25,6 +25,17 @@ def test_recent_history_retains_newest_complete_messages():
     assert validate_history() == []
 
 
+def test_missing_read_file_is_explicit_failed_evidence_not_a_server_crash():
+    from orca.tools import ReadOnlyToolBroker, ToolRequest
+    def missing(**kwargs):
+        raise FileNotFoundError("private path")
+    broker = ReadOnlyToolBroker({"file.read": missing})
+    result = broker.execute(bot_id="quench", requests=[ToolRequest("file.read", {"path": "missing.py"})])
+    assert result[0].output["status"] == "unavailable"
+    assert "no file content was read" in result[0].output["error"]
+    assert "private path" not in str(result)
+
+
 @pytest.mark.parametrize('mode,service,bot', [
     ('reason', 'forge_qwen', 'orca'), ('code', 'forge_smith', 'smith'),
     ('review', 'kiln_quench', 'quench'), ('engineer', 'forge_qwen', 'smith'),

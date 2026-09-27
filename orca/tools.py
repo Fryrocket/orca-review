@@ -119,7 +119,10 @@ class ReadOnlyToolBroker:
             handler = self.handlers.get(request.name)
             if handler is None:
                 raise PermissionError(f"tool handler is unavailable: {request.name}")
-            output = handler(**dict(request.arguments))
+            try:
+                output = handler(**dict(request.arguments))
+            except FileNotFoundError:
+                output = {"status": "unavailable", "error": "Requested file was not found; no file content was read."}
             encoded_output = json.dumps(
                 output, sort_keys=True, separators=(",", ":"), allow_nan=False)
             if len(encoded_output.encode()) > self.max_result_bytes:
