@@ -78,6 +78,22 @@ class OfflineEvaluator:
         return not failures, tuple(failures)
 
 
+def _decode_contract_output(content: str) -> object:
+    """Decode a JSON object, allowing only one otherwise-empty JSON fence."""
+
+    candidate = content.strip()
+    if candidate.startswith("```json\n") and candidate.endswith("\n```"):
+        candidate = candidate[len("```json\n"):-len("\n```")].strip()
+    try:
+        return json.loads(
+            candidate,
+            parse_constant=lambda value: (_ for _ in ()).throw(
+                ValueError(f"invalid JSON constant: {value}")),
+        )
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise ValueError("local model response is not valid JSON") from exc
+
+
 class DisabledRuntime:
     """Fail-closed placeholder until a reviewed local adapter is configured."""
 
@@ -136,14 +152,7 @@ class SandboxedLocalAdapter:
             raise ValueError("local model returned an invalid envelope")
         if len(raw["response"]) > OfflineEvaluator.max_output_chars:
             raise ValueError("local model response exceeds the size limit")
-        try:
-            output = json.loads(
-                raw["response"],
-                parse_constant=lambda value: (_ for _ in ()).throw(
-                    ValueError(f"invalid JSON constant: {value}")),
-            )
-        except (json.JSONDecodeError, ValueError) as exc:
-            raise ValueError("local model response is not valid JSON") from exc
+        output = _decode_contract_output(raw["response"])
         valid, failures = OfflineEvaluator().evaluate(bot_id, output)
         if not valid:
             raise ValueError("local model output failed contract: " + "; ".join(failures))
@@ -218,14 +227,7 @@ class SandboxedOpenAIAdapter:
             raise ValueError("local model returned an invalid OpenAI-compatible envelope") from exc
         if not isinstance(content, str) or len(content) > OfflineEvaluator.max_output_chars:
             raise ValueError("local model response is missing or exceeds the size limit")
-        try:
-            output = json.loads(
-                content,
-                parse_constant=lambda value: (_ for _ in ()).throw(
-                    ValueError(f"invalid JSON constant: {value}")),
-            )
-        except (json.JSONDecodeError, ValueError) as exc:
-            raise ValueError("local model response is not valid JSON") from exc
+        output = _decode_contract_output(content)
         valid, failures = OfflineEvaluator().evaluate(bot_id, output)
         if not valid:
             raise ValueError("local model output failed contract: " + "; ".join(failures))
@@ -292,5 +294,6 @@ class ModelRuntimeGateway:
             endpoint=endpoint,
             allowed_models=(model,),
             transport=bounded_json_transport,
+            max_output_tokens=1_024 if service_id == "forge_deepseek" else 512,
         )
         return adapter.invoke(bot_id=bot_id, model=model, prompt=prompt)

@@ -131,6 +131,13 @@ def ladder_snapshot(
     enabled = requested & known_runtime_services
     if not acceptance["activation_ready"]:
         enabled.discard("forge_deepseek")
+    if "forge_deepseek" in enabled:
+        acceptance = dict(acceptance)
+        acceptance["status"] = "accepted_enabled"
+        acceptance["runtime_enabled"] = True
+        acceptance["note"] = (
+            "CRUCIBLE evidence is accepted and its allowlisted local runtime is enabled."
+        )
     services = {}
     for service_id, service in AI_SERVICES.items():
         row = asdict(service)

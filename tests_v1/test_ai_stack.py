@@ -117,6 +117,8 @@ def test_runtime_activation_is_explicit_and_crucible_evidence_gated(
     stack = ladder_snapshot()
     assert stack["model_invocation_enabled"] is True
     assert stack["crucible_acceptance"]["activation_ready"] is True
+    assert stack["crucible_acceptance"]["status"] == "accepted_enabled"
+    assert stack["crucible_acceptance"]["runtime_enabled"] is True
     assert stack["services"]["forge_deepseek"]["runtime_enabled"] is True
     assert stack["services"]["forge_smith"]["runtime_enabled"] is True
     assert stack["services"]["kiln_quench"]["runtime_enabled"] is True

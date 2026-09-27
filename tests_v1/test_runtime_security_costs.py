@@ -253,3 +253,23 @@ def test_model_runtime_gateway_is_service_and_identity_allowlisted(monkeypatch):
         gateway.invoke(service_id="kiln_quench", bot_id="smith", prompt="review")
     with pytest.raises(ValueError, match="unknown enabled"):
         ModelRuntimeGateway({"cloud"})
+
+
+def test_local_adapters_accept_only_one_empty_json_fence():
+    valid = {
+        "summary": "done", "evidence": ["fixture"],
+        "uncertainty": "none", "next_gate": "review",
+    }
+    adapter = SandboxedOpenAIAdapter(
+        endpoint="http://127.0.0.1:11434/v1/chat/completions",
+        allowed_models=("SMITH",),
+        transport=lambda *_: {"choices": [{"message": {
+            "content": "```json\n" + __import__("json").dumps(valid) + "\n```"
+        }}]},
+    )
+    assert adapter.invoke(bot_id="smith", model="SMITH", prompt="implement") == valid
+    adapter.transport = lambda *_: {"choices": [{"message": {
+        "content": "preface\n```json\n" + __import__("json").dumps(valid) + "\n```"
+    }}]}
+    with pytest.raises(ValueError, match="not valid JSON"):
+        adapter.invoke(bot_id="smith", model="SMITH", prompt="implement")
