@@ -7,7 +7,7 @@ def test_complete_role_catalog_is_valid_and_visible():
     validate_role_catalog()
     roles = {role["id"]: role for role in ControlPlane().snapshot()["role_catalog"]}
     assert set(roles) == set(ROLE_CATALOG)
-    assert {"orca", "smith", "deepseek_reasoner", "quench", "security_gate"} <= set(roles)
+    assert {"orca", "smith", "qwen_conversation", "quench", "security_gate"} <= set(roles)
     assert {"anvil_reflex", "forge_retrieval", "ember_sentinel"} <= set(roles)
     assert {"ampere", "relay", "iris", "heartbeat_agents", "fry"} <= set(roles)
 
@@ -21,11 +21,11 @@ def test_author_review_and_human_authority_stay_separate():
 
 
 def test_models_and_retrieval_are_services_not_agents():
-    for role_id in ("deepseek_reasoner", "anvil_reflex", "forge_retrieval"):
+    for role_id in ("qwen_conversation", "anvil_reflex", "forge_retrieval"):
         role = ROLE_CATALOG[role_id]
         assert not ({"author", "approve", "deploy"} & set(role.authority))
         assert role.active is False
-    assert "act_as_agent" in ROLE_CATALOG["deepseek_reasoner"].prohibited
+    assert "act_as_agent" in ROLE_CATALOG["qwen_conversation"].prohibited
 
 
 def test_candidates_and_iris_remain_inactive_and_lane_bounded():

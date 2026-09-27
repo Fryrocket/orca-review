@@ -1,9 +1,10 @@
 [Unit]
-Description=ORCA DeepSeek reasoning on FORGE CRUCIBLE
+Description=ORCA Qwen conversational brain on FORGE CRUCIBLE
 After=network-online.target
 Wants=network-online.target
+RequiresMountsFor=/srv/models/orca
 ConditionPathExists=/opt/llama.cpp/llama-server
-ConditionPathExists=/srv/models/orca/DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf
+ConditionPathExists=/srv/models/orca/Qwen3.5-35B-A3B-Q4_K_M.gguf
 
 [Service]
 Type=simple
@@ -12,7 +13,7 @@ Group=fryrocket
 UMask=0077
 WorkingDirectory=/srv/models/orca
 Environment=LD_LIBRARY_PATH=/opt/llama.cpp/lib
-ExecStart=/opt/llama.cpp/llama-server --model /srv/models/orca/DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf --host 127.0.0.1 --port 11436 -ngl 99 -c 16384 -np 1 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --no-mmproj --alias DEEPSEEK-REASONER
+ExecStart=/opt/llama.cpp/llama-server --model /srv/models/orca/Qwen3.5-35B-A3B-Q4_K_M.gguf --host 127.0.0.1 --port 11436 -ngl 99 -c 16384 -np 1 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --no-mmproj --alias ORCA-QWEN --reasoning off --chat-template-kwargs '{"enable_thinking":false}'
 Restart=on-failure
 RestartSec=5
 TimeoutStartSec=600

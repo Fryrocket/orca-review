@@ -44,15 +44,15 @@ def test_anvil_is_fast_reflex_and_ember_has_no_generative_model():
     assert AI_SERVICES["ember_sentinel"].node_id == "ember"
 
 
-def test_deepseek_is_a_bounded_crucible_reasoner_not_an_author_or_reviewer():
-    deepseek = AI_SERVICES["forge_deepseek"]
-    assert deepseek.node_id == "forge"
-    assert deepseek.model == "DeepSeek-R1-Distill-Qwen-32B-Q4_K_M"
-    assert deepseek.accelerator == "CRUCIBLE / AMD ROCm"
-    assert deepseek.vram_budget_gib == 24
-    assert deepseek.may_author is False
-    assert deepseek.may_review is False
-    assert deepseek.runtime_enabled is False
+def test_qwen_is_a_bounded_crucible_reasoner_not_an_author_or_reviewer():
+    qwen = AI_SERVICES["forge_qwen"]
+    assert qwen.node_id == "forge"
+    assert qwen.model == "Qwen3.5-35B-A3B-Q4_K_M"
+    assert qwen.accelerator == "CRUCIBLE / AMD ROCm"
+    assert qwen.vram_budget_gib == 24
+    assert qwen.may_author is False
+    assert qwen.may_review is False
+    assert qwen.runtime_enabled is False
 
 
 def test_concurrent_ai_service_budgets_do_not_overcommit_hosts():
@@ -70,11 +70,11 @@ def test_concurrent_ai_service_budgets_do_not_overcommit_hosts():
 
 
 def test_ladders_escalate_to_deeper_reasoning_then_independent_review():
-    assert AI_LADDERS["interactive"] == ("anvil_reflex", "forge_deepseek", "forge_smith", "fry")
-    assert AI_LADDERS["coding"] == ("forge_deepseek", "forge_smith", "kiln_quench", "fry")
+    assert AI_LADDERS["interactive"] == ("anvil_reflex", "forge_qwen", "forge_smith", "fry")
+    assert AI_LADDERS["coding"] == ("forge_qwen", "forge_smith", "kiln_quench", "fry")
     assert AI_LADDERS["review"] == ("kiln_quench", "fry")
     assert AI_LADDERS["monitoring"][:2] == ("ember_sentinel", "forge_policy")
-    assert AI_LADDERS["large_gpu_inference"] == ("forge_deepseek", "forge_crucible", "fry")
+    assert AI_LADDERS["large_gpu_inference"] == ("forge_qwen", "forge_crucible", "fry")
 
 
 def test_default_model_routes_point_to_hardware_aware_services():
@@ -92,7 +92,7 @@ def test_control_plane_exposes_stack_without_enabling_model_calls():
         not service["runtime_enabled"]
         for service in stack["services"].values()
     )
-    assert stack["ladders"]["coding"][0]["service_id"] == "forge_deepseek"
+    assert stack["ladders"]["coding"][0]["service_id"] == "forge_qwen"
     assert stack["ladders"]["coding"][1]["service_id"] == "forge_smith"
     assert stack["ladders"]["review"][0]["node_id"] == "kiln"
     assert stack["crucible_acceptance"]["status"] == "blocked"
@@ -102,7 +102,7 @@ def test_control_plane_exposes_stack_without_enabling_model_calls():
 def test_runtime_activation_is_explicit_and_crucible_evidence_gated(
         monkeypatch, tmp_path):
     evidence = CrucibleAcceptance(
-        model_id="deepseek", model_sha256="a" * 64,
+        model_id="qwen", model_sha256="a" * 64,
         runtime_id="llama.cpp", runtime_sha256="b" * 64,
         loopback_only=True, tool_calls_disabled=True, bounded_context=True,
         post_reboot_model_test=True, sustained_load_test=True,
@@ -113,13 +113,13 @@ def test_runtime_activation_is_explicit_and_crucible_evidence_gated(
     path.write_text(json.dumps(asdict(evidence)))
     monkeypatch.setenv("ORCA_CRUCIBLE_ACCEPTANCE_FILE", str(path))
     monkeypatch.setenv(
-        "ORCA_ENABLED_MODEL_SERVICES", "forge_deepseek,forge_smith,kiln_quench")
+        "ORCA_ENABLED_MODEL_SERVICES", "forge_qwen,forge_smith,kiln_quench")
     stack = ladder_snapshot()
     assert stack["model_invocation_enabled"] is True
     assert stack["crucible_acceptance"]["activation_ready"] is True
     assert stack["crucible_acceptance"]["status"] == "accepted_enabled"
     assert stack["crucible_acceptance"]["runtime_enabled"] is True
-    assert stack["services"]["forge_deepseek"]["runtime_enabled"] is True
+    assert stack["services"]["forge_qwen"]["runtime_enabled"] is True
     assert stack["services"]["forge_smith"]["runtime_enabled"] is True
     assert stack["services"]["kiln_quench"]["runtime_enabled"] is True
     bots = {row["id"]: row for row in ControlPlane().snapshot()["bots"]}
@@ -127,5 +127,5 @@ def test_runtime_activation_is_explicit_and_crucible_evidence_gated(
 
     path.write_text("{}")
     stack = ladder_snapshot()
-    assert stack["services"]["forge_deepseek"]["runtime_enabled"] is False
+    assert stack["services"]["forge_qwen"]["runtime_enabled"] is False
     assert stack["services"]["forge_smith"]["runtime_enabled"] is True

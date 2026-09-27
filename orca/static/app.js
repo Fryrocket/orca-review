@@ -33,8 +33,8 @@ let state = {
 
 const routes = {
   reason: {
-    service_id: 'forge_deepseek', bot_id: 'orca', label: 'DeepSeek · CRUCIBLE',
-    name: 'DeepSeek Reasoner', duty: 'Architecture, difficult debugging, mathematics and planning on CRUCIBLE.',
+    service_id: 'forge_qwen', bot_id: 'orca', label: 'Qwen 3.5 · CRUCIBLE',
+    name: 'ORCA · Qwen 3.5', duty: 'Conversation, explanations, brainstorming and planning on CRUCIBLE.',
     node: 'FORGE · ROCm', context: '16K context'
   },
   code: {
@@ -48,12 +48,12 @@ const routes = {
     node: 'KILN · CUDA', context: '4K context'
   },
   engineer: {
-    service_id: 'forge_deepseek', bot_id: 'smith', label: 'DeepSeek · Engineering',
-    name: 'DeepSeek Engineer', duty: 'Tradeoffs, calculations, mechanisms, circuits and failure analysis.',
+    service_id: 'forge_qwen', bot_id: 'smith', label: 'Qwen 3.5 · Engineering',
+    name: 'Qwen Engineer', duty: 'Tradeoffs, calculations, mechanisms, circuits and failure analysis.',
     node: 'FORGE · ROCm', context: '16K context'
   },
   visual: {
-    service_id: 'forge_deepseek', bot_id: 'orca', label: 'ORCA · Visual Direction',
+    service_id: 'forge_qwen', bot_id: 'orca', label: 'ORCA · Visual Direction',
     name: 'Visual Director', duty: 'Structured visual concepts, diagrams, compositions and production briefs.',
     node: 'FORGE · ROCm', context: '16K context'
   }
@@ -299,8 +299,8 @@ function renderActions() {
 }
 function renderCoderStack() {
   const services = state.ai_stack?.services || {};
-  const ids = ['forge_deepseek', 'forge_smith', 'kiln_quench'];
-  $('#coder-stack').innerHTML = ids.map(id => { const service = services[id] || {}; return `<div class="specialist-row"><div><strong>${esc(id === 'forge_deepseek' ? 'DeepSeek Reasoner' : id === 'forge_smith' ? 'SMITH' : 'QUENCH')}</strong><div class="meta">${esc(service.model || 'loading')}</div></div><span class="state ${service.runtime_enabled ? 'complete' : 'failed'}">${service.runtime_enabled ? 'READY' : 'GATED'}</span></div>`; }).join('');
+  const ids = ['forge_qwen', 'forge_smith', 'kiln_quench'];
+  $('#coder-stack').innerHTML = ids.map(id => { const service = services[id] || {}; return `<div class="specialist-row"><div><strong>${esc(id === 'forge_qwen' ? 'Qwen Conversation' : id === 'forge_smith' ? 'SMITH' : 'QUENCH')}</strong><div class="meta">${esc(service.model || 'loading')}</div></div><span class="state ${service.runtime_enabled ? 'complete' : 'failed'}">${service.runtime_enabled ? 'READY' : 'GATED'}</span></div>`; }).join('');
 }
 
 async function refresh() {

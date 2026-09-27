@@ -51,10 +51,10 @@ AI_SERVICES = {
         "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M", "llama.cpp", "CPU / AVX2",
         16_384, 1, 28, deployment_state="live", may_author=True,
     ),
-    "forge_deepseek": AIServiceProfile(
-        "forge_deepseek", "forge",
-        "architecture, difficult debugging, mathematics, planning and second-opinion reasoning",
-        "DeepSeek-R1-Distill-Qwen-32B-Q4_K_M", "llama.cpp", "CRUCIBLE / AMD ROCm",
+    "forge_qwen": AIServiceProfile(
+        "forge_qwen", "forge",
+        "natural conversation, explanations, brainstorming, planning and reasoning",
+        "Qwen3.5-35B-A3B-Q4_K_M", "llama.cpp", "CRUCIBLE / AMD ROCm",
         16_384, 1, 12, vram_budget_gib=24,
         deployment_state="live_pending_acceptance",
     ),
@@ -90,17 +90,17 @@ AI_SERVICES = {
 # processing. These are advisory routes; ORCA model invocation remains disabled.
 AI_LADDERS = {
     "orchestration": ("forge_policy",),
-    "interactive": ("anvil_reflex", "forge_deepseek", "forge_smith", "fry"),
-    "coding": ("forge_deepseek", "forge_smith", "kiln_quench", "fry"),
-    "documentation": ("anvil_reflex", "forge_deepseek", "forge_smith", "kiln_quench", "fry"),
-    "operations_plan": ("forge_deepseek", "forge_smith", "kiln_quench", "fry"),
+    "interactive": ("anvil_reflex", "forge_qwen", "forge_smith", "fry"),
+    "coding": ("forge_qwen", "forge_smith", "kiln_quench", "fry"),
+    "documentation": ("anvil_reflex", "forge_qwen", "forge_smith", "kiln_quench", "fry"),
+    "operations_plan": ("forge_qwen", "forge_smith", "kiln_quench", "fry"),
     "review": ("kiln_quench", "fry"),
     "security_review": ("kiln_quench", "fry"),
     "verification": ("kiln_quench", "fry"),
     "embeddings": ("forge_embeddings",),
     "monitoring": ("ember_sentinel", "forge_policy", "fry"),
     "large_inference": ("forge_smith", "fry"),
-    "large_gpu_inference": ("forge_deepseek", "forge_crucible", "fry"),
+    "large_gpu_inference": ("forge_qwen", "forge_crucible", "fry"),
 }
 
 
@@ -126,12 +126,12 @@ def ladder_snapshot(
             "ORCA_ENABLED_MODEL_SERVICES", "").split(",") if value.strip()
     }
     known_runtime_services = {
-        "anvil_reflex", "forge_smith", "forge_deepseek", "kiln_quench"
+        "anvil_reflex", "forge_smith", "forge_qwen", "kiln_quench"
     }
     enabled = requested & known_runtime_services
     if not acceptance["activation_ready"]:
-        enabled.discard("forge_deepseek")
-    if "forge_deepseek" in enabled:
+        enabled.discard("forge_qwen")
+    if "forge_qwen" in enabled:
         acceptance = dict(acceptance)
         acceptance["status"] = "accepted_enabled"
         acceptance["runtime_enabled"] = True

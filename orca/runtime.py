@@ -229,6 +229,12 @@ class SandboxedOpenAIAdapter:
         if redact_text(prompt) != prompt:
             raise ValueError("prompt contains secret-shaped data")
         contract = PROMPT_CONTRACTS[bot_id]
+        # Qwen's conversational route answers directly; do not spend the final
+        # answer budget on an invisible reasoning trace or tool-plan thinking.
+        generation_options = ({
+            "chat_template_kwargs": {"enable_thinking": False},
+            "temperature": 0.7, "top_p": 0.8, "top_k": 20,
+        } if model == "ORCA-QWEN" else {})
         if tool_broker is not None:
             available = {
                 name: TOOL_ARGUMENT_SCHEMAS[name]
@@ -282,6 +288,7 @@ class SandboxedOpenAIAdapter:
                     "max_tokens": min(self.max_output_tokens, 512),
                     "temperature": 0,
                     "tools": [],
+                    **generation_options,
                 }
                 requests = None
                 planning_unavailable = False
@@ -401,6 +408,7 @@ class SandboxedOpenAIAdapter:
             "max_tokens": self.max_output_tokens,
             "temperature": 0,
             "tools": [],
+            **generation_options,
         }
         first_error = None
         for attempt in range(2):
@@ -475,9 +483,9 @@ class ModelRuntimeGateway:
         self.enabled_services = frozenset(enabled_services)
         self.tool_broker = tool_broker
         definitions = {
-            "forge_deepseek": (
+            "forge_qwen": (
                 "http://127.0.0.1:11436/v1/chat/completions",
-                "DEEPSEEK-REASONER", frozenset({"orca", "smith"}),
+                "ORCA-QWEN", frozenset({"orca", "smith"}),
             ),
             "forge_smith": (
                 "http://127.0.0.1:11434/v1/chat/completions",
@@ -503,7 +511,7 @@ class ModelRuntimeGateway:
             endpoint=endpoint,
             allowed_models=(model,),
             transport=bounded_json_transport,
-            max_output_tokens=1_024 if service_id == "forge_deepseek" else 512,
+            max_output_tokens=1_024 if service_id == "forge_qwen" else 512,
         )
         return adapter.invoke(
             bot_id=bot_id, model=model, prompt=prompt,

@@ -276,7 +276,7 @@ def test_model_runtime_gateway_is_service_and_identity_allowlisted(monkeypatch):
     ) == valid
     assert calls[0][0] == "http://127.0.0.1:11434/v1/chat/completions"
     with pytest.raises(PermissionError, match="disabled"):
-        gateway.invoke(service_id="forge_deepseek", bot_id="smith", prompt="reason")
+        gateway.invoke(service_id="forge_qwen", bot_id="smith", prompt="reason")
     with pytest.raises(PermissionError, match="identity"):
         gateway.invoke(service_id="kiln_quench", bot_id="smith", prompt="review")
     with pytest.raises(ValueError, match="unknown enabled"):
@@ -340,6 +340,33 @@ def test_orca_conversation_is_in_scope_without_expanding_action_authority():
     assert "Never claim an action ran unless tool evidence proves it" in prompt
 
 
+def test_qwen_uses_direct_answers_for_both_tool_planning_and_final_output(tmp_path):
+    broker = ReadOnlyToolBroker(WorkspaceReadTools(tmp_path).handlers())
+    calls = []
+    final = {"summary": "Hello!", "evidence": ["User greeting"],
+             "uncertainty": "none", "next_gate": "none"}
+    replies = iter(({"tool_requests": []}, final))
+    adapter = SandboxedOpenAIAdapter(
+        endpoint="http://127.0.0.1:11436/v1/chat/completions",
+        allowed_models=("ORCA-QWEN",),
+        transport=lambda url, payload, timeout: calls.append(payload) or {
+            "choices": [{"message": {"content": __import__("json").dumps(next(replies))}}]},
+    )
+    assert adapter.invoke(bot_id="orca", model="ORCA-QWEN", prompt="Hello",
+                          tool_broker=broker) == final
+    assert len(calls) == 2
+    for payload in calls:
+        assert payload["chat_template_kwargs"] == {"enable_thinking": False}
+        assert payload["temperature"] == 0.7
+        assert payload["response_format"]["type"] == "json_schema"
+        assert payload["tools"] == []
+
+
+def test_removed_deepseek_service_is_not_a_runtime_route():
+    with pytest.raises(ValueError, match="unknown enabled"):
+        ModelRuntimeGateway({"forge_deepseek"})
+
+
 def test_openai_adapter_retries_missing_final_answer_without_using_reasoning():
     final = {"summary": "Hello!", "evidence": ["User greeting"],
              "uncertainty": "none", "next_gate": "none"}
@@ -349,10 +376,10 @@ def test_openai_adapter_retries_missing_final_answer_without_using_reasoning():
     ))
     adapter = SandboxedOpenAIAdapter(
         endpoint="http://127.0.0.1:11436/v1/chat/completions",
-        allowed_models=("DEEPSEEK-REASONER",),
+        allowed_models=("ORCA-QWEN",),
         transport=lambda *_: {"choices": [{"message": next(responses)}]},
     )
-    assert adapter.invoke(bot_id="orca", model="DEEPSEEK-REASONER", prompt="Hello") == final
+    assert adapter.invoke(bot_id="orca", model="ORCA-QWEN", prompt="Hello") == final
 
 
 def test_openai_adapter_retries_one_invalid_json_response():

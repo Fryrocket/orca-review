@@ -39,7 +39,7 @@ def main() -> None:
             "ORCA_ENABLED_MODEL_SERVICES", "").split(",") if value.strip()
     }
     if not current_crucible_acceptance()["activation_ready"]:
-        enabled_services.discard("forge_deepseek")
+        enabled_services.discard("forge_qwen")
     tool_workspace = os.environ.get("ORCA_TOOL_WORKSPACE_ROOT", os.getcwd())
     read_tools = WorkspaceReadTools(tool_workspace)
     handlers = {**read_tools.handlers(), **PublicWebReadTools().handlers()}
