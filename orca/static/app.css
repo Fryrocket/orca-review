@@ -34,7 +34,7 @@ body {
 button, input, textarea, select { font: inherit; }
 button { color: inherit; }
 button, select { cursor: pointer; }
-select {
+.image-size select {
   -webkit-appearance: none;
   appearance: none;
   color-scheme: dark;
