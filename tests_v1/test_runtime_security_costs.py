@@ -353,6 +353,36 @@ def test_openai_adapter_retries_one_invalid_json_response():
     assert "previous response could not be parsed" in calls[1]["messages"][0]["content"]
 
 
+def test_openai_adapter_retries_one_invalid_tool_plan(tmp_path):
+    broker = ReadOnlyToolBroker(WorkspaceReadTools(tmp_path).handlers())
+    final = {
+        "summary": "No tools were needed",
+        "evidence": ["validated empty tool plan"],
+        "uncertainty": "none",
+        "next_gate": "none",
+    }
+    responses = iter((
+        "No tool calls are needed.",
+        '{"tool_requests":[]}',
+        __import__("json").dumps(final),
+    ))
+    calls = []
+    adapter = SandboxedOpenAIAdapter(
+        endpoint="http://127.0.0.1:11434/v1/chat/completions",
+        allowed_models=("ORCA",),
+        transport=lambda url, payload, timeout: calls.append(payload) or {
+            "choices": [{"message": {"content": next(responses)}}]
+        },
+    )
+
+    assert adapter.invoke(
+        bot_id="orca", model="ORCA", prompt="Explain the denial", tool_broker=broker
+    ) == final
+    assert len(calls) == 3
+    assert calls[0]["temperature"] == 0
+    assert "previous tool plan could not be parsed" in calls[1]["messages"][0]["content"]
+
+
 def test_public_web_search_is_bounded_and_parsed_without_browser_authority():
     html = b'<a class="result-link" href="https://example.com/a">Example result</a>'
     web = PublicWebReadTools(

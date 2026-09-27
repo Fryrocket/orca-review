@@ -278,24 +278,64 @@ class SandboxedOpenAIAdapter:
                         },
                     },
                     "max_tokens": min(self.max_output_tokens, 512),
+                    "temperature": 0,
                     "tools": [],
                 }
-                raw_plan = self.transport(
-                    self.endpoint, plan_payload, self.timeout_seconds)
-                try:
-                    plan_content = raw_plan["choices"][0]["message"]["content"]
-                except (KeyError, IndexError, TypeError) as exc:
-                    raise ValueError("local model returned an invalid tool-plan envelope") from exc
-                plan = _decode_contract_output(plan_content)
-                requests = plan.get("tool_requests") if isinstance(plan, dict) else None
-                if (not isinstance(requests, list) or len(requests) > 4
-                        or not all(
-                            isinstance(item, dict)
-                            and set(item) == {"name", "arguments"}
-                            and item["name"] in available
-                            and isinstance(item["arguments"], dict)
-                            for item in requests
-                        )):
+                requests = None
+                for attempt in range(2):
+                    request_payload = plan_payload
+                    if attempt:
+                        request_payload = {**plan_payload, "messages": [
+                            {
+                                "role": "system",
+                                "content": (
+                                    contract.system
+                                    + " Your previous tool plan could not be parsed. Return only "
+                                      "one compact JSON object with exactly one field named "
+                                      "tool_requests. Its value must be an array of zero to four "
+                                      "objects containing exactly name and arguments. Do not use "
+                                      "prose, markdown, code fences, comments, or trailing commas. "
+                                      "Available schemas: "
+                                    + json.dumps(available, sort_keys=True)
+                                ),
+                            },
+                            {"role": "user", "content": prompt},
+                        ]}
+                    raw_plan = self.transport(
+                        self.endpoint, request_payload, self.timeout_seconds)
+                    try:
+                        plan_content = raw_plan["choices"][0]["message"]["content"]
+                    except (KeyError, IndexError, TypeError) as exc:
+                        if attempt:
+                            raise ValueError(
+                                "local model returned an invalid tool-plan envelope after "
+                                "one automatic retry"
+                            ) from exc
+                        continue
+                    try:
+                        plan = _decode_contract_output(plan_content)
+                    except ValueError as exc:
+                        if attempt:
+                            raise ValueError(
+                                "local model tool plan is not valid JSON after one automatic retry"
+                            ) from exc
+                        continue
+                    candidate = plan.get("tool_requests") if isinstance(plan, dict) else None
+                    if (isinstance(candidate, list) and len(candidate) <= 4
+                            and all(
+                                isinstance(item, dict)
+                                and set(item) == {"name", "arguments"}
+                                and item["name"] in available
+                                and isinstance(item["arguments"], dict)
+                                for item in candidate
+                            )):
+                        requests = candidate
+                        break
+                    if attempt:
+                        raise ValueError(
+                            "local model returned an invalid tool plan after one automatic retry"
+                        )
+                if requests is None:
                     raise ValueError("local model returned an invalid tool plan")
                 if requests:
                     results = tool_broker.execute(
