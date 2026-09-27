@@ -4,6 +4,18 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, character => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 }[character]));
 
+const studioNodeID = String(globalThis.ORCA_STUDIO_NODE || '').trim().toUpperCase();
+if (/^[A-Z0-9_-]{1,24}$/.test(studioNodeID) && studioNodeID !== 'ANVIL') {
+  document.title = `${studioNodeID} Studio`;
+  const brand = document.querySelector('.brand');
+  if (brand) {
+    brand.querySelector('.brand-mark').textContent = studioNodeID.slice(0, 1);
+    brand.querySelector('strong').textContent = studioNodeID;
+    brand.querySelector('small').textContent = 'STUDIO';
+  }
+  document.querySelector('.primary-nav')?.setAttribute('aria-label', `${studioNodeID} Studio`);
+}
+
 const mutationKey = () => globalThis.crypto?.randomUUID?.()
   || `orca-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const mutationControlSelector = '#operator-identity,#operator-token,#stop-reason,#toggle-stop,[data-approval],[data-pause-job],[data-job-action]';

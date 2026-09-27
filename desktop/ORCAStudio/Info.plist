@@ -12,4 +12,7 @@
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSPrincipalClass</key><string>NSApplication</string>
+  <key>StudioName</key><string>ORCA Studio</string>
+  <key>StudioNodeID</key><string>ANVIL</string>
+  <key>StudioURL</key><string>http://127.0.0.1:8788/</string>
 </dict></plist>
