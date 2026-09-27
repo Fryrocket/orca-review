@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#172226"/>
+      <stop offset="1" stop-color="#071012"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect x="28" y="28" width="456" height="456" rx="108" fill="url(#bg)"/>
+  <rect x="48" y="48" width="416" height="416" rx="88" fill="none" stroke="#ff731c" stroke-width="10" opacity=".8"/>
+  <text x="256" y="356" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="282" font-weight="900" fill="#ffab4f" filter="url(#glow)">K</text>
+</svg>
