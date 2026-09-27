@@ -12,14 +12,20 @@ from orca.runtime import (
     SandboxedOpenAIAdapter,
     ModelRuntimeGateway,
 )
-from orca.tools import ToolAuthorizer
+from orca.tools import (
+    BOT_TOOL_MANIFESTS, TOOL_CATALOG, ReadOnlyToolBroker, ToolAuthorizer,
+    ToolRequest,
+)
+from orca.read_tools import WorkspaceReadTools
+from orca.connector_tools import GoogleDriveReadTools, PublicWebReadTools
 from orca.models import ModelRoute, ModelRouter
 
 
 def test_prompt_contracts_are_versioned_and_complete():
     assert set(PROMPT_CONTRACTS) == {"orca", "smith", "quench", "security_gate"}
-    assert all(contract.version == "1.0.0" for contract in PROMPT_CONTRACTS.values())
+    assert all(contract.version == "1.1.0" for contract in PROMPT_CONTRACTS.values())
     assert all("evidence" in contract.required_output_fields for contract in PROMPT_CONTRACTS.values())
+    assert all("Never claim an action ran" in contract.system for contract in PROMPT_CONTRACTS.values())
 
 
 def test_offline_evaluator_accepts_contract_and_rejects_secrets():
@@ -54,10 +60,22 @@ def test_bot_runtime_and_tools_fail_closed():
     with pytest.raises(PermissionError, match="runtime is disabled"):
         DisabledRuntime().invoke("smith", "change code")
     authorizer = ToolAuthorizer()
-    with pytest.raises(PermissionError, match="not granted"):
-        authorizer.authorize(bot_id="smith", tool_name="repo.read", approved_level=PermissionLevel.R0)
+    assert authorizer.authorize(
+        bot_id="smith", tool_name="repo.read", approved_level=PermissionLevel.R0
+    ) == TOOL_CATALOG["repo.read"]
     with pytest.raises(PermissionError, match="unknown tool"):
         authorizer.authorize(bot_id="smith", tool_name="shell.any", approved_level=PermissionLevel.R3)
+
+
+def test_read_only_tool_families_are_manifested_without_mutation_authority():
+    assert {capability.family for capability in TOOL_CATALOG.values()} >= {
+        "files", "web", "terminal", "drive"
+    }
+    assert all(not capability.mutates for capability in TOOL_CATALOG.values())
+    required = {"file.read", "web.search", "terminal.inspect", "drive.read"}
+    assert required <= BOT_TOOL_MANIFESTS["orca"]
+    assert required <= BOT_TOOL_MANIFESTS["smith"]
+    assert BOT_TOOL_MANIFESTS["security_gate"] == frozenset()
 
 
 def test_cost_ledger_zero_budget_and_persistence(tmp_path):
@@ -259,6 +277,95 @@ def test_model_runtime_gateway_is_service_and_identity_allowlisted(monkeypatch):
         gateway.invoke(service_id="kiln_quench", bot_id="smith", prompt="review")
     with pytest.raises(ValueError, match="unknown enabled"):
         ModelRuntimeGateway({"cloud"})
+
+
+def test_read_only_broker_executes_bounded_workspace_and_terminal_tools(tmp_path):
+    (tmp_path / "notes.txt").write_text("alpha\nbeta\n")
+    tools = WorkspaceReadTools(tmp_path)
+    broker = ReadOnlyToolBroker(tools.handlers())
+    results = broker.execute(bot_id="smith", requests=[
+        ToolRequest("file.read", {"path": "notes.txt"}),
+        ToolRequest("file.search", {"query": "beta", "glob": "*.txt"}),
+    ])
+    assert results[0].output["content"] == "alpha\nbeta\n"
+    assert results[1].output["matches"][0]["line"] == 2
+    with pytest.raises(PermissionError, match="escapes"):
+        broker.execute(bot_id="smith", requests=[
+            ToolRequest("file.read", {"path": "../outside"}),
+        ])
+    with pytest.raises(PermissionError, match="allowlist"):
+        broker.execute(bot_id="smith", requests=[
+            ToolRequest("terminal.inspect", {
+                "executable": "/bin/sh", "args": ["-c", "id"],
+            }),
+        ])
+
+
+def test_openai_adapter_runs_one_bounded_tool_round_then_returns_final(tmp_path):
+    (tmp_path / "fact.txt").write_text("verified fact\n")
+    broker = ReadOnlyToolBroker(WorkspaceReadTools(tmp_path).handlers())
+    calls = []
+    first = {
+        "summary": "I need evidence", "evidence": ["tool pending"],
+        "uncertainty": "file not read", "next_gate": "none",
+        "tool_requests": [{"name": "file.read", "arguments": {"path": "fact.txt"}}],
+    }
+    final = {
+        "summary": "The fact is verified", "evidence": ["fact.txt: verified fact"],
+        "uncertainty": "none", "next_gate": "review",
+    }
+    responses = iter((first, final))
+    adapter = SandboxedOpenAIAdapter(
+        endpoint="http://127.0.0.1:11434/v1/chat/completions",
+        allowed_models=("SMITH",),
+        transport=lambda url, payload, timeout: calls.append(payload) or {
+            "choices": [{"message": {"content": __import__("json").dumps(next(responses))}}]
+        },
+    )
+    assert adapter.invoke(
+        bot_id="smith", model="SMITH", prompt="read the fact", tool_broker=broker
+    ) == final
+    assert len(calls) == 2
+    assert "file.read" in calls[0]["messages"][0]["content"]
+    assert "verified fact" in calls[1]["messages"][1]["content"]
+
+
+def test_public_web_search_is_bounded_and_parsed_without_browser_authority():
+    html = b'<a class="result-link" href="https://example.com/a">Example result</a>'
+    web = PublicWebReadTools(
+        transport=lambda url, headers, limit: (url, html.decode()))
+    result = web.search(query="orca tools")
+    assert result == {
+        "query": "orca tools",
+        "results": [{"title": "Example result", "url": "https://example.com/a"}],
+    }
+    with pytest.raises(ValueError, match="bounded"):
+        web.search(query="")
+
+
+def test_google_drive_tools_are_read_only_and_require_owner_only_token(tmp_path):
+    token = tmp_path / "drive.token"
+    token.write_text("test-token")
+    token.chmod(0o600)
+    calls = []
+
+    def transport(url, supplied_token, limit):
+        calls.append((url, supplied_token, limit))
+        if "fields=id" in url:
+            return "application/json", __import__("json").dumps({
+                "id": "abc", "name": "Note", "mimeType": "text/plain"
+            }).encode()
+        if "alt=media" in url:
+            return "text/plain", b"drive fact"
+        return "application/json", b'{"files":[{"id":"abc","name":"Note"}]}'
+
+    drive = GoogleDriveReadTools(token, transport=transport)
+    assert drive.search(query="Note")["files"][0]["id"] == "abc"
+    assert drive.read(file_id="abc")["text"] == "drive fact"
+    assert all(call[1] == "test-token" for call in calls)
+    token.chmod(0o644)
+    with pytest.raises(PermissionError, match="owner-only"):
+        GoogleDriveReadTools(token, transport=transport)
 
 
 def test_local_adapters_accept_only_one_empty_json_fence():

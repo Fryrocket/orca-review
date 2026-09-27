@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import PurePosixPath
+from pathlib import Path
 import re
+import subprocess
 
 
 @dataclass(frozen=True)
@@ -64,3 +66,24 @@ class ScopedNodeExecutor:
         self.validate_target(node_id, address)
         self.validate_command(command)
         raise PermissionError("remote node execution is disabled pending review and approval")
+
+
+class LocalReadOnlyExecutor:
+    """Runs only the existing read-only command grammar inside one workspace."""
+
+    def __init__(self, workspace: str | Path) -> None:
+        self.workspace = Path(workspace).resolve()
+        if not self.workspace.is_dir():
+            raise ValueError("tool workspace must be an existing directory")
+
+    def execute(self, command: CommandSpec) -> dict:
+        validator = ScopedNodeExecutor({"local": ("loopback",)})
+        validator.validate_command(command)
+        completed = subprocess.run(
+            [command.executable, *command.args], cwd=self.workspace,
+            stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            timeout=10, check=False, env={"PATH": "/usr/bin:/bin"},
+        )
+        stdout = completed.stdout[:32_000]
+        stderr = completed.stderr[:4_000]
+        return {"exit_code": completed.returncode, "stdout": stdout, "stderr": stderr}

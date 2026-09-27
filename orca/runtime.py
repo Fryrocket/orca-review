@@ -8,6 +8,8 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from .security import redact, redact_text
+from .bots import BOT_PROGRAMS
+from .tools import ReadOnlyToolBroker, ToolRequest, TOOL_ARGUMENT_SCHEMAS
 
 
 @dataclass(frozen=True)
@@ -21,17 +23,15 @@ class PromptContract:
 
 
 PROMPT_CONTRACTS = {
-    "orca": PromptContract("orca", "1.0.0", "Route work; enforce policy and lane boundaries; never impersonate Fry."),
-    "smith": PromptContract("smith", "1.0.0", "Implement only scoped work; report tests, rollback, and unresolved risk."),
-    "quench": PromptContract("quench", "1.0.0", "Review independently; require evidence; never approve your own implementation."),
-    "security_gate": PromptContract(
-        "security_gate", "1.0.0",
-        "Report security findings with redacted evidence, severity and remediation; never author, approve, deploy or reveal secrets."),
+    bot_id: PromptContract(
+        bot_id, program.version, program.system_prompt()
+    )
+    for bot_id, program in BOT_PROGRAMS.items()
 }
 
 
 class OfflineEvaluator:
-    allowed_fields = frozenset({"summary", "evidence", "uncertainty", "next_gate"})
+    allowed_fields = frozenset({"summary", "evidence", "uncertainty", "next_gate", "tool_requests"})
     allowed_next_gates = frozenset({
         "none", "review", "quench_review", "fry_approval", "incident",
         "blocked", "block_and_escalate",
@@ -65,6 +65,17 @@ class OfflineEvaluator:
         if next_gate not in (None, "") and (
                 not isinstance(next_gate, str) or next_gate not in self.allowed_next_gates):
             failures.append("next_gate is not an allowed control-plane gate")
+        tool_requests = output.get("tool_requests")
+        if tool_requests is not None:
+            if (not isinstance(tool_requests, list) or len(tool_requests) > 4
+                    or not all(
+                        isinstance(item, dict)
+                        and set(item) == {"name", "arguments"}
+                        and isinstance(item["name"], str)
+                        and isinstance(item["arguments"], dict)
+                        for item in tool_requests
+                    )):
+                failures.append("tool_requests must be a bounded list of name/arguments objects")
         try:
             encoded = json.dumps(
                 output, sort_keys=True, separators=(",", ":"), allow_nan=False)
@@ -192,7 +203,8 @@ class SandboxedOpenAIAdapter:
         self.max_prompt_chars = max_prompt_chars
         self.max_output_tokens = max_output_tokens
 
-    def invoke(self, *, bot_id: str, model: str, prompt: str) -> dict:
+    def invoke(self, *, bot_id: str, model: str, prompt: str,
+               tool_broker: ReadOnlyToolBroker | None = None) -> dict:
         if bot_id not in PROMPT_CONTRACTS:
             raise PermissionError("unknown bot runtime identity")
         if model not in self.allowed_models:
@@ -202,6 +214,34 @@ class SandboxedOpenAIAdapter:
         if redact_text(prompt) != prompt:
             raise ValueError("prompt contains secret-shaped data")
         contract = PROMPT_CONTRACTS[bot_id]
+        tool_instruction = ""
+        tool_request_property = {}
+        if tool_broker is not None:
+            available = {
+                name: TOOL_ARGUMENT_SCHEMAS[name]
+                for name in BOT_PROGRAMS[bot_id].tools
+                if name in tool_broker.handlers and name in TOOL_ARGUMENT_SCHEMAS
+            }
+            if available:
+                tool_instruction = (
+                    " If read-only evidence is needed, add tool_requests as a list of up to four "
+                    "objects with exactly name and arguments. Available tool schemas: "
+                    + json.dumps(available, sort_keys=True)
+                )
+                tool_request_property = {
+                    "tool_requests": {
+                        "type": "array", "maxItems": 4,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string", "enum": sorted(available)},
+                                "arguments": {"type": "object"},
+                            },
+                            "required": ["name", "arguments"],
+                            "additionalProperties": False,
+                        },
+                    }
+                }
         payload = {
             "model": model,
             "messages": [
@@ -211,6 +251,7 @@ class SandboxedOpenAIAdapter:
                         contract.system
                         + " Return one JSON object with exactly summary, evidence, "
                           "uncertainty, and next_gate."
+                        + tool_instruction
                     ),
                 },
                 {"role": "user", "content": prompt},
@@ -235,8 +276,9 @@ class SandboxedOpenAIAdapter:
                                 "type": "string",
                                 "enum": sorted(OfflineEvaluator.allowed_next_gates),
                             },
+                            **tool_request_property,
                         },
-                        "required": sorted(OfflineEvaluator.allowed_fields),
+                        "required": sorted(PROMPT_CONTRACTS[bot_id].required_output_fields),
                         "additionalProperties": False,
                     },
                 },
@@ -255,6 +297,28 @@ class SandboxedOpenAIAdapter:
         valid, failures = OfflineEvaluator().evaluate(bot_id, output)
         if not valid:
             raise ValueError("local model output failed contract: " + "; ".join(failures))
+        requests = output.get("tool_requests") if isinstance(output, dict) else None
+        if requests:
+            if tool_broker is None:
+                raise PermissionError("model requested tools without a broker")
+            results = tool_broker.execute(
+                bot_id=bot_id,
+                requests=[ToolRequest(item["name"], item["arguments"]) for item in requests],
+            )
+            evidence_prompt = (
+                prompt + "\n\nVerified read-only tool results:\n"
+                + json.dumps(
+                    [{"name": result.name, "output": result.output} for result in results],
+                    sort_keys=True, separators=(",", ":"), allow_nan=False,
+                )
+                + "\nUse only this evidence. Return the final contract without tool_requests."
+            )
+            if len(evidence_prompt) > self.max_prompt_chars:
+                raise ValueError("tool evidence exceeds the local runtime prompt limit")
+            return self.invoke(
+                bot_id=bot_id, model=model, prompt=evidence_prompt, tool_broker=None)
+        if isinstance(output, dict):
+            output.pop("tool_requests", None)
         return output
 
 
@@ -287,8 +351,10 @@ def bounded_json_transport(endpoint: str, payload: dict, timeout_seconds: int) -
 class ModelRuntimeGateway:
     """Explicit allowlist of accepted local services and bot identities."""
 
-    def __init__(self, enabled_services: set[str] | frozenset[str]) -> None:
+    def __init__(self, enabled_services: set[str] | frozenset[str],
+                 tool_broker: ReadOnlyToolBroker | None = None) -> None:
         self.enabled_services = frozenset(enabled_services)
+        self.tool_broker = tool_broker
         definitions = {
             "forge_deepseek": (
                 "http://127.0.0.1:11436/v1/chat/completions",
@@ -320,4 +386,7 @@ class ModelRuntimeGateway:
             transport=bounded_json_transport,
             max_output_tokens=1_024 if service_id == "forge_deepseek" else 512,
         )
-        return adapter.invoke(bot_id=bot_id, model=model, prompt=prompt)
+        return adapter.invoke(
+            bot_id=bot_id, model=model, prompt=prompt,
+            tool_broker=self.tool_broker,
+        )

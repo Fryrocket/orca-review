@@ -246,7 +246,8 @@ def test_core_bot_registry_is_definition_only_and_routes_work():
     bots = {b["id"]: b for b in cp.snapshot()["bots"]}
     assert set(bots) == {"orca", "smith", "quench", "security_gate"}
     assert all(not bot["runtime_enabled"] for bot in bots.values())
-    assert all(not bot["may_execute_tools"] for bot in bots.values())
+    assert all(bot["may_execute_tools"] for bot in bots.values() if bot["id"] != "security_gate")
+    assert not next(bot for bot in bots.values() if bot["id"] == "security_gate")["may_execute_tools"]
     job = cp.queue(title="implement fleet card", lane="orca", requested_by="orca",
                    task_type="coding", action=Action("edit", "UI", rollback="revert patch"))
     assert job.assigned_to == "smith"

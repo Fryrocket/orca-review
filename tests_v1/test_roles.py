@@ -1,4 +1,5 @@
 from orca.control_plane import ControlPlane
+from orca.bots import BOT_PROGRAMS, CORE_BOTS, validate_bot_programs
 from orca.roles import ROLE_CATALOG, validate_role_catalog
 
 
@@ -31,3 +32,13 @@ def test_candidates_and_iris_remain_inactive_and_lane_bounded():
     assert all(not ROLE_CATALOG[x].active for x in ("ampere", "relay", "iris"))
     assert ROLE_CATALOG["iris"].lanes == ("bgm",)
     assert "body_action_without_r3" in ROLE_CATALOG["iris"].prohibited
+
+
+def test_every_core_bot_has_a_bounded_program_and_handoff():
+    validate_bot_programs()
+    assert set(BOT_PROGRAMS) == set(CORE_BOTS)
+    assert "approving R3 work" in BOT_PROGRAMS["orca"].refusals
+    assert "self-review" in BOT_PROGRAMS["smith"].refusals
+    assert "authoring reviewed changes" in BOT_PROGRAMS["quench"].refusals
+    assert BOT_PROGRAMS["security_gate"].tools == ()
+    assert all(program.handoff for program in BOT_PROGRAMS.values())

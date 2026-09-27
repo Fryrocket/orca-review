@@ -19,7 +19,7 @@ from .roles import role_snapshot
 from .state import StateStore, job_from_dict, job_to_dict
 from .costs import CostLedger
 from .runtime import PROMPT_CONTRACTS
-from .tools import BOT_TOOL_MANIFESTS
+from .tools import BOT_TOOL_MANIFESTS, TOOL_CATALOG
 from .connectors import ConnectorGateway
 from .fleet import FleetAuthenticator, Heartbeat
 from .governance import RetentionGuard, RetentionRecord, governance_snapshot
@@ -1225,6 +1225,16 @@ class ControlPlane:
             "bot_build_queue": BOT_BUILD_QUEUE,
             "prompt_contracts": {key: asdict(value) for key, value in PROMPT_CONTRACTS.items()},
             "tool_manifests": {key: sorted(value) for key, value in BOT_TOOL_MANIFESTS.items()},
+            "tool_catalog": {
+                name: {
+                    "family": capability.family,
+                    "description": capability.description,
+                    "connector": capability.connector,
+                    "level": capability.level.name,
+                    "mutates": capability.mutates,
+                }
+                for name, capability in TOOL_CATALOG.items()
+            },
             "connectors": [asdict(x) for x in CONNECTORS.values()],
             "connector_capabilities": self.connector_gateway.snapshot(),
             "nodes": [self._node_dict(node_id) for node_id in NODES],

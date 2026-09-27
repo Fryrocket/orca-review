@@ -7,6 +7,9 @@ from .auth import load_identity_authenticator
 from .crucible import current_crucible_acceptance
 from .runtime import ModelRuntimeGateway
 from .inventory import InventoryProvider
+from .read_tools import WorkspaceReadTools
+from .connector_tools import GoogleDriveReadTools, PublicWebReadTools
+from .tools import ReadOnlyToolBroker
 from .web import serve
 
 
@@ -37,7 +40,17 @@ def main() -> None:
     }
     if not current_crucible_acceptance()["activation_ready"]:
         enabled_services.discard("forge_deepseek")
-    runtime_gateway = ModelRuntimeGateway(enabled_services) if enabled_services else None
+    tool_workspace = os.environ.get("ORCA_TOOL_WORKSPACE_ROOT", os.getcwd())
+    read_tools = WorkspaceReadTools(tool_workspace)
+    handlers = {**read_tools.handlers(), **PublicWebReadTools().handlers()}
+    drive_token_file = os.environ.get("ORCA_GOOGLE_DRIVE_TOKEN_FILE")
+    if drive_token_file:
+        handlers.update(GoogleDriveReadTools(drive_token_file).handlers())
+    tool_broker = ReadOnlyToolBroker(handlers)
+    runtime_gateway = (
+        ModelRuntimeGateway(enabled_services, tool_broker=tool_broker)
+        if enabled_services else None
+    )
     inventory_key = os.environ.get("ORCA_INVENTORY_SSH_KEY")
     inventory_known_hosts = os.environ.get("ORCA_INVENTORY_KNOWN_HOSTS")
     inventory_provider = (
