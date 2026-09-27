@@ -376,7 +376,7 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     "nonce": heartbeat.nonce,
                     "status": "accepted",
                 }, HTTPStatus.OK)
-            if path == "/api/inference":
+            if path in {"/api/inference", "/api/chat"}:
                 try:
                     authenticated_identity = self._authenticate_mutation()
                 except IdentityAuthenticationError as exc:
@@ -392,11 +392,17 @@ class OrcaHandler(BaseHTTPRequestHandler):
                 if self.server.runtime_gateway is None:
                     raise PermissionError("model invocation is disabled")
                 data = self._body()
-                if set(data) != {"service_id", "bot_id", "prompt"}:
+                if path == "/api/chat":
+                    if not {"prompt"} <= set(data) or set(data) - {"prompt", "history"}:
+                        raise ValueError("chat request has an invalid schema")
+                    return self._json(self.server.runtime_gateway.chat(
+                        prompt=data["prompt"], history=data.get("history", [])))
+                if not {"service_id", "bot_id", "prompt"} <= set(data) or set(data) - {"service_id", "bot_id", "prompt", "history"}:
                     raise ValueError("inference request has an invalid schema")
+                context = {"history": data["history"]} if "history" in data else {}
                 return self._json(self.server.runtime_gateway.invoke(
                     service_id=data["service_id"], bot_id=data["bot_id"],
-                    prompt=data["prompt"],
+                    prompt=data["prompt"], **context,
                 ))
             try:
                 authenticated_identity = self._authenticate_mutation()

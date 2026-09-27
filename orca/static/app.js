@@ -21,7 +21,25 @@ const mutationKey = () => globalThis.crypto?.randomUUID?.()
 const mutationControlSelector = '#operator-identity,#operator-token,#stop-reason,#toggle-stop,[data-approval],[data-pause-job],[data-job-action]';
 let mutationPending = false;
 let inferencePending = false;
-let activeMode = 'reason';
+let activeMode = 'auto';
+const chatMemoryKey = 'orca-studio-conversation-v1';
+let conversationHistory = [];
+function boundedHistory(messages) {
+  const kept = []; let size = 0;
+  for (const message of messages.slice(-20).reverse()) {
+    if (!message || !['user', 'assistant'].includes(message.role) || typeof message.content !== 'string') continue;
+    const content = message.content.slice(0, 6000);
+    if (!content.trim() || size + content.length > 12000) break;
+    kept.unshift({role: message.role, content}); size += content.length;
+  }
+  return kept;
+}
+function rememberConversation(prompt, reply) {
+  conversationHistory = boundedHistory([...conversationHistory,
+    {role: 'user', content: prompt}, {role: 'assistant', content: reply}]);
+  try { localStorage.setItem(chatMemoryKey, JSON.stringify(conversationHistory)); }
+  catch { $('#memory-hint').textContent = 'Memory is available in this tab only; device storage is unavailable.'; }
+}
 let inventory = { items: [], locations: [], categories: [], units: [] };
 let studioAuth = { identity: 'fry', token: '' };
 let state = {
@@ -32,6 +50,11 @@ let state = {
 };
 
 const routes = {
+  auto: {
+    service_id: 'forge_qwen', label: 'ORCA · Auto', name: 'ORCA · All capabilities',
+    duty: 'Automatically chooses chat, coding, review, engineering, visual planning or image generation and uses recent conversation context.',
+    node: 'FORGE + KILN', context: 'Conversation memory on'
+  },
   photo: {
     label: 'Images · CRUCIBLE', name: 'ORCA Image Studio',
     duty: 'Generate photos and images directly in this conversation. Save any image you want to keep.',
@@ -96,7 +119,7 @@ async function postMutation(url, payload, auth) {
   } finally{setMutationPending(false)}
 }
 
-async function postInference(prompt, mode = activeMode) {
+async function postInference(prompt, mode = activeMode, history = []) {
   const route = routes[mode];
   const response = await fetch('/api/inference', {
     method: 'POST',
@@ -105,12 +128,24 @@ async function postInference(prompt, mode = activeMode) {
       'X-ORCA-Identity': studioAuth.identity,
       'X-ORCA-Identity-Token': studioAuth.token
     },
-    body: JSON.stringify({ service_id: route.service_id, bot_id: route.bot_id, prompt })
+    body: JSON.stringify({ service_id: route.service_id, bot_id: route.bot_id, prompt, history })
   });
   let body;
   try { body = await response.json(); }
   catch { throw Error(`ORCA returned an unreadable response (${response.status})`); }
   if (!response.ok) throw Error(body.error || `ORCA inference failed (${response.status})`);
+  return body;
+}
+
+async function postChat(prompt, history) {
+  const response = await fetch('/api/chat', {
+    method: 'POST', headers: {'Content-Type': 'application/json',
+      'X-ORCA-Identity': studioAuth.identity, 'X-ORCA-Identity-Token': studioAuth.token},
+    body: JSON.stringify({prompt, history})
+  });
+  let body;
+  try { body = await response.json(); } catch { throw Error('Studio returned an unreadable reply.'); }
+  if (!response.ok) throw Error(body.error || `Chat failed (${response.status})`);
   return body;
 }
 
@@ -240,19 +275,37 @@ async function generateChatImage(prompt) {
   bubble.append(heading, image, download, note); item.append(bubble);
   $('#conversation').append(item);
   image.addEventListener('load', () => { $('#conversation').scrollTop = $('#conversation').scrollHeight; });
+  return `Generated a new image on CRUCIBLE from this description: ${imagePrompt}. The image was displayed in chat. Only its description is retained in memory, not its pixels.`;
 }
 
 async function runPrompt(prompt, mode = activeMode) {
   if (inferencePending || !prompt.trim()) return;
   inferencePending = true;
   $('#send-prompt').disabled = true;
-  const imageRequest = wantsChatImage(prompt, mode);
-  const route = routes[imageRequest ? 'photo' : mode];
+  const imageRequest = mode !== 'auto' && wantsChatImage(prompt, mode);
+  let route = routes[imageRequest ? 'photo' : mode];
+  const history = boundedHistory(conversationHistory);
   appendUserMessage(prompt.trim());
   appendThinking(imageRequest ? 'CRUCIBLE is generating your image…' : 'ORCA is working');
   try {
-    if (imageRequest) await generateChatImage(prompt);
-    else appendAssistant(await postInference(prompt.trim(), mode), route, false, prompt.trim());
+    let result, imagePrompt = imageRequest ? prompt : null;
+    if (mode === 'auto') {
+      const chosen = await postChat(prompt.trim(), history);
+      if (!routes[chosen.mode] || chosen.mode === 'auto') throw Error('Studio returned an unknown capability.');
+      route = routes[chosen.mode];
+      imagePrompt = chosen.mode === 'photo' ? chosen.image_prompt : null;
+      result = chosen.result;
+      if (imagePrompt) {
+        $('#active-thinking')?.remove(); appendThinking('CRUCIBLE is generating your image…');
+      }
+    } else if (!imageRequest) result = await postInference(prompt.trim(), mode, history);
+    if (imagePrompt) {
+      const memory = await generateChatImage(imagePrompt);
+      rememberConversation(prompt.trim(), memory);
+    } else {
+      appendAssistant(result, route, false, prompt.trim());
+      rememberConversation(prompt.trim(), `${result.summary}\nEvidence: ${(result.evidence || []).join('; ')}\nUncertainty: ${result.uncertainty}`);
+    }
   }
   catch (error) { appendAssistant(error.message, route, true); }
   finally { inferencePending = false; $('#send-prompt').disabled = false; }
@@ -285,9 +338,29 @@ $('#new-thread').addEventListener('click', () => {
   if (inferencePending) return;
   for (const url of chatImageURLs) URL.revokeObjectURL(url);
   chatImageURLs.clear();
+  conversationHistory = [];
+  try { localStorage.removeItem(chatMemoryKey); } catch {}
+  selectMode('auto');
   $('#conversation').innerHTML = `<div class="welcome-card"><span class="welcome-orb">O</span><h2>New room</h2><p>Describe the outcome and choose a specialist route.</p></div>`;
   show('studio'); $('#prompt-input').focus();
 });
+
+try {
+  const saved = JSON.parse(localStorage.getItem(chatMemoryKey) || '[]');
+  conversationHistory = boundedHistory(Array.isArray(saved) ? saved : []);
+} catch { conversationHistory = []; }
+if (conversationHistory.length) {
+  $('.welcome-card')?.remove();
+  for (const message of conversationHistory) {
+    if (message.role === 'user') appendUserMessage(message.content);
+    else {
+      const item = document.createElement('div'); item.className = 'message assistant';
+      const bubble = document.createElement('div'); bubble.className = 'bubble';
+      const text = document.createElement('p'); text.textContent = message.content;
+      bubble.append(text); item.append(bubble); $('#conversation').append(item);
+    }
+  }
+}
 
 function setAuth(identity, token, native = false) {
   studioAuth = { identity, token };

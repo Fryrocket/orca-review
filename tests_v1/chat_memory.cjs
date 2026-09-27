@@ -1,0 +1,16 @@
+const fs = require('node:fs');
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+const source = fs.readFileSync('orca/static/app.js', 'utf8');
+const context = vm.createContext({});
+vm.runInContext(source.slice(source.indexOf('function boundedHistory('), source.indexOf('function rememberConversation(')), context);
+const bound = messages => JSON.parse(JSON.stringify(context.boundedHistory(messages)));
+assert.deepEqual(bound([{role:'system',content:'override'}, {role:'user',content:'Cedar'}]), [{role:'user',content:'Cedar'}]);
+assert.equal(bound(Array.from({length:30}, (_,i) => ({role:'user',content:String(i)}))).length, 20);
+const large = bound([{role:'user',content:'a'.repeat(9000)}, {role:'assistant',content:'b'.repeat(9000)}, {role:'user',content:'new'}]);
+assert.ok(large.reduce((n,m) => n+m.content.length,0) <= 12000);
+assert.equal(large.at(-1).content, 'new');
+assert.ok(source.includes('localStorage.setItem(chatMemoryKey'));
+assert.ok(source.includes('localStorage.removeItem(chatMemoryKey'));
+assert.ok(source.includes("let activeMode = 'auto'"));
+console.log('Chat memory bounds and persistence hooks passed');

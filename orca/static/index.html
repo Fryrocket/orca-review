@@ -45,9 +45,9 @@
               <div class="welcome-card"><span class="welcome-orb">O</span><h2>What are we making?</h2><p>Choose a discipline or describe the outcome. ORCA routes the work to the right specialist and keeps the evidence visible.</p><div class="starter-grid"><button data-starter="Design a robust architecture for ">Architect a system</button><button data-starter="Implement and test ">Write working code</button><button data-starter="Create a visual concept for ">Develop a visual</button><button data-view="inventory">Find a bench part</button></div></div>
             </div>
             <form id="prompt-form" class="composer">
-              <textarea id="prompt-input" rows="3" maxlength="24000" aria-describedby="composer-hint" placeholder="Talk to ORCA or tell it what you want to build…"></textarea>
-              <div class="composer-foot"><div class="mode-picker" aria-label="Specialist route"><button type="button" class="active" data-mode="reason">Chat</button><button type="button" data-mode="code">Code</button><button type="button" data-mode="review">Review</button><button type="button" data-mode="engineer">Engineer</button><button type="button" data-mode="visual">Visual</button><button type="button" data-mode="photo">Photo</button></div><button id="send-prompt" class="send-button" type="submit"><span>Run</span><kbd>↵</kbd></button></div>
-              <small id="composer-hint">Enter to send · Shift+Enter for a new line</small>
+              <textarea id="prompt-input" rows="3" maxlength="12000" aria-describedby="composer-hint memory-hint" placeholder="Talk to ORCA or tell it what you want to build…"></textarea>
+              <div class="composer-foot"><div class="mode-picker" aria-label="Specialist route"><button type="button" class="active" data-mode="auto">Auto</button><button type="button" data-mode="reason">Chat</button><button type="button" data-mode="code">Code</button><button type="button" data-mode="review">Review</button><button type="button" data-mode="engineer">Engineer</button><button type="button" data-mode="visual">Visual</button><button type="button" data-mode="photo">Photo</button></div><button id="send-prompt" class="send-button" type="submit"><span>Run</span><kbd>↵</kbd></button></div>
+              <small id="composer-hint">Enter to send · Shift+Enter for a new line</small><small id="memory-hint">Auto chooses the capability. Recent 20 messages (up to 12,000 characters) stay on this device. New chat clears memory.</small>
             </form>
           </section>
           <aside class="context-rail">

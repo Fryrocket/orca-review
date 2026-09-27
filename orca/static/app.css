@@ -159,6 +159,7 @@ input:focus, textarea:focus, select:focus {
 .composer textarea { width: 100%; min-height: 68px; max-height: 190px; border: 0; background: transparent; padding: 8px 9px; box-shadow: none; }
 .composer-foot { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
 #composer-hint { display: block; margin: 8px 9px 0; color: var(--muted); font-size: 10px; }
+#memory-hint { display: block; margin: 4px 9px 0; color: var(--muted); font-size: 10px; }
 .mode-picker { display: flex; gap: 4px; flex-wrap: wrap; }
 .mode-picker button { border: 0; background: transparent; color: var(--muted); padding: 6px 9px; border-radius: 8px; font-size: 11px; }
 .mode-picker button.active { color: var(--mint); background: var(--mint-soft); }

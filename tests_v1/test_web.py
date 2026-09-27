@@ -127,7 +127,7 @@ def test_chat_images_are_local_and_downloadable():
     html = (STATIC_ROOT / "index.html").read_text()
     js = (STATIC_ROOT / "app.js").read_text()
     assert 'data-mode="photo"' in html
-    assert "if (imageRequest) await generateChatImage(prompt)" in js
+    assert "await generateChatImage(imagePrompt)" in js
     assert "download.download = `ORCA-photo-" in js
     assert "image.alt = imagePrompt" in js
     assert "imagePrompt.length > 1500" in js
@@ -281,6 +281,36 @@ def test_inference_endpoint_is_fry_authenticated_and_schema_bounded():
         with pytest.raises(HTTPError) as error:
             urlopen(invalid)
         assert error.value.code == 400
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_auto_chat_is_authenticated_and_preserves_history():
+    history = [{"role": "user", "content": "My project is Cedar."}]
+    class Gateway:
+        def chat(self, **payload):
+            assert payload == {"prompt": "What is its name?", "history": history}
+            return {"mode": "reason", "result": {"summary": "Cedar"}}
+
+    token = "t" * 32
+    server = OrcaHTTPServer(("127.0.0.1", 0), ControlPlane(),
+                           operator_token=token, runtime_gateway=Gateway())
+    Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{server.server_port}/api/chat"
+        payload = {"prompt": "What is its name?", "history": history}
+        headers = {"Content-Type": "application/json"}
+        with pytest.raises(HTTPError) as denied:
+            urlopen(Request(url, data=json.dumps(payload).encode(), headers=headers))
+        assert denied.value.code == 401
+        headers["X-ORCA-Operator-Token"] = token
+        with urlopen(Request(url, data=json.dumps(payload).encode(), headers=headers)) as response:
+            assert json.load(response)["result"]["summary"] == "Cedar"
+        payload["approved"] = True
+        with pytest.raises(HTTPError) as invalid:
+            urlopen(Request(url, data=json.dumps(payload).encode(), headers=headers))
+        assert invalid.value.code == 400
     finally:
         server.shutdown()
         server.server_close()
