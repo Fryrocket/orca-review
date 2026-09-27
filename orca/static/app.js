@@ -172,6 +172,10 @@ function appendAssistant(result, route, error = false) {
 
 async function runPrompt(prompt, mode = activeMode) {
   if (inferencePending || !prompt.trim()) return;
+  if (!studioAuth.token) {
+    openAuth('Connect Studio before prompting the local model fabric.');
+    return;
+  }
   inferencePending = true;
   $('#send-prompt').disabled = true;
   const route = routes[mode];
@@ -185,6 +189,7 @@ async function runPrompt(prompt, mode = activeMode) {
 $('#prompt-form').addEventListener('submit', async event => {
   event.preventDefault();
   const prompt = $('#prompt-input').value;
+  if (!studioAuth.token) { openAuth('Connect Studio before prompting the local model fabric.'); return; }
   $('#prompt-input').value = '';
   await runPrompt(prompt);
 });
