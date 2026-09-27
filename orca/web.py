@@ -25,6 +25,7 @@ from .policy import PolicyViolation
 from .security import redact_text
 from .idempotency import IdempotencyConflict, StateRevisionConflict
 from .runtime import ModelRuntimeGateway
+from .inventory import InventoryProvider, InventoryReadError
 
 
 STATIC_ROOT = Path(__file__).with_name("static")
@@ -51,7 +52,8 @@ class OrcaHTTPServer(ThreadingHTTPServer):
     def __init__(self, address: tuple[str, int], control_plane: ControlPlane,
                  operator_token: str | None = None,
                  identity_tokens: Mapping[str, str] | IdentityTokenAuthenticator | None = None,
-                 runtime_gateway: ModelRuntimeGateway | None = None):
+                 runtime_gateway: ModelRuntimeGateway | None = None,
+                 inventory_provider: InventoryProvider | None = None):
         if not _is_loopback_bind(address[0]):
             raise ValueError(
                 "non-loopback ORCA binding is disabled pending reviewed transport security")
@@ -67,6 +69,7 @@ class OrcaHTTPServer(ThreadingHTTPServer):
             identity_tokens, IdentityTokenAuthenticator
         ) else IdentityTokenAuthenticator(identity_tokens) if identity_tokens is not None else None
         self.runtime_gateway = runtime_gateway
+        self.inventory_provider = inventory_provider
         self.allowed_hosts = frozenset({address[0], "127.0.0.1", "localhost", "::1"})
         super().__init__(address, OrcaHandler)
 
@@ -305,6 +308,19 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     HTTPStatus.SERVICE_UNAVAILABLE,
                 )
             return self._json({"status": "healthy", "integrity_valid": True})
+        if path == "/api/inventory":
+            if self.server.inventory_provider is None:
+                return self._json(
+                    {"error": "inventory source is not configured"},
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                )
+            try:
+                return self._json(self.server.inventory_provider.snapshot())
+            except InventoryReadError:
+                return self._json(
+                    {"error": "inventory source is unavailable"},
+                    HTTPStatus.BAD_GATEWAY,
+                )
         asset = "index.html" if path == "/" else path.removeprefix("/")
         file = (STATIC_ROOT / asset).resolve()
         if STATIC_ROOT.resolve() not in file.parents or not file.is_file():
@@ -418,10 +434,12 @@ class OrcaHandler(BaseHTTPRequestHandler):
 def serve(control_plane: ControlPlane | None = None, *, host: str = "127.0.0.1", port: int = 8787,
           operator_token: str | None = None,
           identity_tokens: Mapping[str, str] | IdentityTokenAuthenticator | None = None,
-          runtime_gateway: ModelRuntimeGateway | None = None) -> None:
+          runtime_gateway: ModelRuntimeGateway | None = None,
+          inventory_provider: InventoryProvider | None = None) -> None:
     server = OrcaHTTPServer(
         (host, port), control_plane or ControlPlane(), operator_token,
         identity_tokens=identity_tokens, runtime_gateway=runtime_gateway,
+        inventory_provider=inventory_provider,
     )
     print(f"ORCA operator console: http://{host}:{server.server_port}")
     server.serve_forever()

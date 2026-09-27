@@ -12,6 +12,7 @@ from orca import Action
 from orca.control_plane import ControlPlane
 from orca.fleet import Heartbeat, sign_heartbeat
 from orca.web import OrcaHTTPServer, STATIC_ROOT
+from orca.inventory import InventoryReadError
 
 
 REQUEST_IDS = count(1)
@@ -91,6 +92,42 @@ def test_state_endpoint_is_readable_and_truthful():
         assert {n["id"] for n in data["nodes"]} == {"anvil", "forge", "kiln", "ember", "iris"}
         assert all(n["state"] == "unproven" for n in data["nodes"])
         assert all(c["writes_enabled"] is False for c in data["connectors"])
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_inventory_endpoint_is_read_only_and_fails_closed():
+    class Provider:
+        def snapshot(self):
+            return {"ok": True, "read_only": True, "items": [{"name": "Resistor"}]}
+
+    server = OrcaHTTPServer(
+        ("127.0.0.1", 0), ControlPlane(), inventory_provider=Provider())
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with urlopen(f"http://127.0.0.1:{server.server_port}/api/inventory") as response:
+            result = json.load(response)
+        assert result["read_only"] is True
+        assert result["items"][0]["name"] == "Resistor"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+    class BrokenProvider:
+        def snapshot(self):
+            raise InventoryReadError("secret provider detail")
+
+    server = OrcaHTTPServer(
+        ("127.0.0.1", 0), ControlPlane(), inventory_provider=BrokenProvider())
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with pytest.raises(HTTPError) as error:
+            urlopen(f"http://127.0.0.1:{server.server_port}/api/inventory")
+        assert error.value.code == 502
+        assert json.load(error.value)["error"] == "inventory source is unavailable"
     finally:
         server.shutdown()
         server.server_close()

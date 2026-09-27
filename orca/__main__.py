@@ -6,6 +6,7 @@ from .control_plane import ControlPlane
 from .auth import load_identity_authenticator
 from .crucible import current_crucible_acceptance
 from .runtime import ModelRuntimeGateway
+from .inventory import InventoryProvider
 from .web import serve
 
 
@@ -31,9 +32,19 @@ def main() -> None:
     if not current_crucible_acceptance()["activation_ready"]:
         enabled_services.discard("forge_deepseek")
     runtime_gateway = ModelRuntimeGateway(enabled_services) if enabled_services else None
+    inventory_key = os.environ.get("ORCA_INVENTORY_SSH_KEY")
+    inventory_known_hosts = os.environ.get("ORCA_INVENTORY_KNOWN_HOSTS")
+    inventory_provider = (
+        InventoryProvider(
+            key_file=inventory_key,
+            known_hosts_file=inventory_known_hosts,
+        )
+        if inventory_key and inventory_known_hosts else None
+    )
     serve(ControlPlane(EvidenceStore(args.database)), host=args.host, port=args.port,
           operator_token=os.environ.get("ORCA_OPERATOR_TOKEN"),
-          identity_tokens=identity_authenticator, runtime_gateway=runtime_gateway)
+          identity_tokens=identity_authenticator, runtime_gateway=runtime_gateway,
+          inventory_provider=inventory_provider)
 
 
 if __name__ == "__main__":

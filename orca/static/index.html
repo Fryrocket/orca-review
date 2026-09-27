@@ -3,62 +3,97 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>ORCA Control Plane</title>
+  <meta name="theme-color" content="#08110f">
+  <title>ORCA Studio</title>
   <link rel="stylesheet" href="/app.css">
   <link rel="stylesheet" href="/operator-controls.css">
 </head>
 <body>
-  <header class="topbar">
-    <div>
-      <p class="eyebrow">FORGE CONTROL PLANE</p>
-      <h1>ORCA</h1>
-    </div>
-    <div class="top-status"><span class="pulse"></span><span id="system-status">Loading state</span></div>
-  </header>
-
-  <main>
-    <section id="approval-banner" class="approval-banner hidden">
-      <div><strong id="approval-count">0 approvals waiting</strong><p>Execution is blocked until Fry decides.</p></div>
-      <button data-view="approvals">Review approvals</button>
-    </section>
-
-    <nav class="tabs" aria-label="ORCA views">
-      <button class="active" data-view="overview">Overview</button>
-      <button data-view="work">Work</button>
-      <button data-view="approvals">Approvals</button>
-      <button data-view="evidence">Evidence</button>
-      <button data-view="incidents">Incidents</button>
-      <button data-view="security">Security</button>
-      <button data-view="agents">Agents</button>
-      <button data-view="fleet">Fleet</button>
-      <button data-view="connectors">Connectors</button>
-      <button data-view="costs">Costs</button>
-    </nav>
-
-    <section id="overview" class="view active">
-      <div class="metric-grid">
-        <article><span>Active work</span><strong id="active-jobs">0</strong></article>
-        <article><span>Waiting approval</span><strong id="waiting-jobs">0</strong></article>
-        <article><span>Evidence chain</span><strong id="chain-state">—</strong></article>
-        <article><span>Paused lanes</span><strong id="paused-lanes">0</strong></article>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">O</span><div><strong>ORCA</strong><small>STUDIO</small></div></div>
+      <nav class="primary-nav" aria-label="ORCA Studio">
+        <button class="active" data-view="studio"><span>✦</span> Studio</button>
+        <button data-view="projects"><span>⌘</span> Code</button>
+        <button data-view="canvas"><span>◒</span> Canvas</button>
+        <button data-view="inventory"><span>▦</span> Inventory</button>
+        <button data-view="engineering"><span>⌁</span> Engineering</button>
+        <button data-view="operations"><span>◎</span> Operations</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="fleet-mini"><span class="pulse"></span><div><strong id="fleet-mini-status">Connecting</strong><small id="fleet-mini-detail">FORGE fabric</small></div></div>
+        <button id="open-auth" class="account-button"><span class="avatar">F</span><span><strong>Fry</strong><small id="auth-state">Connect Studio</small></span></button>
       </div>
-      <div class="grid two">
-        <article class="panel"><div class="panel-head"><h2>Current work</h2><span class="truth">LIVE STATE</span></div><div id="job-list" class="stack empty">No work submitted.</div></article>
-        <article class="panel"><div class="panel-head"><h2>Recent evidence</h2><span class="truth">HASH CHAIN</span></div><div id="event-list" class="stack empty">No evidence recorded.</div></article>
-      </div>
-    </section>
+    </aside>
 
-    <section id="work" class="view"><article class="panel"><div class="panel-head"><h2>Job control</h2><span class="truth">POLICY GATED</span></div><div id="work-list" class="stack"></div></article></section>
-    <section id="approvals" class="view"><article class="panel"><div class="panel-head"><h2>Approval queue</h2><span class="truth warn">FRY DECIDES</span></div><div id="approval-list" class="stack"></div></article></section>
-    <section id="evidence" class="view"><div class="grid two"><article class="panel"><div class="panel-head"><h2>Evidence timeline</h2><span class="truth">APPEND ONLY</span></div><div id="evidence-list" class="stack"></div></article><article class="panel"><div class="panel-head"><h2>Retention control</h2><span class="truth warn">NO AUTO DELETE</span></div><div id="retention-summary" class="stack"></div></article></div></section>
-    <section id="incidents" class="view"><article class="panel"><div class="panel-head"><h2>Incidents</h2><span class="truth warn" id="stop-state">NORMAL</span></div><div class="operator-controls"><label>Acting identity <select id="operator-identity"><option value="fry">Fry</option><option value="orca">ORCA</option><option value="smith">SMITH</option><option value="quench">QUENCH</option><option value="security_gate">Security gate</option></select></label><label>Identity token <input id="operator-token" type="password" autocomplete="off" placeholder="Held in memory only"></label><label>Reason <input id="stop-reason" type="text" placeholder="Required reason"></label><button id="toggle-stop" type="button">Toggle emergency stop</button><p class="muted">The credential is bound to the selected identity. ORCA rejects attempts to name a different actor in the request.</p><p id="control-result" class="muted"></p></div><div id="incident-list" class="stack"></div></article></section>
-    <section id="security" class="view"><article class="panel"><div class="panel-head"><h2>Independent security gate</h2><span class="truth warn">ADVISORY ONLY</span></div><p class="muted">Deterministic, redacted findings for ORCA and QUENCH. The gate has no approval, tool, merge, or deployment authority.</p><div id="security-list" class="stack"></div></article></section>
-    <section id="agents" class="view"><div id="agent-grid" class="grid three"></div></section>
-    <section id="fleet" class="view"><div id="fleet-grid" class="grid three"></div></section>
-    <section id="connectors" class="view"><div id="connector-grid" class="grid three"></div></section>
-    <section id="costs" class="view"><article class="panel"><h2>Cost controls</h2><p class="muted">No paid escalation is authorized. Local-first routing is active; warning thresholds and hard caps must be approved before cloud use.</p><div class="cost-zero" id="cost-total">$0.00 <small>recorded usage</small></div><p id="budget-policy" class="meta"></p><div id="cost-breakdown" class="stack"></div></article></section>
-  </main>
-  <footer>Truth over optimism · Evidence over narrative · Fry decides</footer>
+    <main class="workspace">
+      <header class="workspace-header">
+        <div><p class="eyebrow" id="workspace-kicker">WORKBENCH</p><h1 id="workspace-title">Studio</h1></div>
+        <div class="header-actions"><span class="live-pill"><span class="pulse"></span><span id="system-status">Loading ORCA</span></span><button id="new-thread" class="icon-button" title="New conversation">＋</button></div>
+      </header>
+
+      <section id="approval-banner" class="approval-banner hidden">
+        <div><strong id="approval-count">0 approvals waiting</strong><p>Execution is blocked until Fry decides.</p></div>
+        <button data-view="operations" data-ops-view="approvals">Review approvals</button>
+      </section>
+
+      <section id="studio" class="view active studio-view">
+        <div class="studio-grid">
+          <section class="conversation-panel">
+            <div class="conversation-head"><div><span class="context-label">ACTIVE ROOM</span><h2>Build with ORCA</h2></div><div id="active-route" class="route-chip">DeepSeek · CRUCIBLE</div></div>
+            <div id="conversation" class="conversation">
+              <div class="welcome-card"><span class="welcome-orb">O</span><h2>What are we making?</h2><p>Choose a discipline or describe the outcome. ORCA routes the work to the right specialist and keeps the evidence visible.</p><div class="starter-grid"><button data-starter="Design a robust architecture for ">Architect a system</button><button data-starter="Implement and test ">Write working code</button><button data-starter="Create a visual concept for ">Develop a visual</button><button data-view="inventory">Find a bench part</button></div></div>
+            </div>
+            <form id="prompt-form" class="composer">
+              <textarea id="prompt-input" rows="3" maxlength="24000" placeholder="Tell ORCA what you want to build…"></textarea>
+              <div class="composer-foot"><div class="mode-picker" aria-label="Specialist route"><button type="button" class="active" data-mode="reason">Think</button><button type="button" data-mode="code">Code</button><button type="button" data-mode="review">Review</button><button type="button" data-mode="engineer">Engineer</button><button type="button" data-mode="visual">Visual</button></div><button id="send-prompt" class="send-button" type="submit"><span>Run</span><kbd>⌘↵</kbd></button></div>
+            </form>
+          </section>
+          <aside class="context-rail">
+            <article class="context-card"><div class="card-head"><span>Specialist</span><span id="route-health" class="status-dot healthy"></span></div><h3 id="route-name">DeepSeek Reasoner</h3><p id="route-duty">Architecture, difficult debugging, mathematics and planning on CRUCIBLE.</p><div class="model-meter"><span id="route-node">FORGE · ROCm</span><span id="route-context">16K context</span></div></article>
+            <article class="context-card"><div class="card-head"><span>Fabric</span><button data-view="operations">Open</button></div><div id="fabric-summary" class="fabric-list"><span>Loading nodes…</span></div></article>
+            <article class="context-card subtle"><span class="context-label">BOUNDARY</span><p>Local models have no tools. Actions, file changes, connector writes, and deployment stay separately governed.</p></article>
+          </aside>
+        </div>
+      </section>
+
+      <section id="projects" class="view">
+        <div class="section-intro"><div><p class="eyebrow">CODING DESK</p><h2>Build software with SMITH</h2><p>Prompt the coding stack, inspect the plan, and move verified work through review.</p></div><button class="primary-action" data-code-prompt>New coding task</button></div>
+        <div class="project-grid"><article class="project-card featured"><span class="project-icon">O</span><div><h3>ORCA</h3><p>Control plane, model fabric and Studio</p></div><span class="state complete">LIVE</span></article><article class="project-card"><span class="project-icon">▦</span><div><h3>Bench Inventory</h3><p>KILN canonical catalog and iOS client</p></div><span class="state">CONNECTED</span></article><article class="project-card"><span class="project-icon">F</span><div><h3>Forge VIS</h3><p>Fleet observability and operator surfaces</p></div><span class="state">AVAILABLE</span></article><article class="project-card"><span class="project-icon">I</span><div><h3>IRIS / BGM</h3><p>Edge sensing, calibration and dashboards</p></div><span class="state waiting_approval">GATED</span></article></div>
+        <div class="grid two workbench-panels"><article class="panel"><div class="panel-head"><h2>Current work</h2><span class="truth">LIVE STATE</span></div><div id="job-list" class="stack empty">No work submitted.</div></article><article class="panel"><div class="panel-head"><h2>Coder stack</h2><span class="truth">LOCAL</span></div><div id="coder-stack" class="specialist-stack"></div></article></div>
+      </section>
+
+      <section id="canvas" class="view">
+        <div class="section-intro"><div><p class="eyebrow">VISUAL LAB</p><h2>Sketch, mark up and develop visuals</h2><p>Draw directly, export a PNG, or send a visual brief to ORCA.</p></div><div class="canvas-tools"><label>Ink <input id="brush-color" type="color" value="#71e6b2"></label><label>Size <input id="brush-size" type="range" min="1" max="36" value="5"></label><button id="clear-canvas">Clear</button><button id="save-canvas" class="primary-action">Export PNG</button></div></div>
+        <div class="canvas-layout"><div class="drawing-board"><canvas id="drawing-canvas" width="1200" height="760" aria-label="Drawing canvas"></canvas></div><aside class="visual-brief"><span class="context-label">ART DIRECTION</span><h3>Develop the idea</h3><textarea id="visual-prompt" rows="7" placeholder="Describe a diagram, product concept, scene, or visual system…"></textarea><button id="develop-visual" class="primary-action">Develop with ORCA</button><div id="visual-result" class="result-card muted">The visual specialist will return a structured concept and next step.</div></aside></div>
+      </section>
+
+      <section id="inventory" class="view">
+        <div class="section-intro"><div><p class="eyebrow">BENCH INVENTORY</p><h2>Find what you already own</h2><p id="inventory-source">Connecting to the canonical KILN inventory…</p></div><div class="inventory-actions"><input id="inventory-search" type="search" placeholder="Search parts, categories or locations"><button id="refresh-inventory">Refresh</button></div></div>
+        <div id="inventory-metrics" class="metric-grid"></div>
+        <article class="panel inventory-panel"><div class="panel-head"><h2>Parts and equipment</h2><span class="truth">READ ONLY</span></div><div class="inventory-table-wrap"><table class="inventory-table"><thead><tr><th>Item</th><th>Category</th><th>Quantity</th><th>Location</th><th>Status</th><th>Updated</th></tr></thead><tbody id="inventory-rows"><tr><td colspan="6">Loading inventory…</td></tr></tbody></table></div></article>
+      </section>
+
+      <section id="engineering" class="view">
+        <div class="section-intro"><div><p class="eyebrow">ENGINEERING DESK</p><h2>Reason, calculate and verify</h2><p>Use deterministic calculators for facts and DeepSeek for engineering analysis.</p></div><button class="primary-action" data-engineering-prompt>Ask the engineer</button></div>
+        <div class="engineering-grid"><article class="tool-card"><span class="tool-icon">Ω</span><h3>Ohm's law</h3><p>Enter any two values.</p><label>Voltage (V)<input id="ohm-v" type="number" step="any"></label><label>Current (A)<input id="ohm-i" type="number" step="any"></label><label>Resistance (Ω)<input id="ohm-r" type="number" step="any"></label><label>Power (W)<input id="ohm-p" type="number" step="any" readonly></label><button id="calculate-ohm">Calculate</button></article><article class="tool-card"><span class="tool-icon">↔</span><h3>Unit converter</h3><p>Length conversion.</p><label>Value<input id="convert-value" type="number" step="any" value="1"></label><label>From<select id="convert-from"><option value="mm">millimeter</option><option value="cm">centimeter</option><option value="m">meter</option><option value="in">inch</option><option value="ft">foot</option></select></label><label>To<select id="convert-to"><option value="in">inch</option><option value="mm">millimeter</option><option value="cm">centimeter</option><option value="m">meter</option><option value="ft">foot</option></select></label><output id="convert-result">0.03937 in</output><button id="convert-units">Convert</button></article><article class="tool-card engineer-prompt"><span class="tool-icon">✦</span><h3>Engineering analysis</h3><p>DeepSeek on CRUCIBLE for architecture, math, tradeoffs and failure analysis.</p><textarea id="engineering-prompt" rows="6" placeholder="Describe the circuit, mechanism, system or problem…"></textarea><button id="run-engineering">Analyze</button><div id="engineering-result" class="result-card muted">No analysis yet.</div></article></div>
+      </section>
+
+      <section id="operations" class="view">
+        <div class="ops-header"><div><p class="eyebrow">CONTROL PLANE</p><h2>Operations and governance</h2></div><nav class="tabs" aria-label="ORCA operations views"><button class="active" data-ops-view="overview">Overview</button><button data-ops-view="work">Work</button><button data-ops-view="approvals">Approvals</button><button data-ops-view="evidence">Evidence</button><button data-ops-view="incidents">Incidents</button><button data-ops-view="security">Security</button><button data-ops-view="agents">Agents</button><button data-ops-view="fleet">Fleet</button><button data-ops-view="connectors">Connectors</button><button data-ops-view="costs">Costs</button></nav></div>
+        <div id="overview" class="ops-view active"><div class="metric-grid"><article><span>Active work</span><strong id="active-jobs">0</strong></article><article><span>Waiting approval</span><strong id="waiting-jobs">0</strong></article><article><span>Evidence chain</span><strong id="chain-state">—</strong></article><article><span>Paused lanes</span><strong id="paused-lanes">0</strong></article></div><div class="grid two"><article class="panel"><div class="panel-head"><h2>Current work</h2><span class="truth">LIVE STATE</span></div><div id="overview-job-list" class="stack empty">No work submitted.</div></article><article class="panel"><div class="panel-head"><h2>Recent evidence</h2><span class="truth">HASH CHAIN</span></div><div id="event-list" class="stack empty">No evidence recorded.</div></article></div></div>
+        <div id="work" class="ops-view"><article class="panel"><div class="panel-head"><h2>Job control</h2><span class="truth">POLICY GATED</span></div><div id="work-list" class="stack"></div></article></div>
+        <div id="approvals" class="ops-view"><article class="panel"><div class="panel-head"><h2>Approval queue</h2><span class="truth warn">FRY DECIDES</span></div><div id="approval-list" class="stack"></div></article></div>
+        <div id="evidence" class="ops-view"><div class="grid two"><article class="panel"><div class="panel-head"><h2>Evidence timeline</h2><span class="truth">APPEND ONLY</span></div><div id="evidence-list" class="stack"></div></article><article class="panel"><div class="panel-head"><h2>Retention control</h2><span class="truth warn">NO AUTO DELETE</span></div><div id="retention-summary" class="stack"></div></article></div></div>
+        <div id="incidents" class="ops-view"><article class="panel"><div class="panel-head"><h2>Incidents</h2><span class="truth warn" id="stop-state">NORMAL</span></div><div class="operator-controls"><label>Acting identity <select id="operator-identity"><option value="fry">Fry</option><option value="orca">ORCA</option><option value="smith">SMITH</option><option value="quench">QUENCH</option><option value="security_gate">Security gate</option></select></label><label>Identity token <input id="operator-token" type="password" autocomplete="off" placeholder="Held in memory only"></label><label>Reason <input id="stop-reason" type="text" placeholder="Required reason"></label><button id="toggle-stop" type="button">Toggle emergency stop</button><p class="muted">The credential is bound to the selected identity. ORCA rejects attempts to name a different actor in the request.</p><p id="control-result" class="muted"></p></div><div id="incident-list" class="stack"></div></article></div>
+        <div id="security" class="ops-view"><article class="panel"><div class="panel-head"><h2>Independent security gate</h2><span class="truth warn">ADVISORY ONLY</span></div><p class="muted">Deterministic, redacted findings for ORCA and QUENCH. The gate has no approval, tool, merge, or deployment authority.</p><div id="security-list" class="stack"></div></article></div>
+        <div id="agents" class="ops-view"><div id="agent-grid" class="grid three"></div></div><div id="fleet" class="ops-view"><div id="fleet-grid" class="grid three"></div></div><div id="connectors" class="ops-view"><div id="connector-grid" class="grid three"></div></div>
+        <div id="costs" class="ops-view"><article class="panel"><h2>Cost controls</h2><p class="muted">No paid escalation is authorized. Local-first routing is active; warning thresholds and hard caps must be approved before cloud use.</p><div class="cost-zero" id="cost-total">$0.00 <small>recorded usage</small></div><p id="budget-policy" class="meta"></p><div id="cost-breakdown" class="stack"></div></article></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="auth-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="auth-title"><div class="modal-card"><button id="close-auth" class="modal-close" aria-label="Close">×</button><span class="welcome-orb small">O</span><h2 id="auth-title">Connect ORCA Studio</h2><p>The desktop app keeps this credential in your Mac Keychain. The browser keeps it only in memory.</p><label>Identity<select id="studio-identity"><option value="fry">Fry</option></select></label><label>Identity token<input id="studio-token" type="password" autocomplete="off" placeholder="Paste your ORCA identity token"></label><button id="save-auth" class="primary-action">Connect securely</button><p id="auth-result" class="muted"></p></div></div>
   <script src="/app.js"></script>
 </body>
 </html>
