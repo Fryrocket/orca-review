@@ -216,7 +216,31 @@ class SandboxedOpenAIAdapter:
                 {"role": "user", "content": prompt},
             ],
             "stream": False,
-            "response_format": {"type": "json_object"},
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "orca_contract",
+                    "strict": True,
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "summary": {"type": "string", "minLength": 1},
+                            "evidence": {
+                                "type": "array", "minItems": 1,
+                                "maxItems": OfflineEvaluator.max_evidence_items,
+                                "items": {"type": "string", "minLength": 1},
+                            },
+                            "uncertainty": {"type": "string", "minLength": 1},
+                            "next_gate": {
+                                "type": "string",
+                                "enum": sorted(OfflineEvaluator.allowed_next_gates),
+                            },
+                        },
+                        "required": sorted(OfflineEvaluator.allowed_fields),
+                        "additionalProperties": False,
+                    },
+                },
+            },
             "max_tokens": self.max_output_tokens,
             "tools": [],
         }

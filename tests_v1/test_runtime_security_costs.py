@@ -211,7 +211,13 @@ def test_openai_compatible_adapter_supports_forge_and_tunneled_kiln_services():
     assert adapter.invoke(bot_id="quench", model="QUENCH", prompt="review") == valid
     assert calls[0][1]["stream"] is False
     assert calls[0][1]["tools"] == []
-    assert calls[0][1]["response_format"] == {"type": "json_object"}
+    response_format = calls[0][1]["response_format"]
+    assert response_format["type"] == "json_schema"
+    schema = response_format["json_schema"]["schema"]
+    assert schema["additionalProperties"] is False
+    assert set(schema["required"]) == {"summary", "evidence", "uncertainty", "next_gate"}
+    assert schema["properties"]["next_gate"]["enum"] == sorted(
+        OfflineEvaluator.allowed_next_gates)
 
 
 def test_openai_compatible_adapter_denies_direct_remote_workers_and_bad_envelopes():
