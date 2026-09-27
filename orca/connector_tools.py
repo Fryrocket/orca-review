@@ -184,7 +184,7 @@ class RcloneDriveReadTools:
             text=False, env={"PATH": "/usr/bin:/bin"},
         )
         try:
-            stdout, stderr = process.communicate(timeout=30)
+            stdout, stderr = process.communicate(timeout=90)
         except subprocess.TimeoutExpired:
             process.kill()
             process.communicate()
