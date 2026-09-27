@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import json
+import os
+from pathlib import Path
 from typing import Mapping
 
 
@@ -78,3 +81,37 @@ def evaluate_crucible_acceptance(
             "model invocation remains a separate controlled action."
         ),
     }
+
+
+def load_crucible_acceptance(path: str | Path | None = None) -> CrucibleAcceptance:
+    """Load bounded acceptance evidence from the configured local state file."""
+
+    configured = path or os.environ.get("ORCA_CRUCIBLE_ACCEPTANCE_FILE")
+    if not configured:
+        return CrucibleAcceptance()
+    evidence_path = Path(configured)
+    if evidence_path.is_symlink():
+        raise ValueError("CRUCIBLE acceptance file may not be a symlink")
+    raw = evidence_path.read_bytes()
+    if len(raw) > 16_384:
+        raise ValueError("CRUCIBLE acceptance file exceeds the size limit")
+    payload = json.loads(raw)
+    if not isinstance(payload, dict):
+        raise ValueError("CRUCIBLE acceptance file must contain an object")
+    allowed = set(CrucibleAcceptance.__dataclass_fields__)
+    if set(payload) - allowed:
+        raise ValueError("CRUCIBLE acceptance file contains unknown fields")
+    return CrucibleAcceptance(**payload)
+
+
+def current_crucible_acceptance() -> dict:
+    """Return current evidence state, failing closed on every read error."""
+
+    try:
+        return evaluate_crucible_acceptance(load_crucible_acceptance())
+    except (OSError, TypeError, ValueError, json.JSONDecodeError):
+        report = evaluate_crucible_acceptance()
+        report["note"] = (
+            "Configured acceptance evidence is unreadable or invalid; activation is blocked."
+        )
+        return report

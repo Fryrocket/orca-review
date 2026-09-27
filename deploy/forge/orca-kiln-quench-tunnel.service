@@ -8,7 +8,7 @@ Type=simple
 User=fryrocket
 Group=fryrocket
 UMask=0077
-ExecStart=/usr/bin/ssh -NT -L 127.0.0.1:11435:100.97.193.39:11435 -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=yes fryrocket@100.97.193.39
+ExecStart=/usr/bin/ssh -NT -L 127.0.0.1:11435:100.97.193.39:11435 -i /home/fryrocket/.ssh/forge_to_lan -o IdentitiesOnly=yes -o BatchMode=yes -o ExitOnForwardFailure=yes -o ConnectTimeout=8 -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=yes fryrocket@192.168.4.28
 Restart=always
 RestartSec=5
 NoNewPrivileges=true

@@ -4,6 +4,8 @@ import os
 from .evidence import EvidenceStore
 from .control_plane import ControlPlane
 from .auth import load_identity_authenticator
+from .crucible import current_crucible_acceptance
+from .runtime import ModelRuntimeGateway
 from .web import serve
 
 
@@ -22,9 +24,16 @@ def main() -> None:
         load_identity_authenticator(args.identity_token_file)
         if args.identity_token_file else None
     )
+    enabled_services = {
+        value.strip() for value in os.environ.get(
+            "ORCA_ENABLED_MODEL_SERVICES", "").split(",") if value.strip()
+    }
+    if not current_crucible_acceptance()["activation_ready"]:
+        enabled_services.discard("forge_deepseek")
+    runtime_gateway = ModelRuntimeGateway(enabled_services) if enabled_services else None
     serve(ControlPlane(EvidenceStore(args.database)), host=args.host, port=args.port,
           operator_token=os.environ.get("ORCA_OPERATOR_TOKEN"),
-          identity_tokens=identity_authenticator)
+          identity_tokens=identity_authenticator, runtime_gateway=runtime_gateway)
 
 
 if __name__ == "__main__":

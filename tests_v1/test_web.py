@@ -133,6 +133,49 @@ def test_post_mutations_are_disabled_without_operator_token():
         server.server_close()
 
 
+def test_inference_endpoint_is_fry_authenticated_and_schema_bounded():
+    class Gateway:
+        def invoke(self, **payload):
+            assert payload == {
+                "service_id": "forge_smith", "bot_id": "smith", "prompt": "plan"
+            }
+            return {"summary": "done", "evidence": ["fixture"],
+                    "uncertainty": "none", "next_gate": "review"}
+
+    token = "t" * 32
+    server = OrcaHTTPServer(
+        ("127.0.0.1", 0), ControlPlane(), operator_token=token,
+        runtime_gateway=Gateway(),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        url = f"http://127.0.0.1:{server.server_port}/api/inference"
+        body = json.dumps({
+            "service_id": "forge_smith", "bot_id": "smith", "prompt": "plan"
+        }).encode()
+        with pytest.raises(HTTPError) as unauthenticated:
+            urlopen(Request(url, data=body, method="POST",
+                            headers={"Content-Type": "application/json"}))
+        assert unauthenticated.value.code == 401
+        request = Request(
+            url, data=body, method="POST",
+            headers={"Content-Type": "application/json", "X-ORCA-Operator-Token": token},
+        )
+        with urlopen(request) as response:
+            assert json.load(response)["summary"] == "done"
+        invalid = Request(
+            url, data=json.dumps({"service_id": "forge_smith"}).encode(), method="POST",
+            headers={"Content-Type": "application/json", "X-ORCA-Operator-Token": token},
+        )
+        with pytest.raises(HTTPError) as error:
+            urlopen(invalid)
+        assert error.value.code == 400
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
 def test_signed_heartbeat_endpoint_authenticates_without_operator_token():
     control = ControlPlane()
     key = b"kiln-live-heartbeat-key-material-000001"

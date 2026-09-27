@@ -2,6 +2,9 @@ from orca.ai_stack import AI_LADDERS, AI_SERVICES, ladder_snapshot, validate_ai_
 from orca.control_plane import ControlPlane
 from orca.models import DEFAULT_ROUTES
 from orca.registry import NODES
+from orca.crucible import CrucibleAcceptance
+from dataclasses import asdict
+import json
 
 
 def test_four_host_stack_matches_live_hardware_and_one_mind_topology():
@@ -94,3 +97,31 @@ def test_control_plane_exposes_stack_without_enabling_model_calls():
     assert stack["ladders"]["review"][0]["node_id"] == "kiln"
     assert stack["crucible_acceptance"]["status"] == "blocked"
     assert stack["crucible_acceptance"]["runtime_enabled"] is False
+
+
+def test_runtime_activation_is_explicit_and_crucible_evidence_gated(
+        monkeypatch, tmp_path):
+    evidence = CrucibleAcceptance(
+        model_id="deepseek", model_sha256="a" * 64,
+        runtime_id="llama.cpp", runtime_sha256="b" * 64,
+        loopback_only=True, tool_calls_disabled=True, bounded_context=True,
+        post_reboot_model_test=True, sustained_load_test=True,
+        orca_responsiveness_test=True, rollback_test=True,
+        quench_review_id="review-1", fry_activation_id="decision-1",
+    )
+    path = tmp_path / "acceptance.json"
+    path.write_text(json.dumps(asdict(evidence)))
+    monkeypatch.setenv("ORCA_CRUCIBLE_ACCEPTANCE_FILE", str(path))
+    monkeypatch.setenv(
+        "ORCA_ENABLED_MODEL_SERVICES", "forge_deepseek,forge_smith,kiln_quench")
+    stack = ladder_snapshot()
+    assert stack["model_invocation_enabled"] is True
+    assert stack["crucible_acceptance"]["activation_ready"] is True
+    assert stack["services"]["forge_deepseek"]["runtime_enabled"] is True
+    assert stack["services"]["forge_smith"]["runtime_enabled"] is True
+    assert stack["services"]["kiln_quench"]["runtime_enabled"] is True
+
+    path.write_text("{}")
+    stack = ladder_snapshot()
+    assert stack["services"]["forge_deepseek"]["runtime_enabled"] is False
+    assert stack["services"]["forge_smith"]["runtime_enabled"] is True

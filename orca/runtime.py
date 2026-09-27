@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 import json
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
 from .security import redact, redact_text
 
@@ -228,3 +230,67 @@ class SandboxedOpenAIAdapter:
         if not valid:
             raise ValueError("local model output failed contract: " + "; ".join(failures))
         return output
+
+
+def bounded_json_transport(endpoint: str, payload: dict, timeout_seconds: int) -> dict:
+    """POST one bounded JSON request without forwarding credentials."""
+
+    encoded = json.dumps(payload, separators=(",", ":"), allow_nan=False).encode()
+    if len(encoded) > 128_000:
+        raise ValueError("local model request exceeds the size limit")
+    request = Request(
+        endpoint, data=encoded, method="POST",
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
+    )
+    try:
+        with urlopen(request, timeout=timeout_seconds) as response:
+            raw = response.read(1_000_001)
+    except (HTTPError, URLError, TimeoutError, OSError):
+        raise RuntimeError("local model transport failed") from None
+    if len(raw) > 1_000_000:
+        raise ValueError("local model response exceeds the transport limit")
+    try:
+        decoded = json.loads(raw)
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        raise ValueError("local model response envelope is not valid JSON") from None
+    if not isinstance(decoded, dict):
+        raise ValueError("local model response envelope must be an object")
+    return decoded
+
+
+class ModelRuntimeGateway:
+    """Explicit allowlist of accepted local services and bot identities."""
+
+    def __init__(self, enabled_services: set[str] | frozenset[str]) -> None:
+        self.enabled_services = frozenset(enabled_services)
+        definitions = {
+            "forge_deepseek": (
+                "http://127.0.0.1:11436/v1/chat/completions",
+                "DEEPSEEK-REASONER", frozenset({"orca", "smith"}),
+            ),
+            "forge_smith": (
+                "http://127.0.0.1:11434/v1/chat/completions",
+                "SMITH", frozenset({"smith"}),
+            ),
+            "kiln_quench": (
+                "http://127.0.0.1:11435/v1/chat/completions",
+                "QUENCH", frozenset({"quench", "security_gate"}),
+            ),
+        }
+        unknown = self.enabled_services - set(definitions)
+        if unknown:
+            raise ValueError("unknown enabled model service")
+        self._definitions = definitions
+
+    def invoke(self, *, service_id: str, bot_id: str, prompt: str) -> dict:
+        if service_id not in self.enabled_services:
+            raise PermissionError("model service is disabled")
+        endpoint, model, allowed_bots = self._definitions[service_id]
+        if bot_id not in allowed_bots:
+            raise PermissionError("bot identity is not allowed on this model service")
+        adapter = SandboxedOpenAIAdapter(
+            endpoint=endpoint,
+            allowed_models=(model,),
+            transport=bounded_json_transport,
+        )
+        return adapter.invoke(bot_id=bot_id, model=model, prompt=prompt)

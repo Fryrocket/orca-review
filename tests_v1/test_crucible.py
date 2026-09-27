@@ -1,6 +1,11 @@
 import pytest
 
-from orca.crucible import CrucibleAcceptance, evaluate_crucible_acceptance
+from orca.crucible import (
+    CrucibleAcceptance,
+    current_crucible_acceptance,
+    evaluate_crucible_acceptance,
+    load_crucible_acceptance,
+)
 
 
 def test_crucible_is_blocked_without_model_runtime_and_acceptance_evidence():
@@ -41,3 +46,20 @@ def test_digest_and_schema_validation_fail_closed():
     assert report["checks"]["model_sha256"] is False
     with pytest.raises(ValueError, match="unknown CRUCIBLE evidence fields"):
         evaluate_crucible_acceptance({"enable_runtime": True})
+
+
+def test_acceptance_file_is_bounded_and_fails_closed(monkeypatch, tmp_path):
+    evidence = tmp_path / "acceptance.json"
+    evidence.write_text('{"model_id":"accepted"}')
+    monkeypatch.setenv("ORCA_CRUCIBLE_ACCEPTANCE_FILE", str(evidence))
+    assert load_crucible_acceptance().model_id == "accepted"
+    assert current_crucible_acceptance()["activation_ready"] is False
+
+    evidence.write_text('{"enable_runtime":true}')
+    report = current_crucible_acceptance()
+    assert report["status"] == "blocked"
+    assert "unreadable or invalid" in report["note"]
+
+    evidence.unlink()
+    evidence.symlink_to(tmp_path / "missing")
+    assert current_crucible_acceptance()["activation_ready"] is False

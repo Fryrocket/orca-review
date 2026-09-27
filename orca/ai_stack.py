@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import os
 from typing import Mapping
 
-from .crucible import evaluate_crucible_acceptance
+from .crucible import current_crucible_acceptance
 from .registry import NODES
 
 
@@ -48,14 +49,14 @@ AI_SERVICES = {
         "forge_smith", "forge",
         "deep coding, synthesis, planning and general-purpose local reasoning",
         "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M", "llama.cpp", "CPU / AVX2",
-        16_384, 1, 28, deployment_state="planned_migration", may_author=True,
+        16_384, 1, 28, deployment_state="live", may_author=True,
     ),
     "forge_deepseek": AIServiceProfile(
         "forge_deepseek", "forge",
         "architecture, difficult debugging, mathematics, planning and second-opinion reasoning",
         "DeepSeek-R1-Distill-Qwen-32B-Q4_K_M", "llama.cpp", "CRUCIBLE / AMD ROCm",
         16_384, 1, 12, vram_budget_gib=24,
-        deployment_state="pending_model_runtime",
+        deployment_state="live_pending_acceptance",
     ),
     "forge_embeddings": AIServiceProfile(
         "forge_embeddings", "forge",
@@ -74,13 +75,13 @@ AI_SERVICES = {
         "ember_sentinel", "ember",
         "always-on health, UPS, watchdog, backup observation and wake signals",
         "deterministic rules only", "python", "cpu",
-        0, 1, 2, deployment_state="planned",
+        0, 1, 2, deployment_state="live",
     ),
     "forge_crucible": AIServiceProfile(
         "forge_crucible", "forge",
         "gated CRUCIBLE runtime supervisor and acceptance surface",
         "pinned llama.cpp HIP runtime pending acceptance", "llama.cpp", "CRUCIBLE / AMD ROCm 7.2.1",
-        0, 1, 0, deployment_state="pending_model_runtime",
+        0, 1, 0, deployment_state="live_pending_acceptance",
     ),
 }
 
@@ -119,9 +120,21 @@ COGNITIVE_FABRIC = {
 def ladder_snapshot(
     node_health: Mapping[str, Mapping[str, object]] | None = None,
 ) -> dict:
+    acceptance = current_crucible_acceptance()
+    requested = {
+        value.strip() for value in os.environ.get(
+            "ORCA_ENABLED_MODEL_SERVICES", "").split(",") if value.strip()
+    }
+    known_runtime_services = {
+        "anvil_reflex", "forge_smith", "forge_deepseek", "kiln_quench"
+    }
+    enabled = requested & known_runtime_services
+    if not acceptance["activation_ready"]:
+        enabled.discard("forge_deepseek")
     services = {}
     for service_id, service in AI_SERVICES.items():
         row = asdict(service)
+        row["runtime_enabled"] = service.id in enabled
         if service.node_id is None:
             row["node_health"] = "not_applicable"
         elif node_health is None:
@@ -154,7 +167,7 @@ def ladder_snapshot(
                 "node_id": service.node_id,
                 "state": service.deployment_state,
                 "node_health": health,
-                "runtime_enabled": service.runtime_enabled,
+                "runtime_enabled": service_id in enabled,
             })
         ladders[job_type] = rows
 
@@ -162,8 +175,8 @@ def ladder_snapshot(
         "fabric": dict(COGNITIVE_FABRIC),
         "services": services,
         "ladders": ladders,
-        "crucible_acceptance": evaluate_crucible_acceptance(),
-        "model_invocation_enabled": False,
+        "crucible_acceptance": acceptance,
+        "model_invocation_enabled": bool(enabled),
     }
 
 

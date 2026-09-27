@@ -24,6 +24,7 @@ from .fleet import Heartbeat
 from .policy import PolicyViolation
 from .security import redact_text
 from .idempotency import IdempotencyConflict, StateRevisionConflict
+from .runtime import ModelRuntimeGateway
 
 
 STATIC_ROOT = Path(__file__).with_name("static")
@@ -49,7 +50,8 @@ def _is_loopback_bind(host: str) -> bool:
 class OrcaHTTPServer(ThreadingHTTPServer):
     def __init__(self, address: tuple[str, int], control_plane: ControlPlane,
                  operator_token: str | None = None,
-                 identity_tokens: Mapping[str, str] | IdentityTokenAuthenticator | None = None):
+                 identity_tokens: Mapping[str, str] | IdentityTokenAuthenticator | None = None,
+                 runtime_gateway: ModelRuntimeGateway | None = None):
         if not _is_loopback_bind(address[0]):
             raise ValueError(
                 "non-loopback ORCA binding is disabled pending reviewed transport security")
@@ -64,6 +66,7 @@ class OrcaHTTPServer(ThreadingHTTPServer):
         self.identity_authenticator = identity_tokens if isinstance(
             identity_tokens, IdentityTokenAuthenticator
         ) else IdentityTokenAuthenticator(identity_tokens) if identity_tokens is not None else None
+        self.runtime_gateway = runtime_gateway
         self.allowed_hosts = frozenset({address[0], "127.0.0.1", "localhost", "::1"})
         super().__init__(address, OrcaHandler)
 
@@ -344,6 +347,28 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     "nonce": heartbeat.nonce,
                     "status": "accepted",
                 }, HTTPStatus.OK)
+            if path == "/api/inference":
+                try:
+                    authenticated_identity = self._authenticate_mutation()
+                except IdentityAuthenticationError as exc:
+                    return self._json({"error": str(exc)}, HTTPStatus.UNAUTHORIZED)
+                except RuntimeError:
+                    return self._json(
+                        {"error": "operator mutations are disabled"},
+                        HTTPStatus.SERVICE_UNAVAILABLE,
+                    )
+                if authenticated_identity != "fry":
+                    raise IdentityAuthorizationError(
+                        "only Fry may initiate local model inference")
+                if self.server.runtime_gateway is None:
+                    raise PermissionError("model invocation is disabled")
+                data = self._body()
+                if set(data) != {"service_id", "bot_id", "prompt"}:
+                    raise ValueError("inference request has an invalid schema")
+                return self._json(self.server.runtime_gateway.invoke(
+                    service_id=data["service_id"], bot_id=data["bot_id"],
+                    prompt=data["prompt"],
+                ))
             try:
                 authenticated_identity = self._authenticate_mutation()
             except IdentityAuthenticationError as exc:
@@ -392,10 +417,11 @@ class OrcaHandler(BaseHTTPRequestHandler):
 
 def serve(control_plane: ControlPlane | None = None, *, host: str = "127.0.0.1", port: int = 8787,
           operator_token: str | None = None,
-          identity_tokens: Mapping[str, str] | IdentityTokenAuthenticator | None = None) -> None:
+          identity_tokens: Mapping[str, str] | IdentityTokenAuthenticator | None = None,
+          runtime_gateway: ModelRuntimeGateway | None = None) -> None:
     server = OrcaHTTPServer(
         (host, port), control_plane or ControlPlane(), operator_token,
-        identity_tokens=identity_tokens,
+        identity_tokens=identity_tokens, runtime_gateway=runtime_gateway,
     )
     print(f"ORCA operator console: http://{host}:{server.server_port}")
     server.serve_forever()

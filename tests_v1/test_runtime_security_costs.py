@@ -10,6 +10,7 @@ from orca.runtime import (
     PROMPT_CONTRACTS,
     SandboxedLocalAdapter,
     SandboxedOpenAIAdapter,
+    ModelRuntimeGateway,
 )
 from orca.tools import ToolAuthorizer
 from orca.models import ModelRoute, ModelRouter
@@ -227,3 +228,28 @@ def test_openai_compatible_adapter_denies_direct_remote_workers_and_bad_envelope
         allowed_models=("SMITH",), transport=lambda *_: {"choices": []})
     with pytest.raises(ValueError, match="invalid OpenAI-compatible envelope"):
         adapter.invoke(bot_id="smith", model="SMITH", prompt="implement")
+
+
+def test_model_runtime_gateway_is_service_and_identity_allowlisted(monkeypatch):
+    calls = []
+    valid = {
+        "summary": "done", "evidence": ["fixture"],
+        "uncertainty": "none", "next_gate": "review",
+    }
+    monkeypatch.setattr(
+        "orca.runtime.bounded_json_transport",
+        lambda url, payload, timeout: calls.append((url, payload, timeout)) or {
+            "choices": [{"message": {"content": __import__("json").dumps(valid)}}]
+        },
+    )
+    gateway = ModelRuntimeGateway({"forge_smith", "kiln_quench"})
+    assert gateway.invoke(
+        service_id="forge_smith", bot_id="smith", prompt="implement"
+    ) == valid
+    assert calls[0][0] == "http://127.0.0.1:11434/v1/chat/completions"
+    with pytest.raises(PermissionError, match="disabled"):
+        gateway.invoke(service_id="forge_deepseek", bot_id="smith", prompt="reason")
+    with pytest.raises(PermissionError, match="identity"):
+        gateway.invoke(service_id="kiln_quench", bot_id="smith", prompt="review")
+    with pytest.raises(ValueError, match="unknown enabled"):
+        ModelRuntimeGateway({"cloud"})

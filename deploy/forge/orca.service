@@ -10,6 +10,8 @@ Group=fryrocket
 UMask=0077
 WorkingDirectory=/opt/orca/current
 Environment=PYTHONUNBUFFERED=1
+Environment=ORCA_CRUCIBLE_ACCEPTANCE_FILE=/var/lib/orca/crucible-acceptance.json
+Environment=ORCA_ENABLED_MODEL_SERVICES=forge_deepseek,forge_smith,kiln_quench
 ExecStart=/usr/bin/python3 -m orca --host 127.0.0.1 --port 8787 --database /var/lib/orca/orca-events.db --identity-token-file /var/lib/orca/identity-tokens.json
 Restart=on-failure
 RestartSec=5
