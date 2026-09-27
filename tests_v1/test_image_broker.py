@@ -59,6 +59,13 @@ def test_edit_gateway_routes_only_edit_uploads_with_larger_limit():
     assert '"/api/images/edit": "/edit"' in source
 
 
+def test_canvas_undo_uses_pixel_snapshots_without_relaxing_content_security():
+    source = (MODULE_PATH.parents[2] / 'orca/static/app.js').read_text()
+    assert 'image: context.getImageData(0, 0, canvas.width, canvas.height)' in source
+    assert 'context.putImageData(previous.image, 0, 0)' in source
+    assert 'canvasUndo.length > 5' in source
+
+
 def test_image_request_defaults_are_bounded_and_workflow_is_sdxl():
     request = broker.validate_request({"prompt": "A copper robot in a green workshop"})
     assert request["width"] == request["height"] == 768

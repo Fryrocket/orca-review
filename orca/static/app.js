@@ -530,7 +530,7 @@ function clearSelection() {
 }
 function snapshotCanvas() {
   if (!canvasHasImage) return;
-  canvasUndo.push({image: canvas.toDataURL('image/png'), description: canvasDescription});
+  canvasUndo.push({image: context.getImageData(0, 0, canvas.width, canvas.height), description: canvasDescription});
   if (canvasUndo.length > 5) canvasUndo.shift();
 }
 function decodeCanvasImage(source) {
@@ -592,10 +592,15 @@ $('#canvas-upload').addEventListener('change', async event => {
   } catch (error) { $('#visual-result').textContent = error.message; }
   finally { URL.revokeObjectURL(url); event.target.value = ''; setCanvasBusy(false); }
 });
-$('#undo-canvas').addEventListener('click', async () => {
+$('#undo-canvas').addEventListener('click', () => {
   if (canvasBusy || !canvasUndo.length) return;
   setCanvasBusy(true); const previous = canvasUndo[canvasUndo.length - 1];
-  try { await showCanvasImage(previous.image, false); canvasDescription = previous.description; canvasUndo.pop(); $('#visual-result').textContent = 'Previous image restored.'; }
+  try {
+    canvas.width = maskCanvas.width = previous.image.width;
+    canvas.height = maskCanvas.height = previous.image.height;
+    context.putImageData(previous.image, 0, 0); clearSelection(); canvasHasImage = true;
+    canvasDescription = previous.description; canvasUndo.pop(); $('#visual-result').textContent = 'Previous image restored.';
+  }
   catch (error) { $('#visual-result').textContent = error.message; }
   finally { setCanvasBusy(false); }
 });
