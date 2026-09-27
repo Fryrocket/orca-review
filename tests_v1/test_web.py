@@ -39,7 +39,7 @@ def test_operator_console_assets_exist_and_include_required_views():
     assert "security-list" in html
     assert "retention-summary" in html
     assert "generate-image" in html
-    assert "Generate on KILN" in html
+    assert "Generate on CRUCIBLE" in html
     js = (STATIC_ROOT / "app.js").read_text()
     assert "data-approval" in js
     assert "data-pause-job" in js

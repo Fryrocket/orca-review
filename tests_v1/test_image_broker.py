@@ -29,3 +29,21 @@ def test_image_request_defaults_are_bounded_and_workflow_is_sdxl():
 def test_image_request_rejects_unbounded_or_unknown_fields(payload):
     with pytest.raises(ValueError):
         broker.validate_request(payload)
+
+
+def test_crucible_failure_releases_models_without_changing_services(monkeypatch):
+    monkeypatch.setattr(broker, "MANAGED_ENGINE", False)
+    def forbidden(*args, **kwargs):
+        raise AssertionError("CRUCIBLE must not stop or start inference services")
+    monkeypatch.setattr(broker.subprocess, "run", forbidden)
+    monkeypatch.setattr(broker, "wait_for_comfy", lambda *_: None)
+    calls = []
+    def request(method, path, body=None, **kwargs):
+        calls.append((method, path, body))
+        if path == "/prompt":
+            raise RuntimeError("test generation failure")
+        return {}
+    monkeypatch.setattr(broker, "comfy_json", request)
+    with pytest.raises(RuntimeError, match="test generation failure"):
+        broker.generate_image(broker.validate_request({"prompt": "test"}))
+    assert calls[-1] == ("POST", "/free", {"unload_models": True, "free_memory": True})

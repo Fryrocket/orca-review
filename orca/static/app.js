@@ -357,8 +357,8 @@ $('#generate-image').addEventListener('click', async () => {
   if (!prompt) { target.textContent = 'Describe the image you want first.'; return; }
   const [width, height] = $('#image-size').value.split('x').map(Number);
   button.disabled = true;
-  button.textContent = 'Generating on KILN…';
-  target.textContent = 'KILN is yielding the GPU from QUENCH, loading SDXL, and rendering one image. This can take a few minutes.';
+  button.textContent = 'Generating on CRUCIBLE…';
+  target.textContent = 'CRUCIBLE is rendering your image. This can take a few minutes.';
   try {
     const response = await fetch('/api/images/generate', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -370,9 +370,9 @@ $('#generate-image').addEventListener('click', async () => {
     generatedImageURL = URL.createObjectURL(blob);
     const image = $('#generated-image');
     image.src = generatedImageURL; image.hidden = false;
-    target.textContent = `Generated locally on KILN · seed ${response.headers.get('X-ORCA-Image-Seed') || 'recorded by broker'} · QUENCH is being restored.`;
+    target.textContent = `Generated on CRUCIBLE · seed ${response.headers.get('X-ORCA-Image-Seed') || 'recorded by broker'}.`;
   } catch (error) { target.textContent = error.message; }
-  finally { button.disabled = false; button.textContent = 'Generate on KILN'; }
+  finally { button.disabled = false; button.textContent = 'Generate on CRUCIBLE'; }
 });
 $('#develop-visual').addEventListener('click', async () => {
   const prompt = $('#visual-prompt').value.trim(), target = $('#visual-result');

@@ -1,0 +1,20 @@
+[Unit]
+Description=CRUCIBLE SDXL image generation
+After=network-online.target
+
+[Service]
+User=fryrocket
+Group=fryrocket
+WorkingDirectory=/home/fryrocket/orca-comfyui
+ExecStart=/home/fryrocket/orca-image-env/bin/python main.py --listen 127.0.0.1 --port 8188 --lowvram --reserve-vram 3 --cpu-vae --preview-method none --disable-auto-launch
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/fryrocket/orca-comfyui/output /home/fryrocket/orca-comfyui/temp /home/fryrocket/orca-comfyui/user
+
+[Install]
+WantedBy=multi-user.target

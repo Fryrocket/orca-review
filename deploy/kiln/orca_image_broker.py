@@ -7,6 +7,7 @@ import argparse
 from http.client import HTTPConnection
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 import random
 import subprocess
 import threading
@@ -19,6 +20,8 @@ COMFY_PORT = 8188
 CHECKPOINT = "sd_xl_base_1.0.safetensors"
 MAX_BODY_BYTES = 16_384
 JOB_LOCK = threading.Lock()
+MANAGED_ENGINE = os.environ.get("ORCA_IMAGE_MANAGED_ENGINE", "1") == "1"
+IMAGE_WORKER = os.environ.get("ORCA_IMAGE_WORKER", "KILN")
 
 
 def validate_request(value: object) -> dict[str, object]:
@@ -98,14 +101,15 @@ def wait_for_comfy(deadline: float) -> None:
             return
         except (OSError, RuntimeError, ValueError, json.JSONDecodeError):
             time.sleep(1)
-    raise TimeoutError("KILN image engine did not become ready")
+    raise TimeoutError(f"{IMAGE_WORKER} image engine did not become ready")
 
 
 def generate_image(request: dict[str, object]) -> tuple[bytes, str]:
     try:
-        subprocess.run(
-            ["/usr/bin/systemctl", "start", "orca-comfyui.service"],
-            check=True, timeout=150)
+        if MANAGED_ENGINE:
+            subprocess.run(
+                ["/usr/bin/systemctl", "start", "orca-comfyui.service"],
+                check=True, timeout=150)
         wait_for_comfy(time.monotonic() + 120)
         queued = comfy_json("POST", "/prompt", {
             "prompt": build_workflow(request), "client_id": "orca-kiln-studio"}, timeout=15)
@@ -126,7 +130,7 @@ def generate_image(request: dict[str, object]) -> tuple[bytes, str]:
                 raise RuntimeError("ComfyUI reported an image-generation error")
             time.sleep(1)
         if not image:
-            raise TimeoutError("KILN image generation timed out")
+            raise TimeoutError(f"{IMAGE_WORKER} image generation timed out")
         query = urlencode({
             "filename": image["filename"], "subfolder": image.get("subfolder", ""),
             "type": image.get("type", "output")})
@@ -141,12 +145,15 @@ def generate_image(request: dict[str, object]) -> tuple[bytes, str]:
         finally:
             connection.close()
     finally:
-        subprocess.run(
-            ["/usr/bin/systemctl", "stop", "orca-comfyui.service"],
-            check=False, timeout=60)
-        subprocess.run(
-            ["/usr/bin/systemctl", "start", "quench-inference.service"],
-            check=False, timeout=180)
+        if MANAGED_ENGINE:
+            subprocess.run(
+                ["/usr/bin/systemctl", "stop", "orca-comfyui.service"],
+                check=False, timeout=60)
+            subprocess.run(
+                ["/usr/bin/systemctl", "start", "quench-inference.service"],
+                check=False, timeout=180)
+        else:
+            comfy_json("POST", "/free", {"unload_models": True, "free_memory": True})
 
 
 class ImageBroker(BaseHTTPRequestHandler):
@@ -165,7 +172,8 @@ class ImageBroker(BaseHTTPRequestHandler):
         if self.path != "/health":
             self._json({"error": "not found"}, 404)
             return
-        self._json({"status": "healthy", "engine": "ComfyUI", "model": CHECKPOINT}, 200)
+        self._json({"status": "healthy", "engine": "ComfyUI", "model": CHECKPOINT,
+                    "worker": IMAGE_WORKER}, 200)
 
     def do_POST(self) -> None:
         if self.path != "/generate":
@@ -180,7 +188,7 @@ class ImageBroker(BaseHTTPRequestHandler):
             self._json({"error": str(exc)}, 400)
             return
         if not JOB_LOCK.acquire(blocking=False):
-            self._json({"error": "KILN is already generating an image"}, 409)
+            self._json({"error": f"{IMAGE_WORKER} is already generating an image"}, 409)
             return
         try:
             content, prompt_id = generate_image(request)
@@ -188,6 +196,7 @@ class ImageBroker(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "image/png")
             self.send_header("Content-Length", str(len(content)))
             self.send_header("X-ORCA-Image-Seed", str(request["seed"]))
+            self.send_header("X-ORCA-Image-Worker", IMAGE_WORKER)
             self.send_header("X-ORCA-Comfy-Prompt", prompt_id)
             self.end_headers()
             self.wfile.write(content)

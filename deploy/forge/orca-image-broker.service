@@ -1,0 +1,20 @@
+[Unit]
+Description=CRUCIBLE image broker
+After=orca-comfyui.service
+Requires=orca-comfyui.service
+
+[Service]
+User=fryrocket
+Group=fryrocket
+Environment=ORCA_IMAGE_MANAGED_ENGINE=0
+Environment=ORCA_IMAGE_WORKER=CRUCIBLE
+ExecStart=/usr/bin/python3 /opt/orca-studio/orca_image_broker.py --host 127.0.0.1 --port 8790
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
