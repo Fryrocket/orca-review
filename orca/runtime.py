@@ -627,7 +627,7 @@ class ModelRuntimeGateway:
                 bot_id="orca", prompt=prompt,
                 history=conversation, use_tool_broker=False)}
         primary_reason = "kiln_codex" if "kiln_codex" in self.enabled_services else "forge_qwen"
-        primary_code = "kiln_codex" if "kiln_codex" in self.enabled_services else "forge_smith"
+        primary_code = "kiln_codex" if "kiln_codex" in self.enabled_services else "forge_qwen"
         modes = {
             "reason": (primary_reason, "orca"), "code": (primary_code, "smith"),
             "review": ("kiln_quench", "quench"), "engineer": (primary_reason, "smith"),
@@ -701,7 +701,7 @@ class ModelRuntimeGateway:
         except (RuntimeError, ValueError):
             if service_id != "kiln_codex":
                 raise
-            fallback = "forge_qwen" if bot_id == "orca" else "forge_smith"
+            fallback = "forge_qwen"
             if fallback not in self.enabled_services:
                 raise
             fallback_endpoint, fallback_model, allowed_bots = self._definitions[fallback]

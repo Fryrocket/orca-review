@@ -53,9 +53,9 @@ AI_SERVICES = {
     ),
     "forge_smith": AIServiceProfile(
         "forge_smith", "forge",
-        "deep coding, synthesis, planning and general-purpose local reasoning",
+        "retired local coding service retained only as a rollback artifact",
         "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M", "llama.cpp", "CPU / AVX2",
-        16_384, 1, 28, deployment_state="live", may_author=True,
+        16_384, 1, 28, deployment_state="retired_stopped", may_author=False,
     ),
     "forge_qwen": AIServiceProfile(
         "forge_qwen", "forge",
@@ -96,16 +96,16 @@ AI_SERVICES = {
 # processing. These are advisory routes; ORCA model invocation remains disabled.
 AI_LADDERS = {
     "orchestration": ("forge_policy",),
-    "interactive": ("kiln_codex", "forge_qwen", "forge_smith", "fry"),
-    "coding": ("kiln_codex", "forge_smith", "kiln_quench", "fry"),
-    "documentation": ("kiln_codex", "forge_qwen", "forge_smith", "kiln_quench", "fry"),
-    "operations_plan": ("kiln_codex", "forge_qwen", "forge_smith", "kiln_quench", "fry"),
+    "interactive": ("kiln_codex", "forge_qwen", "fry"),
+    "coding": ("kiln_codex", "forge_qwen", "kiln_quench", "fry"),
+    "documentation": ("kiln_codex", "forge_qwen", "kiln_quench", "fry"),
+    "operations_plan": ("kiln_codex", "forge_qwen", "kiln_quench", "fry"),
     "review": ("kiln_quench", "fry"),
     "security_review": ("kiln_quench", "fry"),
     "verification": ("kiln_quench", "fry"),
     "embeddings": ("forge_embeddings",),
     "monitoring": ("ember_sentinel", "forge_policy", "fry"),
-    "large_inference": ("forge_smith", "fry"),
+    "large_inference": ("forge_qwen", "fry"),
     "large_gpu_inference": ("forge_qwen", "forge_crucible", "fry"),
 }
 
@@ -119,7 +119,7 @@ COGNITIVE_FABRIC = {
     "sentinel_surface": "ember",
     "memory_pooling": False,
     "automatic_execution": False,
-    "cloud_fallback": "governed Codex on KILN; local Qwen/SMITH remain available",
+    "cloud_fallback": "governed Codex on KILN; local Qwen remains available",
 }
 
 

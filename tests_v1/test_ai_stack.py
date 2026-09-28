@@ -21,14 +21,15 @@ def test_four_host_stack_matches_live_hardware_and_one_mind_topology():
     assert fabric["automatic_execution"] is False
 
 
-def test_smith_moves_to_forge_and_quench_keeps_kiln_gpu_exclusivity():
+def test_smith_is_retired_and_quench_keeps_kiln_gpu_exclusivity():
     smith = AI_SERVICES["forge_smith"]
     quench = AI_SERVICES["kiln_quench"]
     assert smith.node_id == "forge"
     assert smith.model == "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M"
     assert smith.accelerator == "CPU / AVX2"
     assert smith.ram_budget_gib == 28
-    assert smith.may_author is True
+    assert smith.may_author is False
+    assert smith.deployment_state == "retired_stopped"
 
     assert quench.node_id == "kiln"
     assert quench.accelerator == "CUDA"
@@ -70,8 +71,8 @@ def test_concurrent_ai_service_budgets_do_not_overcommit_hosts():
 
 
 def test_ladders_escalate_to_deeper_reasoning_then_independent_review():
-    assert AI_LADDERS["interactive"] == ("kiln_codex", "forge_qwen", "forge_smith", "fry")
-    assert AI_LADDERS["coding"] == ("kiln_codex", "forge_smith", "kiln_quench", "fry")
+    assert AI_LADDERS["interactive"] == ("kiln_codex", "forge_qwen", "fry")
+    assert AI_LADDERS["coding"] == ("kiln_codex", "forge_qwen", "kiln_quench", "fry")
     assert AI_LADDERS["review"] == ("kiln_quench", "fry")
     assert AI_LADDERS["monitoring"][:2] == ("ember_sentinel", "forge_policy")
     assert AI_LADDERS["large_gpu_inference"] == ("forge_qwen", "forge_crucible", "fry")
@@ -93,7 +94,7 @@ def test_control_plane_exposes_stack_without_enabling_model_calls():
         for service in stack["services"].values()
     )
     assert stack["ladders"]["coding"][0]["service_id"] == "kiln_codex"
-    assert stack["ladders"]["coding"][1]["service_id"] == "forge_smith"
+    assert stack["ladders"]["coding"][1]["service_id"] == "forge_qwen"
     assert stack["ladders"]["review"][0]["node_id"] == "kiln"
     assert stack["crucible_acceptance"]["status"] == "blocked"
     assert stack["crucible_acceptance"]["runtime_enabled"] is False

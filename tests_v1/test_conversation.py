@@ -37,7 +37,7 @@ def test_missing_read_file_is_explicit_failed_evidence_not_a_server_crash():
 
 
 @pytest.mark.parametrize('mode,service,bot', [
-    ('reason', 'forge_qwen', 'orca'), ('code', 'forge_smith', 'smith'),
+    ('reason', 'forge_qwen', 'orca'), ('code', 'forge_qwen', 'smith'),
     ('review', 'kiln_quench', 'quench'), ('engineer', 'forge_qwen', 'smith'),
     ('visual', 'forge_qwen', 'orca'),
 ])

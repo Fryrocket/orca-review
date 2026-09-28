@@ -1864,7 +1864,7 @@ class ControlPlane:
         }
         runtime_services_by_bot = {
             "orca": {"kiln_codex", "forge_qwen"},
-            "smith": {"kiln_codex", "forge_qwen", "forge_smith"},
+            "smith": {"kiln_codex", "forge_qwen"},
             "quench": {"kiln_quench"},
             "security_gate": {"kiln_quench"},
         }

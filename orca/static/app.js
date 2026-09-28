@@ -82,7 +82,7 @@ let state = {
 const routes = {
   auto: {
     service_id: 'kiln_codex', label: 'ORCA · Codex Auto', name: 'ORCA · Codex + local specialists',
-    duty: 'Codex handles governed reasoning and coding; ORCA routes tools and approvals; Qwen and SMITH provide local fallback.',
+    duty: 'Codex handles governed reasoning and coding; ORCA routes tools and approvals; Qwen provides local fallback.',
     node: 'KILN + FORGE', context: 'Conversation memory on'
   },
   photo: {
@@ -97,7 +97,7 @@ const routes = {
   },
   code: {
     service_id: 'kiln_codex', bot_id: 'smith', label: 'Codex · Code',
-    name: 'Codex + SMITH fallback', duty: 'Coding, implementation, documentation and repository-scale synthesis under ORCA controls.',
+    name: 'Codex + Qwen fallback', duty: 'Coding, implementation, documentation and repository-scale synthesis under ORCA controls.',
     node: 'KILN + FORGE', context: 'Read-only until approved'
   },
   review: {
@@ -578,8 +578,8 @@ function renderActions() {
 }
 function renderCoderStack() {
   const services = state.ai_stack?.services || {};
-  const ids = ['kiln_codex', 'forge_qwen', 'forge_smith', 'kiln_quench'];
-  $('#coder-stack').innerHTML = ids.map(id => { const service = services[id] || {}; return `<div class="specialist-row"><div><strong>${esc(id === 'kiln_codex' ? 'Codex on KILN' : id === 'forge_qwen' ? 'Qwen Conversation' : id === 'forge_smith' ? 'SMITH' : 'QUENCH')}</strong><div class="meta">${esc(service.model || 'loading')}</div></div><span class="state ${service.runtime_enabled ? 'complete' : 'failed'}">${service.runtime_enabled ? 'READY' : 'GATED'}</span></div>`; }).join('');
+  const ids = ['kiln_codex', 'forge_qwen', 'kiln_quench'];
+  $('#coder-stack').innerHTML = ids.map(id => { const service = services[id] || {}; return `<div class="specialist-row"><div><strong>${esc(id === 'kiln_codex' ? 'Codex on KILN' : id === 'forge_qwen' ? 'Qwen Local Fallback' : 'QUENCH')}</strong><div class="meta">${esc(service.model || 'loading')}</div></div><span class="state ${service.runtime_enabled ? 'complete' : 'failed'}">${service.runtime_enabled ? 'READY' : 'GATED'}</span></div>`; }).join('');
 }
 
 async function refresh() {
