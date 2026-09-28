@@ -23,6 +23,9 @@ from urllib.parse import urlencode
 COMFY_HOST = "127.0.0.1"
 COMFY_PORT = 8188
 CHECKPOINT = "sd_xl_base_1.0.safetensors"
+VIDEO_MODEL = "wan2.2_ti2v_5B_fp16.safetensors"
+VIDEO_VAE = "wan2.2_vae.safetensors"
+VIDEO_ENCODER = "umt5_xxl_fp8_e4m3fn_scaled.safetensors"
 MAX_BODY_BYTES = 16_384
 MAX_EDIT_BODY_BYTES = 18_000_000
 JOB_LOCK = threading.Lock()
@@ -192,6 +195,95 @@ def validate_edit_request(value):
     return request
 
 
+def validate_video_request(value: object, *, animate: bool = False) -> dict[str, object]:
+    allowed = {
+        "prompt", "negative_prompt", "width", "height", "length", "steps",
+        "seed", "fps", "image",
+    }
+    if not isinstance(value, dict) or set(value) - allowed:
+        raise ValueError("video request has an invalid schema")
+    prompt = value.get("prompt")
+    if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > 1_500:
+        raise ValueError("prompt must contain 1-1500 characters")
+    negative = value.get(
+        "negative_prompt",
+        "static, frozen motion, text, subtitles, watermark, logo, low quality, "
+        "blurry, distorted, malformed, jitter, flicker",
+    )
+    if not isinstance(negative, str) or len(negative) > 1_000:
+        raise ValueError("negative_prompt must contain at most 1000 characters")
+    width, height = value.get("width", 832), value.get("height", 480)
+    if (type(width) is not int or type(height) is not int
+            or (width, height) not in {
+                (832, 480), (480, 832), (640, 640), (1024, 576), (576, 1024)
+            }):
+        raise ValueError("dimensions must use an approved short-video aspect ratio")
+    length = value.get("length", 73)
+    if type(length) is not int or length not in {49, 73, 121}:
+        raise ValueError("video length must be 49, 73, or 121 frames")
+    steps = value.get("steps", 20)
+    if type(steps) is not int or not 12 <= steps <= 30:
+        raise ValueError("video steps must be an integer from 12 to 30")
+    fps = value.get("fps", 24)
+    if type(fps) is not int or fps not in {16, 24}:
+        raise ValueError("video fps must be 16 or 24")
+    seed = value.get("seed")
+    if seed is None:
+        seed = random.SystemRandom().randrange(0, 2**53)
+    if type(seed) is not int or not 0 <= seed < 2**53:
+        raise ValueError("seed must be a browser-safe integer from 0 through 2^53-1")
+    request = {
+        "prompt": prompt.strip(), "negative_prompt": negative.strip(),
+        "width": width, "height": height, "length": length,
+        "steps": steps, "fps": fps, "seed": seed,
+    }
+    if animate:
+        request["image_bytes"], _ = decode_png(value.get("image"))
+    elif "image" in value:
+        raise ValueError("source images are accepted only by the animate endpoint")
+    return request
+
+
+def build_video_workflow(request: dict[str, object]) -> dict[str, object]:
+    latent_inputs = {
+        "vae": ["3", 0], "width": request["width"], "height": request["height"],
+        "length": request["length"], "batch_size": 1,
+    }
+    workflow = {
+        "1": {"class_type": "UNETLoader", "inputs": {
+            "unet_name": VIDEO_MODEL, "weight_dtype": "default"}},
+        "2": {"class_type": "CLIPLoader", "inputs": {
+            "clip_name": VIDEO_ENCODER, "type": "wan", "device": "default"}},
+        "3": {"class_type": "VAELoader", "inputs": {"vae_name": VIDEO_VAE}},
+        "4": {"class_type": "CLIPTextEncode", "inputs": {
+            "text": request["prompt"], "clip": ["2", 0]}},
+        "5": {"class_type": "CLIPTextEncode", "inputs": {
+            "text": request["negative_prompt"], "clip": ["2", 0]}},
+        "6": {"class_type": "ModelSamplingSD3", "inputs": {
+            "model": ["1", 0], "shift": 8.0}},
+        "7": {"class_type": "Wan22ImageToVideoLatent", "inputs": latent_inputs},
+        "8": {"class_type": "KSampler", "inputs": {
+            "model": ["6", 0], "seed": request["seed"], "steps": request["steps"],
+            "cfg": 5.0, "sampler_name": "uni_pc", "scheduler": "simple",
+            "positive": ["4", 0], "negative": ["5", 0],
+            "latent_image": ["7", 0], "denoise": 1.0}},
+        "9": {"class_type": "VAEDecode", "inputs": {
+            "samples": ["8", 0], "vae": ["3", 0]}},
+        "10": {"class_type": "CreateVideo", "inputs": {
+            "images": ["9", 0], "fps": float(request["fps"]),
+            "bit_depth": 8, "color_space": "sRGB"}},
+        "11": {"class_type": "SaveVideo", "inputs": {
+            "video": ["10", 0], "filename_prefix": "ORCA/video",
+            "format": "mp4", "codec": {"codec": "h264", "encoding": {
+                "encoding": "re-encode", "crf": 20.0}}}},
+    }
+    if "image_bytes" in request:
+        workflow["12"] = {"class_type": "LoadImage", "inputs": {
+            "image": "orca-video-source.png [temp]"}}
+        latent_inputs["start_image"] = ["12", 0]
+    return workflow
+
+
 def upload_edit_image(content, filename):
     # Names are broker-owned constants, never user-supplied paths.
     boundary = "orca-image-upload-boundary"
@@ -294,6 +386,66 @@ def generate_image(request: dict[str, object]) -> tuple[bytes, str]:
             comfy_json("POST", "/free", {"unload_models": True, "free_memory": True})
 
 
+def _saved_media(entry: object, suffix: str) -> dict[str, object] | None:
+    if isinstance(entry, dict):
+        if (isinstance(entry.get("filename"), str)
+                and entry["filename"].lower().endswith(suffix)):
+            return entry
+        for value in entry.values():
+            found = _saved_media(value, suffix)
+            if found:
+                return found
+    elif isinstance(entry, list):
+        for value in entry:
+            found = _saved_media(value, suffix)
+            if found:
+                return found
+    return None
+
+
+def generate_video(request: dict[str, object]) -> tuple[bytes, str]:
+    if "image_bytes" in request:
+        upload_edit_image(request["image_bytes"], "orca-video-source.png")
+    try:
+        queued = comfy_json("POST", "/prompt", {
+            "prompt": build_video_workflow(request), "client_id": "orca-kiln-video"}, timeout=20)
+        prompt_id = queued.get("prompt_id")
+        if not isinstance(prompt_id, str):
+            raise RuntimeError("ComfyUI did not return a video prompt id")
+        deadline = time.monotonic() + 1_200
+        media = None
+        while time.monotonic() < deadline:
+            history = comfy_json("GET", f"/history/{prompt_id}", timeout=15)
+            entry = history.get(prompt_id, {})
+            media = _saved_media(entry.get("outputs", {}).get("11", {}), ".mp4")
+            if media:
+                break
+            if entry.get("status", {}).get("status_str") == "error":
+                raise RuntimeError("ComfyUI reported a video-generation error")
+            time.sleep(2)
+        if not media:
+            raise TimeoutError(f"{IMAGE_WORKER} video generation timed out")
+        query = urlencode({
+            "filename": media["filename"], "subfolder": media.get("subfolder", ""),
+            "type": media.get("type", "output")})
+        connection = HTTPConnection(COMFY_HOST, COMFY_PORT, timeout=60)
+        try:
+            connection.request("GET", f"/view?{query}")
+            response = connection.getresponse()
+            content = response.read()
+            if response.status != 200 or not content:
+                raise RuntimeError("ComfyUI video retrieval failed")
+            return content, prompt_id
+        finally:
+            connection.close()
+    finally:
+        # Wan is large and shares CRUCIBLE with Qwen. Release it after every job.
+        try:
+            comfy_json("POST", "/free", {"unload_models": True, "free_memory": True})
+        except (OSError, RuntimeError, ValueError):
+            pass
+
+
 class ImageBroker(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args) -> None:
         return
@@ -310,23 +462,37 @@ class ImageBroker(BaseHTTPRequestHandler):
         if self.path != "/health":
             self._json({"error": "not found"}, 404)
             return
+        video_ready = all(os.path.isfile(path) for path in (
+            f"/home/fryrocket/orca-comfyui/models/diffusion_models/{VIDEO_MODEL}",
+            f"/home/fryrocket/orca-comfyui/models/vae/{VIDEO_VAE}",
+            f"/home/fryrocket/orca-comfyui/models/text_encoders/{VIDEO_ENCODER}",
+        ))
+        capabilities = ["generate", "image_to_image", "masked_edit"]
+        if video_ready:
+            capabilities.extend(["text_to_video", "image_to_video", "mp4_export"])
         self._json({"status": "healthy", "engine": "ComfyUI", "model": CHECKPOINT,
-                    "capabilities": ["generate", "image_to_image", "masked_edit"],
+                    "video_model": VIDEO_MODEL if video_ready else "installing",
+                    "capabilities": capabilities,
                     "max_generation": "1216x832 / 1024x1024",
                     "samplers": ["dpmpp_2m", "dpmpp_sde", "euler_ancestral"],
                     "worker": IMAGE_WORKER}, 200)
 
     def do_POST(self) -> None:
-        if self.path not in {"/generate", "/edit"}:
+        if self.path not in {"/generate", "/edit", "/video/generate", "/video/animate"}:
             self._json({"error": "not found"}, 404)
             return
         try:
             length = int(self.headers.get("Content-Length", "0"))
-            limit = MAX_EDIT_BODY_BYTES if self.path == "/edit" else MAX_BODY_BYTES
+            limit = MAX_EDIT_BODY_BYTES if self.path in {"/edit", "/video/animate"} else MAX_BODY_BYTES
             if not 0 < length <= limit:
                 raise ValueError("image request body is empty or too large")
-            validator = validate_edit_request if self.path == "/edit" else validate_request
-            request = validator(json.loads(self.rfile.read(length)))
+            payload = json.loads(self.rfile.read(length))
+            if self.path == "/edit":
+                request = validate_edit_request(payload)
+            elif self.path.startswith("/video/"):
+                request = validate_video_request(payload, animate=self.path.endswith("/animate"))
+            else:
+                request = validate_request(payload)
         except (ValueError, UnicodeError, json.JSONDecodeError) as exc:
             self._json({"error": str(exc)}, 400)
             return
@@ -334,16 +500,21 @@ class ImageBroker(BaseHTTPRequestHandler):
             self._json({"error": f"{IMAGE_WORKER} is already generating an image"}, 409)
             return
         try:
-            content, prompt_id = generate_image(request)
+            is_video = self.path.startswith("/video/")
+            content, prompt_id = generate_video(request) if is_video else generate_image(request)
             self.send_response(200)
-            self.send_header("Content-Type", "image/png")
+            self.send_header("Content-Type", "video/mp4" if is_video else "image/png")
             self.send_header("Content-Length", str(len(content)))
             self.send_header("X-ORCA-Image-Seed", str(request["seed"]))
             self.send_header("X-ORCA-Image-Size", f'{request["width"]}x{request["height"]}')
             self.send_header("X-ORCA-Image-Steps", str(request["steps"]))
-            self.send_header("X-ORCA-Image-Sampler", str(request["sampler"]))
+            if not is_video:
+                self.send_header("X-ORCA-Image-Sampler", str(request["sampler"]))
             self.send_header("X-ORCA-Image-Worker", IMAGE_WORKER)
             self.send_header("X-ORCA-Comfy-Prompt", prompt_id)
+            if is_video:
+                self.send_header("X-ORCA-Video-Frames", str(request["length"]))
+                self.send_header("X-ORCA-Video-FPS", str(request["fps"]))
             self.end_headers()
             self.wfile.write(content)
         except (OSError, RuntimeError, TimeoutError, subprocess.SubprocessError) as exc:

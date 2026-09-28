@@ -138,6 +138,21 @@ def test_chat_images_are_local_and_downloadable():
     assert "for (const url of chatImageURLs) URL.revokeObjectURL(url)" in js
 
 
+def test_crucible_video_is_available_in_chat_and_canvas():
+    html = (STATIC_ROOT / "index.html").read_text()
+    js = (STATIC_ROOT / "app.js").read_text()
+    assert 'data-mode="video"' in html
+    assert 'id="video-prompt"' in html
+    assert 'id="generate-video"' in html
+    assert 'id="animate-canvas"' in html
+    assert 'id="generated-video"' in html
+    assert "'/api/videos/generate'" in js
+    assert "'/api/videos/animate'" in js
+    assert "await generateChatVideo(videoPrompt)" in js
+    assert "Save MP4" in js
+    assert "URL.revokeObjectURL(generatedVideoURL)" in js
+
+
 def test_inventory_endpoint_is_read_only_and_fails_closed():
     class Provider:
         def snapshot(self):

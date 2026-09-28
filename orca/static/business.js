@@ -30,7 +30,7 @@ document.querySelectorAll('[data-business-prompt]').forEach((button, index) => {
     title: businessWorkflowTitle(button)
   });
   button.dataset.businessWorkflow = workflow.id;
-  button.addEventListener('click', () => {
+  button.addEventListener('click', async () => {
     const prompt = button.dataset.businessPrompt?.trim();
     const input = document.querySelector('#prompt-input');
     if (!prompt || !input) return;
@@ -40,7 +40,12 @@ document.querySelectorAll('[data-business-prompt]').forEach((button, index) => {
     input.value = `${agenticBusinessContract}\n\n${prompt}`;
     input.focus();
     const status = document.querySelector('#business-app-status');
-    if (status) status.textContent = 'Workflow staged. Add details, then press Enter to create a tracked ORCA job and run it.';
+    const tool = button.dataset.businessTool;
+    if (tool && businessSites[tool]) {
+      if (status) status.textContent = `Workflow staged. Opening ${tool === 'muse' ? 'Meta Muse' : 'the research tool'} for ORCA…`;
+      const result = await StudioLauncher.launch({kind: 'app', target: 'browser', url: businessSites[tool]});
+      if (status) status.textContent = `${result.message} Return the sourced findings to this staged workflow, then press Enter; ORCA will score, verify, and record them.`;
+    } else if (status) status.textContent = 'Workflow staged. Add details, then press Enter to create a tracked ORCA job and run it.';
   });
 });
 

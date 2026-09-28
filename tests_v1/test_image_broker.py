@@ -55,8 +55,11 @@ def test_png_rejects_broken_crc_and_trailing_data():
 
 def test_edit_gateway_routes_only_edit_uploads_with_larger_limit():
     source = (MODULE_PATH.parents[1] / 'orca_studio_gateway.py').read_text()
-    assert '18_000_000 if self.path == "/api/images/edit" else 1_000_000' in source
+    assert '18_000_000 if self.path in {' in source
+    assert '"/api/images/edit", "/api/videos/animate"' in source
     assert '"/api/images/edit": "/edit"' in source
+    assert '"/api/videos/generate": "/video/generate"' in source
+    assert '"/api/videos/animate": "/video/animate"' in source
 
 
 def test_canvas_undo_uses_pixel_snapshots_without_relaxing_content_security():
@@ -134,3 +137,54 @@ def test_native_sdxl_formats_and_high_quality_sampler_are_bounded():
     assert workflow["5"]["inputs"]["sampler_name"] == "dpmpp_sde"
     assert workflow["5"]["inputs"]["scheduler"] == "karras"
     assert workflow["5"]["inputs"]["cfg"] == 6.5
+
+
+def test_video_request_defaults_and_native_wan_workflow_are_bounded():
+    request = broker.validate_video_request({"prompt": "A circuit board rotates under moonlight"})
+    assert (request["width"], request["height"]) == (832, 480)
+    assert request["length"] == 73
+    assert request["steps"] == 20
+    assert request["fps"] == 24
+    assert 0 <= request["seed"] < 2**53
+    workflow = broker.build_video_workflow(request)
+    assert workflow["1"]["inputs"]["unet_name"] == "wan2.2_ti2v_5B_fp16.safetensors"
+    assert workflow["2"]["inputs"]["clip_name"] == "umt5_xxl_fp8_e4m3fn_scaled.safetensors"
+    assert workflow["3"]["inputs"]["vae_name"] == "wan2.2_vae.safetensors"
+    assert workflow["7"]["class_type"] == "Wan22ImageToVideoLatent"
+    assert "start_image" not in workflow["7"]["inputs"]
+    assert workflow["8"]["inputs"]["sampler_name"] == "uni_pc"
+    assert workflow["10"]["class_type"] == "CreateVideo"
+    assert workflow["11"]["class_type"] == "SaveVideo"
+
+
+def test_video_animation_uses_validated_source_pixels():
+    source = base64.b64encode(png(64, 64)).decode()
+    request = broker.validate_video_request({
+        "prompt": "Slow camera orbit", "image": source,
+        "width": 640, "height": 640, "length": 49, "fps": 16,
+    }, animate=True)
+    workflow = broker.build_video_workflow(request)
+    assert workflow["12"]["class_type"] == "LoadImage"
+    assert workflow["7"]["inputs"]["start_image"] == ["12", 0]
+
+
+@pytest.mark.parametrize("payload,animate", [
+    ({}, False), ({"prompt": ""}, False),
+    ({"prompt": "x", "width": 800, "height": 480}, False),
+    ({"prompt": "x", "length": 50}, False),
+    ({"prompt": "x", "steps": 31}, False),
+    ({"prompt": "x", "fps": 30}, False),
+    ({"prompt": "x", "seed": -1}, False),
+    ({"prompt": "x", "workflow": {}}, False),
+    ({"prompt": "x", "image": base64.b64encode(png()).decode()}, False),
+    ({"prompt": "x"}, True),
+])
+def test_video_request_rejects_unbounded_or_untrusted_inputs(payload, animate):
+    with pytest.raises(ValueError):
+        broker.validate_video_request(payload, animate=animate)
+
+
+def test_saved_media_finds_nested_mp4_only():
+    entry = {"gifs": [{"filename": "ORCA/video_00001.mp4", "subfolder": "ORCA", "type": "output"}]}
+    assert broker._saved_media(entry, ".mp4")["filename"].endswith(".mp4")
+    assert broker._saved_media(entry, ".png") is None

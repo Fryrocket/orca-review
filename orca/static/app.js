@@ -88,7 +88,12 @@ const routes = {
   photo: {
     label: 'Images · CRUCIBLE', name: 'ORCA Image Studio',
     duty: 'Generate photos and images directly in this conversation. Save any image you want to keep.',
-    node: 'FORGE · SDXL', context: '768 × 768'
+    node: 'FORGE · SDXL', context: 'Native 1024 + Canvas editing'
+  },
+  video: {
+    label: 'Video · CRUCIBLE', name: 'ORCA Motion Studio',
+    duty: 'Generate short local MP4 clips from a prompt. Use Canvas to animate an existing image.',
+    node: 'FORGE · Wan 2.2', context: 'Text-to-video + image-to-video'
   },
   reason: {
     service_id: 'kiln_codex', bot_id: 'orca', label: 'Codex · KILN',
@@ -305,6 +310,16 @@ function wantsChatImage(prompt, mode) {
   const direct = /^(?:generate|create|make|render)\s+(?:me\s+)?(?:photo|photograph|picture|image|illustration)s?\b/.test(text);
   return (requested || direct) && !/^(?:how|why|explain|describe|write|can i)\b/.test(text);
 }
+function wantsChatVideo(prompt, mode) {
+  if (mode === 'video' || /^\/video\s+\S/i.test(prompt.trim())) return true;
+  let text = prompt.trim().toLowerCase();
+  if (/\b(?:don't|do not|never)\s+(?:generate|create|make|render)\b/.test(text)) return false;
+  if (/\bvideo\s+(?:editor|generator|generation|app|application|tool|api|button|feature|website)\b/.test(text)) return false;
+  text = text.replace(/^(?:(?:hey[ ,]+)?orca[,:]?\s+)?(?:(?:please|can you|could you|would you|will you)\s+)*/, '');
+  text = text.replace(/^(?:i\s+(?:want|need|would like)|i'd like)\s+(?:you to\s+)?/, '');
+  text = text.replace(/^please\s+/, '');
+  return /^(?:generate|create|make|render|produce)\s+(?:me\s+)?(?:a\s+)?(?:short\s+)?(?:video|clip|animation)\b/.test(text);
+}
 async function generateChatImage(prompt) {
   const imagePrompt = prompt.trim().replace(/^\/image\s+/i, '');
   if (!imagePrompt || imagePrompt.length > 1500) throw Error('Please use an image description of 1–1,500 characters.');
@@ -352,17 +367,51 @@ async function generateChatImage(prompt) {
   return `Generated a new image on CRUCIBLE from this description: ${imagePrompt}. The image was displayed in chat. Only its description is retained in memory, not its pixels.`;
 }
 
+async function generateChatVideo(prompt) {
+  const videoPrompt = prompt.trim().replace(/^\/video\s+/i, '');
+  if (!videoPrompt || videoPrompt.length > 1500) throw Error('Please use a video description of 1–1,500 characters.');
+  const response = await fetch('/api/videos/generate', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({prompt: videoPrompt, width: 832, height: 480,
+      length: 73, fps: 24, steps: 20})
+  });
+  if (!response.ok) {
+    let detail; try { detail = (await response.json()).error; } catch {}
+    throw Error(detail || `Video generation failed (${response.status})`);
+  }
+  const blob = await response.blob();
+  if (blob.type.split(';')[0] !== 'video/mp4') throw Error('The video service returned an unreadable clip.');
+  const url = URL.createObjectURL(blob); chatImageURLs.add(url);
+  $('#active-thinking')?.remove();
+  const item = document.createElement('div'); item.className = 'message assistant';
+  const bubble = document.createElement('div'); bubble.className = 'bubble chat-image-result';
+  const heading = document.createElement('h3'); heading.textContent = 'Generated on CRUCIBLE';
+  const video = document.createElement('video');
+  video.src = url; video.controls = true; video.loop = true; video.playsInline = true;
+  const download = document.createElement('a');
+  download.href = url; download.download = `ORCA-video-${Date.now()}.mp4`;
+  download.textContent = 'Save MP4'; download.className = 'chat-image-download';
+  const note = document.createElement('p');
+  const frames = response.headers.get('X-ORCA-Video-Frames') || 73;
+  const fps = response.headers.get('X-ORCA-Video-FPS') || 24;
+  note.textContent = `${frames} frames · ${fps} fps · seed ${response.headers.get('X-ORCA-Image-Seed') || 'recorded by broker'} · Save before refreshing.`;
+  bubble.append(heading, video, download, note); item.append(bubble);
+  $('#conversation').append(item); $('#conversation').scrollTop = $('#conversation').scrollHeight;
+  return `Generated a local MP4 on CRUCIBLE from this description: ${videoPrompt}. Only the description and generation record are retained in chat memory, not the video bytes.`;
+}
+
 async function runPrompt(prompt, mode = activeMode) {
   if (inferencePending || !prompt.trim()) return;
   inferencePending = true;
   $('#send-prompt').disabled = true;
-  const imageRequest = mode !== 'auto' && wantsChatImage(prompt, mode);
-  let route = routes[imageRequest ? 'photo' : mode];
+  const videoRequest = wantsChatVideo(prompt, mode);
+  const imageRequest = !videoRequest && mode !== 'auto' && wantsChatImage(prompt, mode);
+  let route = routes[videoRequest ? 'video' : imageRequest ? 'photo' : mode];
   const history = boundedHistory(conversationHistory);
   const businessWorkflow = globalThis.ORCABusinessWorkflow?.take?.(prompt.trim()) || null;
   let businessJob = null;
   appendUserMessage(prompt.trim());
-  appendThinking(imageRequest ? 'CRUCIBLE is generating your image…' : 'ORCA is working');
+  appendThinking(videoRequest ? 'CRUCIBLE is generating your video…' : imageRequest ? 'CRUCIBLE is generating your image…' : 'ORCA is working');
   try {
     if (businessWorkflow) businessJob = await startBusinessWorkflow(businessWorkflow);
     const project = StudioLauncher.parseProject(prompt);
@@ -399,7 +448,8 @@ async function runPrompt(prompt, mode = activeMode) {
       return;
     }
     let result, imagePrompt = imageRequest ? prompt : null;
-    if (mode === 'auto') {
+    let videoPrompt = videoRequest ? prompt : null;
+    if (mode === 'auto' && !videoRequest) {
       const chosen = await postChat(prompt.trim(), history, businessJob?.id || null);
       if (!routes[chosen.mode] || chosen.mode === 'auto') throw Error('Studio returned an unknown capability.');
       route = routes[chosen.mode];
@@ -408,8 +458,11 @@ async function runPrompt(prompt, mode = activeMode) {
       if (imagePrompt) {
         $('#active-thinking')?.remove(); appendThinking('CRUCIBLE is generating your image…');
       }
-    } else if (!imageRequest) result = await postInference(prompt.trim(), mode, history);
-    if (imagePrompt) {
+    } else if (!imageRequest && !videoRequest) result = await postInference(prompt.trim(), mode, history);
+    if (videoPrompt) {
+      const memory = await generateChatVideo(videoPrompt);
+      await rememberConversation(prompt.trim(), memory);
+    } else if (imagePrompt) {
       const memory = await generateChatImage(imagePrompt);
       await rememberConversation(prompt.trim(), memory);
     } else {
@@ -761,6 +814,7 @@ const maskCanvas = $('#mask-canvas'), maskContext = maskCanvas.getContext('2d');
 let canvasBusy = false, canvasHasImage = false, maskPainted = false;
 const canvasUndo = [];
 let canvasDescription = '';
+let generatedVideoURL = null;
 function setCanvasBusy(busy) {
   canvasBusy = busy;
   $$('#canvas button,#canvas input,#canvas select,#canvas textarea').forEach(control => { control.disabled = busy; });
@@ -890,6 +944,37 @@ async function runCanvasImage(edit = false, selection = false) {
 $('#generate-image').addEventListener('click', () => runCanvasImage());
 $('#edit-image').addEventListener('click', () => runCanvasImage(true));
 $('#edit-selection').addEventListener('click', () => runCanvasImage(true, true));
+async function runCanvasVideo(animate = false) {
+  const prompt = $('#video-prompt').value.trim();
+  const target = $('#video-status');
+  if (!prompt) { target.textContent = 'Describe the scene and motion first.'; return; }
+  if (animate && !canvasHasImage) { target.textContent = 'Upload or generate a Canvas image first.'; return; }
+  const [width, height] = $('#video-size').value.split('x').map(Number);
+  const payload = {prompt, width, height, length: Number($('#video-length').value),
+    steps: 20, fps: 24};
+  const seed = $('#video-seed').value.trim(); if (seed) payload.seed = Number(seed);
+  if (animate) payload.image = canvas.toDataURL('image/png').split(',')[1];
+  setCanvasBusy(true); target.textContent = `${animate ? 'Animating Canvas' : 'Generating video'} on CRUCIBLE… This can take several minutes.`;
+  try {
+    const response = await fetch(animate ? '/api/videos/animate' : '/api/videos/generate', {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
+    });
+    if (!response.ok) { let detail; try { detail = (await response.json()).error; } catch {} throw Error(detail || `Video request failed (${response.status})`); }
+    const blob = await response.blob();
+    if (blob.type.split(';')[0] !== 'video/mp4') throw Error('CRUCIBLE returned an unreadable video.');
+    if (generatedVideoURL) URL.revokeObjectURL(generatedVideoURL);
+    generatedVideoURL = URL.createObjectURL(blob);
+    const video = $('#generated-video'); video.src = generatedVideoURL; video.hidden = false;
+    const save = $('#save-video'); save.href = generatedVideoURL;
+    save.download = `ORCA-video-${Date.now()}.mp4`; save.hidden = false;
+    const returnedSeed = response.headers.get('X-ORCA-Image-Seed');
+    if (returnedSeed) $('#video-seed').value = returnedSeed;
+    target.textContent = `${animate ? 'Canvas image animated' : 'Video generated'} locally. ${response.headers.get('X-ORCA-Video-Frames') || payload.length} frames at ${response.headers.get('X-ORCA-Video-FPS') || payload.fps} fps${returnedSeed ? ` · seed ${returnedSeed}` : ''}.`;
+  } catch (error) { target.textContent = error.message; }
+  finally { setCanvasBusy(false); }
+}
+$('#generate-video').addEventListener('click', () => runCanvasVideo(false));
+$('#animate-canvas').addEventListener('click', () => runCanvasVideo(true));
 $('#develop-visual').addEventListener('click', async () => {
   const prompt = $('#visual-prompt').value.trim(), target = $('#visual-result');
   if (!prompt || canvasBusy) return;
