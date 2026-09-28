@@ -31,6 +31,57 @@ _DIRECT_CONVERSATION_BLOCKERS = re.compile(
     re.IGNORECASE,
 )
 
+_TOOL_EVIDENCE_META = re.compile(
+    r"\b(?:what|which|identify|list|tell me).*\btool(?:s)?\b.*\b(?:used|use|evidence|called|invoked)\b|"
+    r"\btool evidence\b|\bfor this reply\b.*\btool",
+    re.IGNORECASE,
+)
+_ARITHMETIC_EXPRESSION = re.compile(
+    r"(?<![\w.])[-+]?\d+(?:\.\d+)?\s*(?:\*\*|[+\-*/^])\s*[-+]?\d+(?:\.\d+)?"
+)
+_MATH_REQUEST = re.compile(
+    r"\b(?:calculate|compute|evaluate|solve|arithmetic|percentage|percent|sum|product|"
+    r"difference|quotient|numeric result)\b",
+    re.IGNORECASE,
+)
+_SCIENTIFIC_MATH_REQUEST = re.compile(
+    r"\b(?:integral|integrate|derivative|differentiate|matrix|determinant|equation|"
+    r"symbolic|limit|series|probability|statistics|linear algebra)\b",
+    re.IGNORECASE,
+)
+_ENGINEERING_REQUEST = re.compile(
+    r"\b(?:voltage|current|resistor|resistance|capacitor|capacitance|inductor|"
+    r"circuit|beam|stress|strain|torque|deflection|power|thermal|heat|flow|"
+    r"shaft|buck|boost|filter|frequency|impedance|engineering)\b",
+    re.IGNORECASE,
+)
+
+
+def tool_request_relevant(name: str, prompt: str) -> bool:
+    """Fail closed on model-proposed calculators unrelated to the user request."""
+
+    lowered = prompt.lower()
+    if _TOOL_EVIDENCE_META.search(prompt):
+        return False
+    if name == "math.calculate":
+        return (
+            "math.calculate" in lowered
+            or bool(_ARITHMETIC_EXPRESSION.search(prompt))
+            or bool(_MATH_REQUEST.search(prompt))
+        )
+    if name == "math.scientific":
+        return (
+            "math.scientific" in lowered
+            or bool(_SCIENTIFIC_MATH_REQUEST.search(prompt))
+        )
+    if name == "engineering.calculate":
+        return (
+            "engineering.calculate" in lowered
+            or bool(_ENGINEERING_REQUEST.search(prompt))
+            and (bool(_MATH_REQUEST.search(prompt)) or bool(re.search(r"\d", prompt)))
+        )
+    return True
+
 
 def direct_conversation_fast_path(prompt: str, conversation: list[dict]) -> bool:
     """Use one model pass only for clearly tool-free, history-free conversation."""
@@ -327,6 +378,10 @@ class SandboxedOpenAIAdapter:
                                   "only tool_requests; use an empty list when no tool is needed. "
                                   "For code or text already supplied in the conversation, work "
                                   "directly from that text. Never invent a file path to inspect. "
+                                  "Do not call a calculator to demonstrate tool access, answer a "
+                                  "meta-question about tool evidence, or explain program control "
+                                  "flow. Code generation needs a calculator only when the user "
+                                  "explicitly requests a numeric calculation. "
                                   "Available schemas: "
                                 + json.dumps(available, sort_keys=True)
                             ),
@@ -412,6 +467,10 @@ class SandboxedOpenAIAdapter:
                         break
                 if requests is None:
                     requests = []
+                requests = [
+                    item for item in requests
+                    if tool_request_relevant(item["name"], prompt)
+                ]
                 if planning_unavailable:
                     prompt += (
                         "\n\nNo tool evidence is available because the read-only tool plan "

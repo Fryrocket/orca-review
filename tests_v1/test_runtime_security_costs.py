@@ -332,6 +332,64 @@ def test_openai_adapter_runs_one_bounded_tool_round_then_returns_final(tmp_path)
     assert "verified fact" in calls[1]["messages"][1]["content"]
 
 
+@pytest.mark.parametrize(("bot_id", "prompt"), [
+    ("smith", "Return a minimal Python clamp(value, low, high) function."),
+    ("orca", "Identify exactly what verified tool evidence you used for this reply."),
+])
+def test_openai_adapter_rejects_irrelevant_model_proposed_math(bot_id, prompt):
+    executions = []
+    broker = ReadOnlyToolBroker({
+        "math.calculate": lambda **arguments: executions.append(arguments) or {
+            "status": "ok", "result": "128"},
+    })
+    calls = []
+    responses = iter((
+        {"tool_requests": [{"name": "math.calculate",
+                            "arguments": {"expression": "64+64"}}]},
+        {"summary": "No calculator was needed", "evidence": ["user request"],
+         "uncertainty": "none", "next_gate": "none"},
+    ))
+    adapter = SandboxedOpenAIAdapter(
+        endpoint="http://127.0.0.1:11437/v1/chat/completions",
+        allowed_models=("ORCA-CODEX",),
+        transport=lambda url, payload, timeout: calls.append(payload) or {
+            "choices": [{"message": {"content": __import__("json").dumps(next(responses))}}]
+        },
+    )
+    result = adapter.invoke(
+        bot_id=bot_id, model="ORCA-CODEX", prompt=prompt, tool_broker=broker)
+    assert result["summary"] == "No calculator was needed"
+    assert executions == []
+    assert len(calls) == 2
+    assert "Verified read-only tool results" not in calls[1]["messages"][-1]["content"]
+
+
+def test_openai_adapter_keeps_relevant_requested_math():
+    executions = []
+    broker = ReadOnlyToolBroker({
+        "math.calculate": lambda **arguments: executions.append(arguments) or {
+            "status": "ok", "result": "1657"},
+    })
+    responses = iter((
+        {"tool_requests": [{"name": "math.calculate",
+                            "arguments": {"expression": "37*48-119"}}]},
+        {"summary": "1657", "evidence": ["math.calculate"],
+         "uncertainty": "none", "next_gate": "none"},
+    ))
+    adapter = SandboxedOpenAIAdapter(
+        endpoint="http://127.0.0.1:11437/v1/chat/completions",
+        allowed_models=("ORCA-CODEX",),
+        transport=lambda *_: {
+            "choices": [{"message": {"content": __import__("json").dumps(next(responses))}}]
+        },
+    )
+    result = adapter.invoke(
+        bot_id="orca", model="ORCA-CODEX",
+        prompt="Calculate 37*48-119 with math.calculate.", tool_broker=broker)
+    assert result["summary"] == "1657"
+    assert executions == [{"expression": "37*48-119"}]
+
+
 def test_orca_conversation_is_in_scope_without_expanding_action_authority():
     prompt = PROMPT_CONTRACTS["orca"].system
     assert "ordinary conversation, general knowledge, creative ideas, and advice are in scope" in prompt
