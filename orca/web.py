@@ -25,7 +25,9 @@ from .policy import PolicyViolation
 from .security import redact_text
 from .idempotency import IdempotencyConflict, StateRevisionConflict
 from .runtime import ModelRuntimeGateway
-from .inventory import InventoryProvider, InventoryReadError
+from .inventory import InventoryProvider, InventoryReadError, analyze_inventory_snapshot
+from .inventory_system import inventory_system_blueprint
+from .business import BusinessRevisionConflict
 
 
 STATIC_ROOT = Path(__file__).with_name("static")
@@ -54,7 +56,7 @@ class OrcaHTTPServer(ThreadingHTTPServer):
                  identity_tokens: Mapping[str, str] | IdentityTokenAuthenticator | None = None,
                  runtime_gateway: ModelRuntimeGateway | None = None,
                  inventory_provider: InventoryProvider | None = None,
-                 trusted_network_no_auth: bool = False, chat_memory=None):
+                 trusted_network_no_auth: bool = False, chat_memory=None, bot_profiles=None):
         if not _is_loopback_bind(address[0]):
             raise ValueError(
                 "non-loopback ORCA binding is disabled pending reviewed transport security")
@@ -71,6 +73,7 @@ class OrcaHTTPServer(ThreadingHTTPServer):
         ) else IdentityTokenAuthenticator(identity_tokens) if identity_tokens is not None else None
         self.runtime_gateway = runtime_gateway
         self.chat_memory = chat_memory
+        self.bot_profiles = bot_profiles
         self.inventory_provider = inventory_provider
         self.trusted_network_no_auth = trusted_network_no_auth
         self.allowed_hosts = frozenset({address[0], "127.0.0.1", "localhost", "::1"})
@@ -192,6 +195,66 @@ class OrcaHandler(BaseHTTPRequestHandler):
     def _dispatch_mutation(self, path: str, data: dict,
                            authenticated_identity: str | None) -> tuple[dict, int]:
         control = self.server.control_plane
+        if path == "/api/business/workflows":
+            if set(data) != {"workflow_id", "title"}:
+                raise ValueError("business workflow request has an invalid schema")
+            job = control.start_business_workflow(
+                workflow_id=data["workflow_id"], title=data["title"],
+                requested_by=authenticated_identity or "")
+            return control._job_dict(job), HTTPStatus.CREATED
+        if path == "/api/business/records":
+            required = {
+                "record_type", "record_id", "source_system", "source_revision",
+                "status", "data", "provenance", "confidence",
+            }
+            if not required <= set(data) or set(data) - (required | {"occurred_at"}):
+                raise ValueError("business record request has an invalid schema")
+            return control.upsert_business_record(
+                **data, requested_by=authenticated_identity or ""), HTTPStatus.CREATED
+        if path == "/api/product-development/plans":
+            if set(data) != {"prompt"}:
+                raise ValueError("product development request has an invalid schema")
+            inventory = None
+            if self.server.inventory_provider is not None:
+                try:
+                    inventory = self.server.inventory_provider.snapshot()
+                except InventoryReadError:
+                    inventory = None
+            return control.create_product_development_plan(
+                prompt=data["prompt"], inventory=inventory,
+                requested_by=authenticated_identity or ""), HTTPStatus.CREATED
+        if path == "/api/inventory/workflows":
+            if set(data) != {"operation"} or not isinstance(data["operation"], dict):
+                raise ValueError("inventory workflow request has an invalid schema")
+            return control.propose_inventory_workflow(
+                operation=data["operation"],
+                requested_by=authenticated_identity or ""), HTTPStatus.CREATED
+        if path.startswith("/api/inventory/workflows/") and path.endswith("/execute"):
+            if set(data) != {"confirm"} or data["confirm"] is not True:
+                raise ValueError("inventory workflow execution requires confirmation")
+            job_id = path.split("/")[4]
+            return control.run_approved_inventory_workflow(
+                job_id, requested_by=authenticated_identity or ""), HTTPStatus.OK
+        if path == "/api/inventory/counts/preview":
+            if set(data) != {"observations", "reason", "evidence"}:
+                raise ValueError("inventory count preview has an invalid schema")
+            return control.preview_inventory_count_session(
+                observations=data["observations"], reason=data["reason"],
+                evidence=data["evidence"],
+                requested_by=authenticated_identity or ""), HTTPStatus.OK
+        if path == "/api/inventory/counts":
+            if set(data) != {"observations", "reason", "evidence"}:
+                raise ValueError("inventory count request has an invalid schema")
+            return control.propose_inventory_count_session(
+                observations=data["observations"], reason=data["reason"],
+                evidence=data["evidence"],
+                requested_by=authenticated_identity or ""), HTTPStatus.CREATED
+        if path.startswith("/api/inventory/counts/") and path.endswith("/execute"):
+            if set(data) != {"confirm"} or data["confirm"] is not True:
+                raise ValueError("inventory count execution requires confirmation")
+            job_id = path.split("/")[4]
+            return control.run_approved_inventory_count_session(
+                job_id, requested_by=authenticated_identity or ""), HTTPStatus.OK
         if path == "/api/jobs":
             self._bind_identity(data, authenticated_identity, "requested_by")
             action = Action(**data.pop("action"))
@@ -302,6 +365,9 @@ class OrcaHandler(BaseHTTPRequestHandler):
                 "authentication_required": not self.server.trusted_network_no_auth,
                 "deployment": "trusted-network" if self.server.trusted_network_no_auth else "secured",
             })
+        if path == "/api/engineering/catalog":
+            from .engineering import engineering_catalog
+            return self._json(engineering_catalog())
         if path == "/api/state":
             try:
                 snapshot = self.server.control_plane.snapshot()
@@ -310,6 +376,15 @@ class OrcaHandler(BaseHTTPRequestHandler):
             except RuntimeError:
                 return self._json(
                     {"error": "control-plane integrity check failed"},
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                )
+        if path == "/api/business/state":
+            try:
+                self.server.control_plane._assert_fresh()
+                return self._json(self.server.control_plane.business.snapshot())
+            except RuntimeError:
+                return self._json(
+                    {"error": "business ledger integrity check failed"},
                     HTTPStatus.SERVICE_UNAVAILABLE,
                 )
         if path == "/api/health":
@@ -321,6 +396,30 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     HTTPStatus.SERVICE_UNAVAILABLE,
                 )
             return self._json({"status": "healthy", "integrity_valid": True})
+        if path == "/api/inventory/analysis":
+            if self.server.inventory_provider is None:
+                return self._json(
+                    {"error": "inventory source is not configured"},
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                )
+            try:
+                snapshot = self.server.inventory_provider.snapshot()
+                return self._json({
+                    "snapshot": snapshot,
+                    "analysis": analyze_inventory_snapshot(snapshot),
+                })
+            except InventoryReadError:
+                return self._json(
+                    {"error": "inventory source is unavailable"},
+                    HTTPStatus.BAD_GATEWAY,
+                )
+            except ValueError:
+                return self._json(
+                    {"error": "inventory source returned invalid records"},
+                    HTTPStatus.BAD_GATEWAY,
+                )
+        if path == "/api/inventory/system":
+            return self._json(inventory_system_blueprint())
         if path == "/api/inventory":
             if self.server.inventory_provider is None:
                 return self._json(
@@ -354,6 +453,28 @@ class OrcaHandler(BaseHTTPRequestHandler):
             return self._json({"error": "host header is not allowlisted"}, HTTPStatus.MISDIRECTED_REQUEST)
         path = urlparse(self.path).path
         try:
+            if path in {"/api/custom-bots/list", "/api/custom-bots/save", "/api/custom-bots/test"}:
+                try:
+                    identity = self._authenticate_mutation()
+                except IdentityAuthenticationError as exc:
+                    return self._json({"error":str(exc)}, HTTPStatus.UNAUTHORIZED)
+                if identity != 'fry':
+                    raise IdentityAuthorizationError('Only Fry may manage custom bots.')
+                if self.server.bot_profiles is None:
+                    raise ValueError('Bot Creator storage is not configured.')
+                data=self._body()
+                from .bot_creator import CREATOR_TOOLS, run_profile
+                if path.endswith('/list'):
+                    if data: raise ValueError('List takes no arguments.')
+                    handlers = self.server.runtime_gateway.tool_broker.handlers if (
+                        self.server.runtime_gateway and self.server.runtime_gateway.tool_broker) else {}
+                    return self._json({'bots':self.server.bot_profiles.list(),
+                        'tools':sorted(CREATOR_TOOLS & set(handlers)),
+                        'model':'Qwen 3.5 · existing ORCA runtime'})
+                if path.endswith('/save'):
+                    return self._json(self.server.bot_profiles.save(data))
+                if set(data)!={'id','prompt'}: raise ValueError('Test requires bot ID and prompt.')
+                return self._json(run_profile(self.server.bot_profiles.get(data['id']),data['prompt'],self.server.runtime_gateway))
             if path == "/api/heartbeats":
                 data = self._body()
                 if set(data) != {"heartbeat", "signature", "key"}:
@@ -377,7 +498,7 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     "nonce": heartbeat.nonce,
                     "status": "accepted",
                 }, HTTPStatus.OK)
-            if path in {"/api/inference", "/api/chat", "/api/memory"}:
+            if path in {"/api/inference", "/api/chat", "/api/memory", "/api/science", "/api/engineering", "/api/project/plan"}:
                 try:
                     authenticated_identity = self._authenticate_mutation()
                 except IdentityAuthenticationError as exc:
@@ -391,6 +512,22 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     raise IdentityAuthorizationError(
                         "only Fry may initiate local model inference")
                 data = self._body()
+                if path == "/api/project/plan":
+                    if set(data) != {"prompt"}:
+                        raise ValueError("Project planning requires one prompt")
+                    if self.server.inventory_provider is None:
+                        raise PermissionError("inventory source is unavailable")
+                    from .project_design import dog_feeder_plan
+                    return self._json(dog_feeder_plan(
+                        data["prompt"], self.server.inventory_provider.snapshot()))
+                if path == "/api/science":
+                    from .scientific import scientific_calculate
+                    return self._json(scientific_calculate(**data))
+                if path == "/api/engineering":
+                    from .engineering import engineering_calculate
+                    if set(data) != {"tool", "values"}:
+                        raise ValueError("Engineering request requires tool and values only")
+                    return self._json(engineering_calculate(**data))
                 if path == "/api/memory":
                     if self.server.chat_memory is None:
                         raise PermissionError("conversation archive is unavailable")
@@ -402,10 +539,38 @@ class OrcaHandler(BaseHTTPRequestHandler):
                 if self.server.chat_memory is not None and "prompt" in data:
                     data["history"] = self.server.chat_memory.context(data["prompt"], data.get("history", []))
                 if path == "/api/chat":
-                    if not {"prompt"} <= set(data) or set(data) - {"prompt", "history"}:
+                    if (not {"prompt"} <= set(data)
+                            or set(data) - {"prompt", "history", "business_job_id"}):
                         raise ValueError("chat request has an invalid schema")
-                    return self._json(self.server.runtime_gateway.chat(
-                        prompt=data["prompt"], history=data.get("history", [])))
+                    business_job_id = data.get("business_job_id")
+                    if business_job_id is not None and (
+                            not isinstance(business_job_id, str)
+                            or not business_job_id.startswith("job_")
+                            or len(business_job_id) > 80):
+                        raise ValueError("business workflow job id is invalid")
+                    if business_job_id is not None:
+                        self.server.control_plane.require_running_business_workflow(
+                            business_job_id)
+                    try:
+                        result = self.server.runtime_gateway.chat(
+                            prompt=data["prompt"], history=data.get("history", []))
+                    except Exception:
+                        if business_job_id is not None:
+                            self.server.control_plane.record_business_workflow_result(
+                                business_job_id, success=False,
+                                result_sha256=sha256(b"").hexdigest(), result_bytes=0)
+                        raise
+                    if business_job_id is not None:
+                        encoded = json.dumps(
+                            result, sort_keys=True, separators=(",", ":"),
+                            allow_nan=False).encode("utf-8")
+                        self.server.control_plane.record_business_workflow_result(
+                            business_job_id, success=True,
+                            result_sha256=sha256(encoded).hexdigest(),
+                            result_bytes=len(encoded),
+                            routed_mode=str(result.get("mode", ""))
+                            if isinstance(result, dict) else "")
+                    return self._json(result)
                 if not {"service_id", "bot_id", "prompt"} <= set(data) or set(data) - {"service_id", "bot_id", "prompt", "history"}:
                     raise ValueError("inference request has an invalid schema")
                 context = {"history": data["history"]} if "history" in data else {}
@@ -450,6 +615,8 @@ class OrcaHandler(BaseHTTPRequestHandler):
             return self._json({"error": redact_text(str(exc))}, HTTPStatus.CONFLICT)
         except StateRevisionConflict as exc:
             return self._json({"error": redact_text(str(exc))}, HTTPStatus.CONFLICT)
+        except BusinessRevisionConflict as exc:
+            return self._json({"error": redact_text(str(exc))}, HTTPStatus.CONFLICT)
         except (ValueError, KeyError, TypeError, PermissionError, PolicyViolation) as exc:
             return self._json({"error": redact_text(str(exc))}, HTTPStatus.BAD_REQUEST)
         except RuntimeError:
@@ -464,13 +631,14 @@ def serve(control_plane: ControlPlane | None = None, *, host: str = "127.0.0.1",
           identity_tokens: Mapping[str, str] | IdentityTokenAuthenticator | None = None,
           runtime_gateway: ModelRuntimeGateway | None = None,
           inventory_provider: InventoryProvider | None = None,
-          trusted_network_no_auth: bool = False, chat_memory=None) -> None:
+          trusted_network_no_auth: bool = False, chat_memory=None, bot_profiles=None) -> None:
     server = OrcaHTTPServer(
         (host, port), control_plane or ControlPlane(), operator_token,
         identity_tokens=identity_tokens, runtime_gateway=runtime_gateway,
         inventory_provider=inventory_provider,
         trusted_network_no_auth=trusted_network_no_auth,
         chat_memory=chat_memory,
+        bot_profiles=bot_profiles,
     )
     print(f"ORCA operator console: http://{host}:{server.server_port}")
     server.serve_forever()

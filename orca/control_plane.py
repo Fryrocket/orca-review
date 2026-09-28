@@ -34,6 +34,13 @@ from .notifications import (
 )
 from .placement import placement_snapshot
 from .ai_stack import ladder_snapshot
+from .business import BusinessStore
+from .product_development import build_product_development_plan
+from .inventory_workflows import (
+    calculate_inventory_changes,
+    validate_inventory_operation,
+)
+from .inventory_count import build_count_reconciliation
 from hashlib import sha256
 from typing import Callable, Any
 
@@ -111,6 +118,8 @@ class ControlPlane:
         self.idempotency = IdempotencyStore(
             self.evidence.db, connection_lock=self.evidence._lock)
         self.idempotency.verify()
+        self.business = BusinessStore(
+            self.evidence.db, connection_lock=self.evidence._lock)
         self.policy = PolicyEngine()
         self.connector_gateway = ConnectorGateway()
         self.bots = BotRegistry()
@@ -258,6 +267,8 @@ class ControlPlane:
             raise RuntimeError("evidence chain integrity check failed")
         self.state_store.verify_integrity()
         self.idempotency.verify()
+        if not self.business.verify():
+            raise RuntimeError("business ledger integrity check failed")
 
     def _assert_fresh(self) -> None:
         self._assert_integrity()
@@ -408,6 +419,651 @@ class ControlPlane:
         )
         self._persist()
         return job
+
+    @synchronized
+    def start_business_workflow(self, *, workflow_id: str, title: str,
+                                requested_by: str) -> Job:
+        """Create and start one bounded Business workspace analysis job.
+
+        The browser may select the workflow, but it cannot choose the actor,
+        permission level, impact flags, lane, assignee, or rollback contract.
+        Those security-relevant fields are fixed here.
+        """
+
+        self._assert_fresh()
+        if (not isinstance(workflow_id, str) or not workflow_id.strip()
+                or len(workflow_id) > 120
+                or any(character not in "abcdefghijklmnopqrstuvwxyz0123456789-_"
+                       for character in workflow_id)):
+            raise ValueError("business workflow id is invalid")
+        if not isinstance(title, str) or not title.strip() or len(title) > 160:
+            raise ValueError("business workflow title is invalid")
+        job = self.submit(
+            title=f"Business · {title.strip()}",
+            lane="orca",
+            requested_by=requested_by,
+            assigned_to="orca",
+            action=Action(
+                kind="analyze",
+                resource=f"business-workflow:{workflow_id}",
+                reversible=True,
+                rollback="Stop the job; no external state was changed.",
+                metadata={
+                    "workflow_id": workflow_id,
+                    "source": "studio_business_workspace",
+                    "execution_scope": "read_analyze_draft_verify_record",
+                },
+            ),
+            task_type="business_workflow",
+            model_route="orchestration",
+            stop_condition="result_recorded_and_independent_review_complete",
+        )
+        if job.status is JobStatus.READY:
+            self.start_job(job.id, actor="orca")
+        return job
+
+    @read_synchronized
+    def require_running_business_workflow(self, job_id: str) -> Job:
+        """Validate a workflow lease before performing model work."""
+
+        self._assert_fresh()
+        if not isinstance(job_id, str) or job_id not in self.jobs:
+            raise ValueError("business workflow job is unknown")
+        job = self.jobs[job_id]
+        if (job.task_type != "business_workflow" or job.assigned_to != "orca"
+                or job.status is not JobStatus.RUNNING):
+            raise ValueError("business workflow job is not running")
+        return deepcopy(job)
+
+    @synchronized
+    def record_business_workflow_result(
+            self, job_id: str, *, success: bool, result_sha256: str,
+            result_bytes: int, routed_mode: str = "") -> Job:
+        """Attach model-result evidence without storing the conversation body."""
+
+        self._assert_fresh()
+        if not isinstance(job_id, str) or job_id not in self.jobs:
+            raise ValueError("business workflow job is unknown")
+        job = self.jobs[job_id]
+        if (job.task_type != "business_workflow" or job.assigned_to != "orca"
+                or job.status is not JobStatus.RUNNING):
+            raise ValueError("business workflow job is not running")
+        if type(success) is not bool:
+            raise ValueError("business workflow result state is invalid")
+        if (not isinstance(result_sha256, str) or len(result_sha256) != 64
+                or any(character not in "0123456789abcdef" for character in result_sha256)):
+            raise ValueError("business workflow result digest is invalid")
+        if type(result_bytes) is not int or not 0 <= result_bytes <= 1_000_000:
+            raise ValueError("business workflow result size is invalid")
+        if not isinstance(routed_mode, str) or len(routed_mode) > 80:
+            raise ValueError("business workflow route is invalid")
+        self.evidence.append(
+            correlation_id=job.correlation_id,
+            actor="orca",
+            lane=job.lane,
+            kind="business.workflow.result" if success else "business.workflow.failed",
+            payload={
+                "job_id": job.id,
+                "result_sha256": result_sha256,
+                "result_bytes": result_bytes,
+                "routed_mode": redact_text(routed_mode),
+            },
+        )
+        if success:
+            self.policy.enforce_separation(
+                author=AGENTS["orca"], reviewer=AGENTS["quench"],
+                deployer=None, action=job.action)
+            job.reviewer = "quench"
+            job.status = JobStatus.REVIEW
+            job.updated_at = utc_now()
+            self.evidence.append(
+                correlation_id=job.correlation_id,
+                actor="orca",
+                lane=job.lane,
+                kind="job.review_requested",
+                payload={"job_id": job.id, "reviewer": "quench"},
+            )
+            self._persist()
+            return job
+        job.status = JobStatus.FAILED
+        job.updated_at = utc_now()
+        self._persist()
+        return job
+
+    @synchronized
+    def upsert_business_record(
+            self, *, record_type: str, record_id: str, source_system: str,
+            source_revision: int, status: str, data: dict,
+            provenance: dict, confidence: float, requested_by: str,
+            occurred_at: str | None = None) -> dict:
+        """Record one source observation without granting connector authority."""
+
+        self._assert_fresh()
+        self._require_actor(requested_by, {"orca", "fry"}, "record business facts")
+        correlation_id = new_id("business_corr")
+        written = self.business.upsert(
+            record_type=record_type, record_id=record_id,
+            source_system=source_system, source_revision=source_revision,
+            status=status, data=data, provenance=provenance,
+            confidence=confidence, actor=requested_by,
+            correlation_id=correlation_id, occurred_at=occurred_at,
+        )
+        if not written.replayed:
+            self.evidence.append(
+                correlation_id=correlation_id, actor=requested_by, lane="orca",
+                kind="business.record.observed",
+                payload={
+                    "event_id": written.event["event_id"],
+                    "record_type": record_type,
+                    "record_id": record_id,
+                    "source_system": source_system,
+                    "source_revision": source_revision,
+                    "record_hash": written.record["record_hash"],
+                },
+            )
+            self._persist()
+        return {
+            "record": written.record,
+            "event": written.event,
+            "replayed": written.replayed,
+        }
+
+    @synchronized
+    def create_product_development_plan(
+            self, *, prompt: str, inventory: dict | None,
+            requested_by: str) -> dict:
+        """Create one governed, canonical product-development concept record."""
+
+        self._assert_fresh()
+        self._require_actor(requested_by, {"orca", "fry"}, "create product plans")
+        plan = build_product_development_plan(prompt, inventory)
+        job = self.submit(
+            title=f"Product development · {plan['product_name']}",
+            lane="orca", requested_by=requested_by, assigned_to="orca",
+            action=Action(
+                kind="analyze",
+                resource=f"product-development:{plan['product_id']}",
+                reversible=True,
+                rollback="Archive the draft concept record; no external system was changed.",
+                metadata={
+                    "product_id": plan["product_id"],
+                    "maturity": plan["maturity"],
+                    "release_state": plan["release_state"],
+                    "execution_scope": "plan_record_verify_review",
+                },
+            ),
+            task_type="product_development",
+            model_route="deterministic_product_planner",
+            stop_condition="concept_recorded_and_independent_review_complete",
+        )
+        if job.status is JobStatus.READY:
+            self.start_job(job.id, actor="orca")
+        try:
+            existing = self.business.get("product", plan["product_id"])
+        except KeyError:
+            existing = None
+        source_revision = (
+            int(existing["source_revision"]) + 1
+            if existing and existing["source_system"] == "orca_product_development"
+            else 1
+        )
+        encoded = json.dumps(
+            plan, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
+        written = self.business.upsert(
+            record_type="product", record_id=plan["product_id"],
+            source_system="orca_product_development",
+            source_revision=source_revision, status="draft",
+            data={
+                "name": plan["product_name"],
+                "maturity": plan["maturity"],
+                "release_state": plan["release_state"],
+                "tracks": [track["id"] for track in plan["tracks"]],
+                "phase": "discovery",
+                "requirements_open": len(plan["requirements"]),
+                "risks_open": len(plan["risks"]),
+                "plan_sha256": sha256(encoded).hexdigest(),
+            },
+            provenance={
+                "kind": "operator_requested_plan",
+                "job_id": job.id,
+                "generator": "deterministic_product_planner",
+            },
+            confidence=0.5,
+            actor="orca",
+            correlation_id=job.correlation_id,
+        )
+        self.evidence.append(
+            correlation_id=job.correlation_id, actor="orca", lane="orca",
+            kind="product.development.plan_created",
+            payload={
+                "job_id": job.id,
+                "product_id": plan["product_id"],
+                "record_hash": written.record["record_hash"],
+                "plan_sha256": sha256(encoded).hexdigest(),
+                "tracks": len(plan["tracks"]),
+                "requirements": len(plan["requirements"]),
+                "risks": len(plan["risks"]),
+                "deliverables": len(plan["deliverables"]),
+                "release_state": "not_released",
+            },
+        )
+        self.policy.enforce_separation(
+            author=AGENTS["orca"], reviewer=AGENTS["quench"],
+            deployer=None, action=job.action)
+        job.reviewer = "quench"
+        job.status = JobStatus.REVIEW
+        job.updated_at = utc_now()
+        self.evidence.append(
+            correlation_id=job.correlation_id, actor="orca", lane="orca",
+            kind="job.review_requested",
+            payload={"job_id": job.id, "reviewer": "quench"},
+        )
+        self._persist()
+        return {
+            "plan": plan,
+            "job": self._job_dict(job),
+            "record": written.record,
+        }
+
+    def _inventory_workflow_position(
+            self, *, sku: str, location: str, allow_missing: bool) -> dict:
+        record_id = f"{sku}:{location}"
+        try:
+            record = self.business.get("inventory_position", record_id)
+        except KeyError:
+            if not allow_missing:
+                raise ValueError(
+                    f"inventory position {record_id} is not recorded") from None
+            return {
+                "record_id": record_id, "record_hash": None, "version": 0,
+                "data": {"sku": sku, "location": location,
+                         "on_hand": 0.0, "reserved": 0.0, "available": 0.0},
+            }
+        data = record["data"]
+        if data.get("sku") != sku or data.get("location") != location:
+            raise ValueError("inventory canonical position identity is inconsistent")
+        return {
+            "record_id": record_id, "record_hash": record["record_hash"],
+            "version": record["version"], "data": data,
+        }
+
+    @synchronized
+    def propose_inventory_workflow(
+            self, *, operation: dict, requested_by: str) -> dict:
+        """Create an approval-gated canonical inventory change proposal."""
+
+        self._assert_fresh()
+        self._require_actor(
+            requested_by, {"orca", "fry"}, "propose inventory workflows")
+        operation = validate_inventory_operation(operation)
+        kind = operation["operation_type"]
+        source = self._inventory_workflow_position(
+            sku=operation["sku"], location=operation["location"],
+            allow_missing=kind == "receive")
+        baselines = {operation["location"]: source}
+        if kind == "transfer":
+            target = self._inventory_workflow_position(
+                sku=operation["sku"], location=operation["target_location"],
+                allow_missing=True)
+            baselines[operation["target_location"]] = target
+        positions = {
+            location: {
+                "on_hand": item["data"]["on_hand"],
+                "reserved": item["data"]["reserved"],
+            }
+            for location, item in baselines.items()
+        }
+        preview = calculate_inventory_changes(operation, positions)
+        job = self.submit(
+            title=f"Inventory {kind.replace('_', ' ')} · {operation['sku']}",
+            lane="inventory", requested_by=requested_by, assigned_to="smith",
+            action=Action(
+                kind="commit", resource=f"inventory:{operation['sku']}",
+                requested_level=PermissionLevel.R2,
+                reversible=True,
+                rollback="Create and approve a compensating inventory operation.",
+                metadata={
+                    "operation": operation,
+                    "baselines": baselines,
+                    "preview": preview,
+                    "external_inventory_write": False,
+                },
+            ),
+            task_type="inventory_workflow",
+            model_route="deterministic_inventory_engine",
+            stop_condition="canonical_positions_updated_and_quench_review_complete",
+        )
+        self.evidence.append(
+            correlation_id=job.correlation_id, actor=requested_by, lane="inventory",
+            kind="inventory.workflow.proposed",
+            payload={
+                "job_id": job.id, "operation_type": kind,
+                "sku": operation["sku"], "locations": sorted(baselines),
+                "quantity": operation["quantity"],
+                "approval_id": job.approval_id,
+                "external_inventory_write": False,
+            },
+        )
+        self._persist()
+        return {"job": self._job_dict(job), "operation": operation,
+                "baselines": baselines, "preview": preview}
+
+    @synchronized
+    def execute_inventory_workflow(
+            self, job_id: str, *, actor: str) -> dict:
+        """Apply one approved proposal to the canonical ledger, then request review."""
+
+        self._assert_fresh()
+        if actor != "smith":
+            raise PermissionError("only SMITH may execute an approved inventory workflow")
+        job = self.jobs.get(job_id)
+        if job is None or job.task_type != "inventory_workflow":
+            raise ValueError("inventory workflow job is unknown")
+        if job.status is not JobStatus.RUNNING:
+            raise ValueError("inventory workflow must be approved and running")
+        approval = self.approvals.get(job.approval_id)
+        if approval is None or approval.status != "approved":
+            raise PermissionError("inventory workflow requires Fry approval")
+        metadata = job.action.metadata
+        operation = validate_inventory_operation({
+            key: value for key, value in metadata.get("operation", {}).items()
+            if key != "schema"})
+        baselines = metadata.get("baselines")
+        if not isinstance(baselines, dict) or not baselines:
+            raise ValueError("inventory workflow baseline is invalid")
+
+        current: dict[str, dict] = {}
+        for location, baseline in baselines.items():
+            if not isinstance(baseline, dict):
+                raise ValueError("inventory workflow baseline is invalid")
+            try:
+                record = self.business.get(
+                    "inventory_position", baseline.get("record_id", ""))
+            except KeyError:
+                if baseline.get("record_hash") is not None:
+                    raise ValueError("inventory position changed after proposal") from None
+                record = None
+            if record is not None and record["record_hash"] != baseline.get("record_hash"):
+                raise ValueError("inventory position changed after proposal")
+            if record is None:
+                current[location] = {
+                    "record_id": baseline["record_id"], "record": None,
+                    "data": {"sku": operation["sku"], "location": location,
+                             "on_hand": 0.0, "reserved": 0.0},
+                }
+            else:
+                current[location] = {
+                    "record_id": record["record_id"], "record": record,
+                    "data": record["data"],
+                }
+        after = calculate_inventory_changes(operation, {
+            location: {"on_hand": item["data"]["on_hand"],
+                       "reserved": item["data"]["reserved"]}
+            for location, item in current.items()
+        })
+        written = []
+        for location, quantities in after.items():
+            item = current[location]
+            prior = item["record"]
+            data = dict(item["data"])
+            data.update({
+                "sku": operation["sku"], "location": location,
+                "on_hand": quantities["on_hand"],
+                "reserved": quantities["reserved"],
+                "available": quantities["available"],
+            })
+            result = self.business.upsert(
+                record_type="inventory_position", record_id=item["record_id"],
+                source_system="orca_inventory_workflow",
+                source_revision=(prior["version"] + 1 if prior else 1),
+                status="active", data=data,
+                provenance={
+                    "kind": "approved_inventory_workflow", "job_id": job.id,
+                    "operation_type": operation["operation_type"],
+                    "reason": operation["reason"], "evidence": operation["evidence"],
+                    "approval_id": approval.id,
+                },
+                confidence=1.0, actor="smith", correlation_id=job.correlation_id,
+            )
+            written.append(result.record)
+        self.evidence.append(
+            correlation_id=job.correlation_id, actor="smith", lane="inventory",
+            kind="inventory.workflow.applied",
+            payload={
+                "job_id": job.id, "operation_type": operation["operation_type"],
+                "sku": operation["sku"],
+                "record_hashes": [item["record_hash"] for item in written],
+                "external_inventory_write": False,
+            },
+        )
+        self.policy.enforce_separation(
+            author=AGENTS["smith"], reviewer=AGENTS["quench"],
+            deployer=None, action=job.action)
+        job.reviewer = "quench"
+        job.status = JobStatus.REVIEW
+        job.updated_at = utc_now()
+        self.evidence.append(
+            correlation_id=job.correlation_id, actor="smith", lane="inventory",
+            kind="job.review_requested",
+            payload={"job_id": job.id, "reviewer": "quench"},
+        )
+        self._persist()
+        return {"job": self._job_dict(job), "operation": operation,
+                "records": written}
+
+    @synchronized
+    def run_approved_inventory_workflow(
+            self, job_id: str, *, requested_by: str) -> dict:
+        """Let Fry trigger ORCA execution after the separate approval decision."""
+
+        self._assert_fresh()
+        self._require_actor(
+            requested_by, {"fry"}, "trigger approved inventory workflows")
+        job = self.jobs.get(job_id)
+        if job is None or job.task_type != "inventory_workflow":
+            raise ValueError("inventory workflow job is unknown")
+        approval = self.approvals.get(job.approval_id)
+        if approval is None or approval.status != "approved":
+            raise PermissionError("inventory workflow requires Fry approval")
+        if job.status is not JobStatus.READY:
+            raise ValueError("approved inventory workflow is not ready")
+        self.start_job(job.id, actor="smith")
+        result = self.execute_inventory_workflow(job.id, actor="smith")
+        self.evidence.append(
+            correlation_id=job.correlation_id, actor=requested_by, lane="inventory",
+            kind="inventory.workflow.execution_triggered",
+            payload={"job_id": job.id, "assigned_to": "smith"},
+        )
+        self._persist()
+        return result
+
+    def _inventory_count_inputs(self, observations: list[dict]) -> tuple[dict, dict]:
+        baselines = {}
+        positions = {}
+        for observation in observations:
+            sku = observation.get("sku") or observation.get("barcode")
+            location = observation.get("location")
+            if not isinstance(sku, str) or not isinstance(location, str):
+                continue
+            position = self._inventory_workflow_position(
+                sku=sku, location=location, allow_missing=True)
+            baselines[position["record_id"]] = position
+            positions[position["record_id"]] = {
+                "on_hand": position["data"]["on_hand"],
+                "reserved": position["data"]["reserved"],
+            }
+        return baselines, positions
+
+    @read_synchronized
+    def preview_inventory_count_session(
+            self, *, observations: list[dict], reason: str, evidence: str,
+            requested_by: str) -> dict:
+        self._assert_fresh()
+        self._require_actor(
+            requested_by, {"orca", "fry"}, "preview inventory counts")
+        _, positions = self._inventory_count_inputs(observations)
+        return build_count_reconciliation(
+            observations, positions, reason=reason, evidence=evidence)
+
+    @synchronized
+    def propose_inventory_count_session(
+            self, *, observations: list[dict], reason: str, evidence: str,
+            requested_by: str) -> dict:
+        self._assert_fresh()
+        self._require_actor(
+            requested_by, {"orca", "fry"}, "propose inventory counts")
+        baselines, positions = self._inventory_count_inputs(observations)
+        session = build_count_reconciliation(
+            observations, positions, reason=reason, evidence=evidence)
+        if session["release_state"] == "blocked":
+            raise ValueError("inventory count session has unresolved reservation blockers")
+        job = self.submit(
+            title=f"Inventory count · {session['session_id']}",
+            lane="inventory", requested_by=requested_by, assigned_to="smith",
+            action=Action(
+                kind="commit", resource=f"inventory-count:{session['session_id']}",
+                requested_level=PermissionLevel.R2, reversible=True,
+                rollback="Create and approve a compensating count or adjustment session.",
+                metadata={
+                    "count_session": session, "baselines": baselines,
+                    "external_inventory_write": False,
+                },
+            ),
+            task_type="inventory_count_session",
+            model_route="deterministic_inventory_count_engine",
+            stop_condition="count_reconciled_and_quench_review_complete",
+        )
+        self.evidence.append(
+            correlation_id=job.correlation_id, actor=requested_by, lane="inventory",
+            kind="inventory.count.proposed",
+            payload={
+                "job_id": job.id, "session_id": session["session_id"],
+                "metrics": session["metrics"], "approval_id": job.approval_id,
+                "external_inventory_write": False,
+            },
+        )
+        self._persist()
+        return {"job": self._job_dict(job), "session": session}
+
+    @synchronized
+    def execute_inventory_count_session(self, job_id: str, *, actor: str) -> dict:
+        self._assert_fresh()
+        if actor != "smith":
+            raise PermissionError("only SMITH may execute an approved count session")
+        job = self.jobs.get(job_id)
+        if job is None or job.task_type != "inventory_count_session":
+            raise ValueError("inventory count session job is unknown")
+        if job.status is not JobStatus.RUNNING:
+            raise ValueError("inventory count session must be approved and running")
+        approval = self.approvals.get(job.approval_id)
+        if approval is None or approval.status != "approved":
+            raise PermissionError("inventory count session requires Fry approval")
+        session = job.action.metadata.get("count_session")
+        baselines = job.action.metadata.get("baselines")
+        if not isinstance(session, dict) or not isinstance(baselines, dict):
+            raise ValueError("inventory count session metadata is invalid")
+        current_positions = {}
+        current_records = {}
+        for record_id, baseline in baselines.items():
+            try:
+                record = self.business.get("inventory_position", record_id)
+            except KeyError:
+                if baseline.get("record_hash") is not None:
+                    raise ValueError("inventory position changed after count") from None
+                record = None
+            if record is not None and record["record_hash"] != baseline.get("record_hash"):
+                raise ValueError("inventory position changed after count")
+            current_records[record_id] = record
+            current_positions[record_id] = (
+                {"on_hand": record["data"]["on_hand"],
+                 "reserved": record["data"]["reserved"]}
+                if record else {"on_hand": 0.0, "reserved": 0.0})
+        verified = build_count_reconciliation(
+            [{key: row[key] for key in (
+                "sku", "barcode", "location", "counted_quantity", "unit",
+                "lot", "serial", "condition", "notes")}
+             for row in session.get("rows", [])],
+            current_positions, reason=session.get("reason", ""),
+            evidence=session.get("evidence", ""))
+        if verified["session_id"] != session.get("session_id"):
+            raise ValueError("inventory count session changed after approval")
+        if verified["release_state"] == "blocked":
+            raise ValueError("inventory count session has unresolved reservation blockers")
+        written = []
+        for row in verified["rows"]:
+            prior = current_records[row["record_id"]]
+            data = dict(prior["data"]) if prior else {}
+            data.update({
+                "sku": row["sku"], "location": row["location"],
+                "on_hand": row["counted_quantity"],
+                "reserved": row["recorded_reserved"],
+                "available": row["counted_quantity"] - row["recorded_reserved"],
+                "unit": row["unit"], "barcode": row["barcode"],
+                "lot": row["lot"], "serial": row["serial"],
+                "condition": row["condition"], "count_notes": row["notes"],
+            })
+            result = self.business.upsert(
+                record_type="inventory_position", record_id=row["record_id"],
+                source_system="orca_inventory_count",
+                source_revision=(prior["version"] + 1 if prior else 1),
+                status="active", data=data,
+                provenance={
+                    "kind": "approved_inventory_count", "job_id": job.id,
+                    "session_id": verified["session_id"],
+                    "reason": verified["reason"], "evidence": verified["evidence"],
+                    "approval_id": approval.id,
+                },
+                confidence=1.0, actor="smith", correlation_id=job.correlation_id,
+            )
+            written.append(result.record)
+        self.evidence.append(
+            correlation_id=job.correlation_id, actor="smith", lane="inventory",
+            kind="inventory.count.applied",
+            payload={
+                "job_id": job.id, "session_id": verified["session_id"],
+                "metrics": verified["metrics"],
+                "record_hashes": [row["record_hash"] for row in written],
+                "external_inventory_write": False,
+            },
+        )
+        self.policy.enforce_separation(
+            author=AGENTS["smith"], reviewer=AGENTS["quench"],
+            deployer=None, action=job.action)
+        job.reviewer = "quench"
+        job.status = JobStatus.REVIEW
+        job.updated_at = utc_now()
+        self.evidence.append(
+            correlation_id=job.correlation_id, actor="smith", lane="inventory",
+            kind="job.review_requested",
+            payload={"job_id": job.id, "reviewer": "quench"},
+        )
+        self._persist()
+        return {"job": self._job_dict(job), "session": verified,
+                "records": written}
+
+    @synchronized
+    def run_approved_inventory_count_session(
+            self, job_id: str, *, requested_by: str) -> dict:
+        self._assert_fresh()
+        self._require_actor(
+            requested_by, {"fry"}, "trigger approved inventory counts")
+        job = self.jobs.get(job_id)
+        if job is None or job.task_type != "inventory_count_session":
+            raise ValueError("inventory count session job is unknown")
+        approval = self.approvals.get(job.approval_id)
+        if approval is None or approval.status != "approved":
+            raise PermissionError("inventory count session requires Fry approval")
+        if job.status is not JobStatus.READY:
+            raise ValueError("approved inventory count session is not ready")
+        self.start_job(job.id, actor="smith")
+        result = self.execute_inventory_count_session(job.id, actor="smith")
+        self.evidence.append(
+            correlation_id=job.correlation_id, actor=requested_by, lane="inventory",
+            kind="inventory.count.execution_triggered",
+            payload={"job_id": job.id, "assigned_to": "smith"},
+        )
+        self._persist()
+        return result
 
     @synchronized
     def set_bot_pause(self, bot_id: str, *, actor: str, paused: bool, reason: str) -> None:
@@ -1257,6 +1913,7 @@ class ControlPlane:
             "evidence_chain_valid": True,
             "schema_version": self.evidence.schema_version,
             "idempotency_receipt_count": self.idempotency.count(),
+            "business": self.business.snapshot(event_limit=25),
             "costs": self.costs.summary(),
             "governance": governance_snapshot(),
         }
@@ -1281,6 +1938,11 @@ class ControlPlane:
         data = asdict(NODES[node_id])
         data.update(self.node_health[node_id])
         data["paused"] = node_id in self.paused_nodes
+        from .telemetry import decode_detail
+        reading = decode_detail(data.get("detail"))
+        data["telemetry"] = reading['metrics'] if reading else None
+        if reading:
+            data['detail'] = reading.get('summary', '')
         return data
 
     @staticmethod

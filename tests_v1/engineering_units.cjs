@@ -1,0 +1,14 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const source=fs.readFileSync('orca/static/engineering.js','utf8');
+const context=vm.createContext({});
+vm.runInContext(source.slice(0,source.indexOf('async function engineeringPost'))+'\nglobalThis.units=engineeringUnits;',context);
+assert.ok(Math.abs(context.engineeringSI('10',1e-6)-.00001)<1e-20);
+assert.equal(context.engineeringSI('200',1e9),200e9);
+assert.equal(context.engineeringSI('20',1e-3),.02);
+assert.equal(context.engineeringSI('90',.01),.9);
+assert.throws(()=>context.engineeringSI('',1));
+assert.throws(()=>context.engineeringSI('Infinity',1));
+assert.equal(context.units['m⁴'][1][1],1e-12);
+console.log('Engineering unit conversions passed');

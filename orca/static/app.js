@@ -68,6 +68,9 @@ async function archiveMessages(requestID, messages) {
   if (!response.ok) throw Error('Conversation archive unavailable');
 }
 let inventory = { items: [], locations: [], categories: [], units: [] };
+let inventoryAnalysis = null;
+let inventoryCountRows = [];
+let inventorySystem = null;
 let studioAuth = { identity: 'fry', token: '' };
 let state = {
   jobs: [], approvals: [], events: [], incidents: [], security_reports: [],
@@ -164,16 +167,48 @@ async function postInference(prompt, mode = activeMode, history = []) {
   return body;
 }
 
-async function postChat(prompt, history) {
+async function postChat(prompt, history, businessJobID = null) {
+  const payload = {prompt, history};
+  if (businessJobID) payload.business_job_id = businessJobID;
   const response = await fetch('/api/chat', {
     method: 'POST', headers: {'Content-Type': 'application/json',
       'X-ORCA-Identity': studioAuth.identity, 'X-ORCA-Identity-Token': studioAuth.token},
-    body: JSON.stringify({prompt, history})
+    body: JSON.stringify(payload)
   });
   let body;
   try { body = await response.json(); } catch { throw Error('Studio returned an unreadable reply.'); }
   if (!response.ok) throw Error(body.error || `Chat failed (${response.status})`);
   return body;
+}
+
+async function startBusinessWorkflow(workflow) {
+  await refresh();
+  const job = await postMutation('/api/business/workflows', {
+    workflow_id: workflow.id,
+    title: workflow.title
+  }, controlAuth());
+  await refresh();
+  return job;
+}
+
+async function postProjectPlan(prompt) {
+  const response = await fetch('/api/project/plan', {
+    method: 'POST', headers: {'Content-Type': 'application/json',
+      'X-ORCA-Identity': studioAuth.identity, 'X-ORCA-Identity-Token': studioAuth.token},
+    body: JSON.stringify({prompt})
+  });
+  let body;
+  try { body = await response.json(); } catch { throw Error('Studio returned an unreadable project plan.'); }
+  if (!response.ok) throw Error(body.error || `Project planning failed (${response.status})`);
+  return body;
+}
+
+function projectSummary(plan, outcome) {
+  const have = plan.inventory_use.length
+    ? plan.inventory_use.map(item => `${item.quantity} × ${item.name} (${item.sku})`).join('\n• ')
+    : 'No matching parts are recorded in the KILN inventory.';
+  const need = plan.missing_parts.map(item => `${item.quantity} × ${item.part} — ${item.reason}`).join('\n• ');
+  return `${outcome.message}\n\nOn hand\n• ${have}\n\nStill needed\n• ${need}\n\nThe schematic and editable PCB draft were created. KiCad PCB Editor is open on KILN, and ORCA has stopped so you can edit it.`;
 }
 
 function show(id) {
@@ -182,7 +217,9 @@ function show(id) {
   const titles = {
     studio: ['WORKBENCH', 'Studio'], projects: ['CODING DESK', 'Code'],
     canvas: ['VISUAL LAB', 'Canvas'], inventory: ['BENCH CATALOG', 'Inventory'],
-    engineering: ['ENGINEERING DESK', 'Engineering'], operations: ['CONTROL PLANE', 'Operations']
+    engineering: ['ENGINEERING DESK', 'Engineering'], operations: ['CONTROL PLANE', 'Operations'],
+    business: ['QUASARVOLT SUPPLY', 'Business'],
+    'product-builder': ['DESIGN AUTOMATION', 'Product Builder']
   };
   const [kicker, title] = titles[id] || titles.studio;
   $('#workspace-kicker').textContent = kicker;
@@ -311,12 +348,48 @@ async function runPrompt(prompt, mode = activeMode) {
   const imageRequest = mode !== 'auto' && wantsChatImage(prompt, mode);
   let route = routes[imageRequest ? 'photo' : mode];
   const history = boundedHistory(conversationHistory);
+  const businessWorkflow = globalThis.ORCABusinessWorkflow?.take?.(prompt.trim()) || null;
+  let businessJob = null;
   appendUserMessage(prompt.trim());
   appendThinking(imageRequest ? 'CRUCIBLE is generating your image…' : 'ORCA is working');
   try {
+    if (businessWorkflow) businessJob = await startBusinessWorkflow(businessWorkflow);
+    const project = StudioLauncher.parseProject(prompt);
+    if (project) {
+      const plan = await postProjectPlan(project.prompt);
+      const outcome = await StudioLauncher.createProject(plan);
+      if (!outcome.ok) throw Error(outcome.message);
+      const summary = projectSummary(plan, outcome);
+      appendAssistant({summary}, routes.engineer, false, prompt.trim());
+      await rememberConversation(prompt.trim(), summary);
+      return;
+    }
+    const launch = StudioLauncher.parse(prompt);
+    if (launch) {
+      let message;
+      if (launch.kind === 'view') {
+        show(launch.target);
+        message = `Opened ${launch.label}.`;
+      } else if (launch.kind === 'error') message = launch.label;
+      else {
+        const outcome = await StudioLauncher.launch(launch);
+        message = outcome.message;
+        if (!outcome.ok && launch.url) {
+          appendAssistant({summary: message}, routes.reason);
+          const link = document.createElement('a');
+          link.href = launch.url; link.target = '_blank'; link.rel = 'noopener noreferrer';
+          link.textContent = `Open ${launch.label} in your browser`;
+          $('#conversation').lastElementChild.querySelector('.bubble').append(link);
+          return;
+        }
+      }
+      appendAssistant({summary: message}, routes.reason);
+      // Launch URLs may contain private query parameters; do not archive them.
+      return;
+    }
     let result, imagePrompt = imageRequest ? prompt : null;
     if (mode === 'auto') {
-      const chosen = await postChat(prompt.trim(), history);
+      const chosen = await postChat(prompt.trim(), history, businessJob?.id || null);
       if (!routes[chosen.mode] || chosen.mode === 'auto') throw Error('Studio returned an unknown capability.');
       route = routes[chosen.mode];
       imagePrompt = chosen.mode === 'photo' ? chosen.image_prompt : null;
@@ -334,7 +407,10 @@ async function runPrompt(prompt, mode = activeMode) {
     }
   }
   catch (error) { appendAssistant(error.message, route, true); }
-  finally { inferencePending = false; $('#send-prompt').disabled = false; }
+  finally {
+    inferencePending = false; $('#send-prompt').disabled = false;
+    if (businessJob) await refresh();
+  }
 }
 
 $('#prompt-form').addEventListener('submit', async event => {
@@ -350,6 +426,17 @@ $('#prompt-input').addEventListener('keydown', event => {
     if (!event.repeat && !inferencePending) $('#prompt-form').requestSubmit();
   }
 });
+document.addEventListener('click', async event => {
+  const button = event.target.closest?.('[data-launch-app]');
+  if (!button || button.disabled) return;
+  const status = button.closest('#business') ? $('#business-app-status') : $('#engineering-app-status');
+  button.disabled = true;
+  if (status) status.textContent = `Opening ${button.querySelector('strong')?.textContent || 'application'} on KILN…`;
+  try {
+    const result = await StudioLauncher.launch({kind:'app', target:button.dataset.launchApp});
+    if (status) status.textContent = result.message;
+  } finally { button.disabled = false; }
+});
 $$('[data-starter]').forEach(button => button.addEventListener('click', () => {
   $('#prompt-input').value = button.dataset.starter;
   $('#prompt-input').focus();
@@ -362,6 +449,7 @@ $$('[data-engineering-prompt]').forEach(button => button.addEventListener('click
 }));
 $('#new-thread').addEventListener('click', () => {
   if (inferencePending) return;
+  globalThis.ORCABusinessWorkflow?.clear?.();
   for (const url of chatImageURLs) URL.revokeObjectURL(url);
   chatImageURLs.clear();
   conversationHistory = [];
@@ -429,9 +517,26 @@ function render() {
   $('#event-list').innerHTML = events;
   $('#evidence-list').innerHTML = events;
   $('#fabric-summary').innerHTML = state.nodes.filter(node => node.id !== 'iris').map(node => `<div class="fabric-node"><span><i style="background:${node.state === 'healthy' && !node.paused ? 'var(--mint)' : 'var(--amber)'}"></i>${esc(node.name)}</span><span>${node.paused ? 'paused' : esc(node.state)}</span></div>`).join('');
-  renderSafety(); renderSecurity(); renderAgents(); renderConnectors(); renderGovernance(); renderCosts(); renderActions(); renderCoderStack();
+  renderSafety(); renderSecurity(); renderAgents(); renderConnectors(); renderGovernance(); renderCosts(); renderActions(); renderCoderStack(); renderBusinessMetrics();
+  renderInventoryWorkflows();
+  if (typeof renderFabricTelemetry === 'function') renderFabricTelemetry(state.nodes);
   selectMode(activeMode);
   syncMutationControls();
+}
+
+function renderBusinessMetrics() {
+  const jobs = state.jobs.filter(job => job.task_type === 'business_workflow');
+  const active = jobs.filter(job => !['complete', 'failed', 'denied'].includes(job.status));
+  const jobIDs = new Set(jobs.map(job => job.id));
+  const approvals = state.approvals.filter(item => item.status === 'pending' && jobIDs.has(item.job_id));
+  const records = Object.values(state.business?.counts || {})
+    .reduce((total, count) => total + Number(count || 0), 0);
+  const activeNode = $('#business-active-count');
+  const approvalNode = $('#business-approval-count');
+  const recordNode = $('#business-record-count');
+  if (activeNode) activeNode.textContent = active.length;
+  if (approvalNode) approvalNode.textContent = approvals.length;
+  if (recordNode) recordNode.textContent = records;
 }
 
 function renderSafety() {
@@ -490,28 +595,153 @@ async function refresh() {
 }
 
 async function loadInventory(force = false) {
-  if (inventory.items.length && !force) { renderInventory(); return; }
+  if (inventoryAnalysis && !force) { renderInventory(); return; }
   $('#inventory-source').textContent = 'Reading KILN canonical bench inventory…';
   try {
-    const response = await fetch('/api/inventory', { cache: 'no-store' });
+    const [response, systemResponse] = await Promise.all([
+      fetch('/api/inventory/analysis', { cache: 'no-store' }),
+      fetch('/api/inventory/system', { cache: 'no-store' })
+    ]);
     const body = await response.json();
     if (!response.ok) throw Error(body.error || response.status);
-    inventory = body;
-    $('#inventory-source').textContent = `${body.source} · live read · changes stay in the inventory app`;
+    inventory = body.snapshot;
+    inventoryAnalysis = body.analysis;
+    if (systemResponse.ok) inventorySystem = await systemResponse.json();
+    $('#inventory-source').textContent = `${body.analysis.source} · analyzed ${body.analysis.generated_at} · no stock changes`;
+    const category = $('#inventory-category'), location = $('#inventory-location');
+    const selectedCategory = category.value, selectedLocation = location.value;
+    category.innerHTML = '<option value="">All categories</option>' + body.analysis.categories.map(item => `<option value="${esc(item.name)}">${esc(item.name)}</option>`).join('');
+    location.innerHTML = '<option value="">All locations</option>' + body.analysis.locations.map(item => `<option value="${esc(item.name)}">${esc(item.name)}</option>`).join('');
+    category.value = selectedCategory; location.value = selectedLocation;
     renderInventory();
+    renderInventorySystem();
   } catch (error) {
     $('#inventory-source').textContent = `Inventory unavailable: ${error.message}`;
-    $('#inventory-rows').innerHTML = '<tr><td colspan="6">The canonical inventory could not be reached.</td></tr>';
+    $('#inventory-rows').innerHTML = '<tr><td colspan="10">The canonical inventory could not be reached.</td></tr>';
+    $('#inventory-alerts').innerHTML = '<p>Analysis is unavailable until the canonical source can be read.</p>';
   }
 }
-function renderInventory() {
-  const query = $('#inventory-search').value.trim().toLowerCase();
-  const rows = inventory.items.filter(item => !query || [item.name, item.sku, item.category, item.location, item.notes].some(value => String(value || '').toLowerCase().includes(query)));
-  const low = inventory.items.filter(item => String(item.status).toLowerCase() !== 'ok').length;
-  $('#inventory-metrics').innerHTML = `<article><span>Cataloged items</span><strong>${inventory.items.length}</strong></article><article><span>Locations</span><strong>${inventory.locations.length}</strong></article><article><span>Categories</span><strong>${inventory.categories.length}</strong></article><article><span>Needs attention</span><strong>${low}</strong></article>`;
-  $('#inventory-rows').innerHTML = rows.map(item => `<tr><td>${esc(item.name)}</td><td>${esc(item.category)}</td><td>${esc(item.qty)} ${esc(item.unit)}</td><td>${esc(item.location)}</td><td class="${String(item.status).toLowerCase() === 'ok' ? 'stock-ok' : 'stock-low'}">${esc(item.status)}</td><td>${esc(item.lastUpdated)}</td></tr>`).join('') || '<tr><td colspan="6">No inventory matches that search.</td></tr>';
+function renderInventorySystem() {
+  const grid = $('#inventory-system-grid'), status = $('#inventory-system-status');
+  if (!grid || !status || !inventorySystem) return;
+  grid.innerHTML = inventorySystem.modules.map(module => `<article><span>${esc(module.mode === 'agentic_with_approval' ? 'AGENTIC' : module.mode)}</span><strong>${esc(module.name)}</strong><small>${esc(module.purpose)}</small><button type="button" data-inventory-module="${esc(module.name)}">Open workflow</button></article>`).join('');
+  status.textContent = `${inventorySystem.module_count} implemented modules · ${inventorySystem.agent_loop.join(' → ')} · approval boundaries enforced`;
 }
-$('#inventory-search').addEventListener('input', renderInventory);
+document.addEventListener('click', event => {
+  const button = event.target.closest('[data-inventory-module]');
+  if (!button) return;
+  showView('chat');
+  const input = $('#chat-input');
+  input.value = `Run the ${button.dataset.inventoryModule} inventory workflow agentically. Inspect verified records first; reconcile conflicts; plan and simulate; show evidence, assumptions, files and systems used; then stop for my approval before money, stock changes, external messages, publishing, write-offs, recalls, or external writes.`;
+  input.focus();
+});
+function renderInventory() {
+  if (!inventoryAnalysis) return;
+  const query = $('#inventory-search').value.trim().toLowerCase();
+  const category = $('#inventory-category').value, location = $('#inventory-location').value, stateFilter = $('#inventory-state').value;
+  const rows = inventoryAnalysis.items.filter(item => (!query || [item.name, item.sku, item.category, item.location, item.lot, item.serial].some(value => String(value || '').toLowerCase().includes(query))) && (!category || item.category === category) && (!location || item.location === location) && (!stateFilter || item.status === stateFilter));
+  const metrics = inventoryAnalysis.metrics;
+  const fmt = value => Number(value || 0).toLocaleString(undefined, {maximumFractionDigits: 2});
+  $('#inventory-metrics').innerHTML = `<article><span>Cataloged records</span><strong>${fmt(metrics.records)}</strong><small>${fmt(metrics.unique_skus)} identified SKUs</small></article><article><span>Available units</span><strong>${fmt(metrics.available)}</strong><small>${fmt(metrics.reserved)} reserved</small></article><article><span>Needs attention</span><strong>${fmt(metrics.attention)}</strong><small>${fmt(metrics.stockouts)} stockouts · ${fmt(metrics.reorder)} reorder</small></article><article><span>Count freshness</span><strong>${fmt(metrics.records - metrics.stale)}/${fmt(metrics.records)}</strong><small>${fmt(metrics.stale)} stale or undated</small></article><article><span>Traceability</span><strong>${fmt(metrics.traceable)}/${fmt(metrics.records)}</strong><small>lot or serial evidence</small></article><article><span>Recorded value</span><strong>$${fmt(metrics.inventory_value)}</strong><small>${fmt(metrics.valued_records)}/${fmt(metrics.records)} records valued</small></article>`;
+  const actionable = inventoryAnalysis.exceptions.slice(0, 12);
+  $('#inventory-alerts').innerHTML = actionable.map(item => `<div class="inventory-alert ${esc(item.severity)}"><span>${esc(item.severity)}</span><div><strong>${esc(item.item)} · ${esc(item.type.replaceAll('_', ' '))}</strong><small>${esc(item.detail)}</small></div></div>`).join('') || '<p class="stock-ok">No inventory exceptions detected.</p>';
+  $('#inventory-locations').innerHTML = inventoryAnalysis.locations.map(item => `<div><span><strong>${esc(item.name)}</strong><small>${fmt(item.items)} records · ${fmt(item.available)} available</small></span><b class="${item.needs_attention ? 'stock-low' : 'stock-ok'}">${fmt(item.needs_attention)} flagged</b></div>`).join('') || '<p>No locations recorded.</p>';
+  const duplicateCount = inventoryAnalysis.exceptions.filter(item => item.type === 'duplicate_sku').length;
+  const missingSku = inventoryAnalysis.exceptions.filter(item => item.type === 'missing_sku').length;
+  const overReserved = inventoryAnalysis.exceptions.filter(item => item.type === 'over_reserved').length;
+  $('#inventory-quality').innerHTML = `<div><span>Duplicate SKU records</span><strong class="${duplicateCount ? 'stock-low' : 'stock-ok'}">${fmt(duplicateCount)}</strong></div><div><span>Missing SKU</span><strong class="${missingSku ? 'stock-low' : 'stock-ok'}">${fmt(missingSku)}</strong></div><div><span>Over-reserved</span><strong class="${overReserved ? 'stock-low' : 'stock-ok'}">${fmt(overReserved)}</strong></div><div><span>Control mode</span><strong>Read-only</strong></div>`;
+  $('#inventory-result-count').textContent = `${rows.length} of ${inventoryAnalysis.items.length} records shown`;
+  $('#inventory-rows').innerHTML = rows.map(item => `<tr><td>${esc(item.sku || '—')}</td><td>${esc(item.name)}</td><td>${esc(item.category)}</td><td>${fmt(item.on_hand)} ${esc(item.unit)}</td><td>${fmt(item.reserved)}</td><td>${fmt(item.available)}</td><td>${item.reorder_quantity == null ? (item.reorder_point == null ? 'Not set' : 'Review qty') : fmt(item.reorder_quantity)}</td><td>${esc(item.location)}</td><td class="${item.status === 'healthy' ? 'stock-ok' : 'stock-low'}">${esc(item.status)}</td><td>${esc(item.last_updated || 'Unknown')}</td></tr>`).join('') || '<tr><td colspan="10">No inventory matches those filters.</td></tr>';
+}
+function renderInventoryWorkflows() {
+  const target = $('#inventory-workflow-jobs');
+  if (!target) return;
+  const jobs = (state.jobs || []).filter(job => ['inventory_workflow', 'inventory_count_session'].includes(job.task_type)).slice(-8).reverse();
+  target.innerHTML = jobs.map(job => {
+    const operation = job.action?.metadata?.operation || {}, preview = job.action?.metadata?.preview || {};
+    const session = job.action?.metadata?.count_session;
+    const after = session ? `${session.metrics.observations} observations · ${session.metrics.variances} variances · net ${session.metrics.net_variance}` : Object.entries(preview).map(([location, row]) => `${esc(location)}: ${Number(row.on_hand).toLocaleString()} on hand, ${Number(row.reserved).toLocaleString()} reserved`).join(' · ');
+    const endpoint = session ? 'counts' : 'workflows';
+    const execute = job.status === 'ready' ? `<button type="button" data-inventory-execute="${esc(job.id)}" data-inventory-endpoint="${endpoint}">Execute approved change</button>` : '';
+    return `<div class="inventory-workflow-job"><div><strong>${esc(session ? 'physical count session' : operation.operation_type?.replaceAll('_', ' ') || job.title)} · ${esc(operation.sku || session?.session_id || '')}</strong><small>${esc(after || 'Preview unavailable')}</small><small>${esc(operation.reason || session?.reason || '')}</small></div><span class="state ${esc(job.status)}">${esc(job.status)}</span>${execute}</div>`;
+  }).join('') || '<p class="muted">No inventory workflow proposals yet.</p>';
+}
+function syncInventoryWorkflowFields() {
+  const kind = $('#inventory-operation').value;
+  $('#inventory-target-label').hidden = kind !== 'transfer';
+  $('#inventory-workflow-target').required = kind === 'transfer';
+  $('#inventory-quantity-label').textContent = ['cycle_count', 'adjustment'].includes(kind) ? 'New on-hand quantity' : 'Quantity';
+}
+$('#inventory-operation').addEventListener('change', syncInventoryWorkflowFields);
+syncInventoryWorkflowFields();
+$('#inventory-workflow-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (mutationPending) return;
+  const status = $('#inventory-workflow-status'), kind = $('#inventory-operation').value;
+  const operation = {
+    operation_type: kind,
+    sku: $('#inventory-workflow-sku').value.trim(),
+    location: $('#inventory-workflow-location').value.trim(),
+    quantity: Number($('#inventory-workflow-quantity').value),
+    reason: $('#inventory-workflow-reason').value.trim(),
+    evidence: $('#inventory-workflow-evidence').value.trim()
+  };
+  if (kind === 'transfer') operation.target_location = $('#inventory-workflow-target').value.trim();
+  status.textContent = 'Validating the baseline and calculating the before/after state…';
+  try {
+    const result = await postMutation('/api/inventory/workflows', {operation}, controlAuth());
+    status.textContent = `Proposal ${result.job.id} created. Fry approval is required before ORCA can execute it.`;
+    await refresh();
+  } catch (error) { status.textContent = `Proposal failed: ${error.message}`; }
+});
+document.addEventListener('click', async event => {
+  const button = event.target.closest('[data-inventory-execute]');
+  if (!button || mutationPending) return;
+  const status = $('#inventory-workflow-status');
+  status.textContent = 'Executing the approved canonical stock change…';
+  try {
+    const endpoint = button.dataset.inventoryEndpoint || 'workflows';
+    const result = await postMutation(`/api/inventory/${endpoint}/${button.dataset.inventoryExecute}/execute`, {confirm: true}, controlAuth());
+    const label = result.operation?.operation_type?.replaceAll('_', ' ') || 'physical count session';
+    status.textContent = `${label} applied to ORCA's canonical ledger and sent to QUENCH review. KILN source stock was not changed.`;
+    await refresh();
+  } catch (error) { status.textContent = `Execution failed: ${error.message}`; }
+});
+function renderInventoryCountRows() {
+  $('#inventory-count-rows').innerHTML = inventoryCountRows.map((row, index) => `<tr><td>${esc(row.sku)}</td><td>${esc(row.location)}</td><td>${Number(row.counted_quantity).toLocaleString()} ${esc(row.unit)}</td><td>${esc([row.lot, row.serial].filter(Boolean).join(' / ') || '—')}</td><td>${esc(row.condition)}</td><td><button type="button" data-remove-count="${index}">Remove</button></td></tr>`).join('') || '<tr><td colspan="6">No observations entered.</td></tr>';
+}
+$('#inventory-count-row-form').addEventListener('submit', event => {
+  event.preventDefault();
+  const sku = $('#inventory-count-sku').value.trim(), serial = $('#inventory-count-serial').value.trim();
+  const row = {sku, barcode: sku, location: $('#inventory-count-location').value.trim(), counted_quantity: Number($('#inventory-count-quantity').value), unit: $('#inventory-count-unit').value.trim() || 'ea', lot: $('#inventory-count-lot').value.trim(), serial, condition: $('#inventory-count-condition').value, notes: $('#inventory-count-notes').value.trim()};
+  if (serial && row.counted_quantity !== 1) { $('#inventory-count-status').textContent = 'Serialized observations must count exactly one unit.'; return; }
+  inventoryCountRows.push(row); renderInventoryCountRows();
+  $('#inventory-count-sku').value = ''; $('#inventory-count-quantity').value = ''; $('#inventory-count-lot').value = ''; $('#inventory-count-serial').value = ''; $('#inventory-count-notes').value = '';
+  $('#inventory-count-sku').focus();
+  $('#inventory-count-status').textContent = `${inventoryCountRows.length} observation${inventoryCountRows.length === 1 ? '' : 's'} staged locally.`;
+});
+document.addEventListener('click', event => {
+  const button = event.target.closest('[data-remove-count]');
+  if (!button) return;
+  inventoryCountRows.splice(Number(button.dataset.removeCount), 1); renderInventoryCountRows();
+});
+async function submitInventoryCount(previewOnly) {
+  const status = $('#inventory-count-status');
+  if (!inventoryCountRows.length) { status.textContent = 'Add at least one count observation.'; return; }
+  const payload = {observations: inventoryCountRows, reason: $('#inventory-count-reason').value.trim(), evidence: $('#inventory-count-evidence').value.trim()};
+  if (!payload.reason || !payload.evidence) { status.textContent = 'Count reason and evidence reference are required.'; return; }
+  status.textContent = previewOnly ? 'Reconciling counts against the canonical ledger…' : 'Creating the governed batch count proposal…';
+  try {
+    const result = await postMutation(previewOnly ? '/api/inventory/counts/preview' : '/api/inventory/counts', payload, controlAuth());
+    const session = result.session || result;
+    $('#inventory-count-preview-result').innerHTML = `<div class="inventory-count-metrics"><span>${session.metrics.observations} observations</span><span>${session.metrics.matches} matches</span><span>${session.metrics.variances} variances</span><span>${session.metrics.blocked} blocked</span><span>Net ${session.metrics.net_variance}</span></div>` + session.rows.map(row => `<div class="inventory-count-result ${esc(row.status)}"><strong>${esc(row.sku)} · ${esc(row.location)}</strong><span>${Number(row.recorded_on_hand).toLocaleString()} recorded → ${Number(row.counted_quantity).toLocaleString()} counted · variance ${Number(row.variance).toLocaleString()}</span>${row.blocker ? `<small>${esc(row.blocker)}</small>` : ''}</div>`).join('');
+    status.textContent = previewOnly ? `Review complete: ${session.metrics.variances} variances and ${session.metrics.blocked} blockers.` : `Count session ${session.session_id} is waiting for Fry approval.`;
+    if (!previewOnly) { inventoryCountRows = []; renderInventoryCountRows(); await refresh(); }
+  } catch (error) { status.textContent = `Count session failed: ${error.message}`; }
+}
+$('#inventory-count-preview').addEventListener('click', () => submitInventoryCount(true));
+$('#inventory-count-submit').addEventListener('click', () => submitInventoryCount(false));
+['#inventory-search', '#inventory-category', '#inventory-location', '#inventory-state'].forEach(selector => $(selector).addEventListener(selector === '#inventory-search' ? 'input' : 'change', renderInventory));
 $('#refresh-inventory').addEventListener('click', () => loadInventory(true));
 
 const canvas = $('#drawing-canvas');
@@ -654,13 +884,20 @@ $('#develop-visual').addEventListener('click', async () => {
 });
 
 $('#calculate-ohm').addEventListener('click', () => {
+  let status=$('#ohm-status');
+  if(!status){status=document.createElement('p');status.id='ohm-status';status.setAttribute('role','status');$('#calculate-ohm').after(status);}
+  status.textContent='';
   let voltage = Number($('#ohm-v').value), current = Number($('#ohm-i').value), resistance = Number($('#ohm-r').value);
   const hasV = Number.isFinite(voltage) && $('#ohm-v').value !== '', hasI = Number.isFinite(current) && $('#ohm-i').value !== '', hasR = Number.isFinite(resistance) && $('#ohm-r').value !== '';
+  if(Number(hasV)+Number(hasI)+Number(hasR)!==2){status.textContent='Enter exactly two known values. Clear the third input before recalculating.';return;}
+  if((hasR && resistance<=0)||(hasV && hasI && current===0)){status.textContent='Resistance must be positive; zero current cannot determine resistance from voltage.';return;}
   if (hasV && hasI) resistance = voltage / current;
   else if (hasV && hasR) current = voltage / resistance;
   else if (hasI && hasR) voltage = current * resistance;
   else return;
+  if(![voltage,current,resistance,voltage*current].every(Number.isFinite)||resistance<=0){status.textContent='Inputs do not describe a finite positive-resistance model.';return;}
   $('#ohm-v').value = Number(voltage.toPrecision(8)); $('#ohm-i').value = Number(current.toPrecision(8)); $('#ohm-r').value = Number(resistance.toPrecision(8)); $('#ohm-p').value = Number((voltage * current).toPrecision(8));
+  status.textContent='Ideal DC resistor only. Calculated dissipation is not a selected component power rating.';
 });
 const lengthMeters = { mm: .001, cm: .01, m: 1, in: .0254, ft: .3048 };
 $('#convert-units').addEventListener('click', () => { const value = Number($('#convert-value').value), from = $('#convert-from').value, to = $('#convert-to').value, converted = value * lengthMeters[from] / lengthMeters[to]; $('#convert-result').textContent = `${Number(converted.toPrecision(10))} ${to}`; });

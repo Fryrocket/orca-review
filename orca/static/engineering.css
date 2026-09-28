@@ -1,0 +1,27 @@
+.engineering-workbench {margin-bottom:28px}
+.engineering-apps {margin-bottom:24px}
+.engineering-app-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:18px 0}
+.engineering-app-grid button {min-height:86px;padding:15px;text-align:left;border:1px solid #315346;border-radius:12px;background:#0b211a;color:#edf7f3;cursor:pointer;display:flex;flex-direction:column;gap:7px}
+.engineering-app-grid button:hover {border-color:#71e6b2;background:#123629;transform:translateY(-1px)}
+.engineering-app-grid button:disabled {opacity:.55;cursor:wait;transform:none}
+.engineering-app-grid strong {font-size:16px;color:#a7f3cb}
+.engineering-app-grid span {font-size:13px;color:var(--muted);line-height:1.35}
+.engineering-workbench-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.engineering-workbench h3 {font-size:20px;margin:0 0 10px}
+.engineering-workbench p {line-height:1.55}
+.engineering-workbench label {display:flex;flex-direction:column;gap:7px;margin:12px 0;color:var(--muted)}
+.engineering-workbench input,.engineering-workbench select,.engineering-workbench textarea {width:100%;min-width:0;padding:11px;border:1px solid #315346;border-radius:9px;background:#0b211a;color:#edf7f3;color-scheme:dark;box-sizing:border-box;font:inherit}
+.engineering-workbench option {background:#0b211a;color:#edf7f3}
+.engineering-workbench textarea {font-family:ui-monospace,monospace;resize:vertical}
+.engineering-workbench [hidden] {display:none!important}
+.engineering-input-row,.engineering-fields {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 12px}
+.engineering-field-value {display:flex;gap:6px}
+.engineering-field-value select {max-width:100px}
+.engineering-actions {display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+.engineering-actions button {padding:11px 15px;border-radius:10px;border:1px solid #315346;background:#123629;color:#a7f3cb;cursor:pointer}
+.engineering-actions button[type=submit] {background:#a7f3cb;color:#092017;font-weight:700}
+.engineering-actions button:disabled {opacity:.5;cursor:wait}
+.engineering-result {min-height:90px;max-height:520px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:#071710;border:1px solid #294437;border-radius:12px;padding:16px;color:#d7f8e5;line-height:1.6}
+.engineering-formula {font-family:ui-monospace,monospace;color:#a7f3cb}
+@media(max-width:1050px){.engineering-workbench-grid{grid-template-columns:1fr}}
+@media(max-width:500px){.engineering-fields,.engineering-input-row{grid-template-columns:1fr}}

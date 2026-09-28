@@ -1,0 +1,12 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync('orca/static/operations-studio.js','utf8');
+const context={};vm.createContext(context);
+vm.runInContext(source.slice(source.indexOf('function metricNumber'),source.indexOf('function renderFabricTelemetry')),context);
+assert.equal(context.usage(0,0),'0.0 GiB / 0.0 GiB');
+assert.equal(context.usage(null,0),'Unavailable');
+assert.equal(context.usage(10,5),'Unavailable');
+assert.equal(context.percent(0),'0.0%');
+assert.equal(context.percent(null),'Unavailable');
+assert.equal(context.readingAge({telemetry:{sampled_at:100},last_verified:new Date(100000).toISOString()},200),100);
+assert.equal(context.readingAge({telemetry:null},200),Infinity);
+console.log('Fabric metric formatting and freshness checks passed');

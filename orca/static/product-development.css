@@ -1,0 +1,27 @@
+.builder-pipeline{grid-template-columns:repeat(5,minmax(0,1fr))}
+.builder-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 14px}
+.builder-summary article{border:1px solid var(--line);background:#0b1c16;border-radius:12px;padding:12px}
+.builder-summary span,.builder-summary small{display:block;color:var(--muted)}
+.builder-summary span{font:800 9px ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase}
+.builder-summary strong{display:block;color:var(--mint);font-size:16px;margin:7px 0 3px;overflow-wrap:anywhere}
+.builder-summary small{font-size:10px}
+.builder-track-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
+.builder-track-grid article{border:1px solid var(--line);background:#0a1713;border-radius:11px;padding:12px}
+.builder-track-grid span{color:var(--mint);font:800 9px ui-monospace,monospace;text-transform:uppercase}
+.builder-track-grid strong{display:block;margin:7px 0 5px}
+.builder-track-grid p{color:var(--muted);font-size:11px;margin:0}
+.builder-table-wrap{overflow:auto;margin-top:12px}
+.builder-table{width:100%;border-collapse:collapse;min-width:900px;font-size:11px}
+.builder-table th{text-align:left;color:var(--mint);font:800 9px ui-monospace,monospace;text-transform:uppercase;letter-spacing:.08em;background:#0a1713}
+.builder-table th,.builder-table td{padding:9px;border-bottom:1px solid var(--line);vertical-align:top}
+.builder-table code{color:var(--mint)}
+.builder-pill{display:inline-block;border:1px solid #6b5428;color:var(--amber);border-radius:99px;padding:3px 6px;font:800 9px ui-monospace,monospace;text-transform:uppercase}
+.builder-risk{border-bottom:1px solid var(--line-soft);padding:9px 0}
+.builder-risk>div{display:flex;justify-content:space-between;gap:10px}
+.builder-risk span{color:var(--amber);font:800 10px ui-monospace,monospace}
+.builder-risk small{display:block;color:var(--muted);margin-top:3px}
+.builder-risk p{font-size:11px;margin:5px 0 0}
+.builder-step{display:grid;place-items:center;width:20px;height:20px;border:1px solid #3d745f;border-radius:50%;color:var(--mint);font:800 10px ui-monospace,monospace;font-style:normal}
+.builder-artifacts button:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:1100px){.builder-track-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:780px){.builder-summary,.builder-track-grid{grid-template-columns:1fr 1fr}}

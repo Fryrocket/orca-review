@@ -80,6 +80,65 @@ def test_auto_invalid_route_fails_closed(monkeypatch):
         ModelRuntimeGateway({'forge_qwen'}).chat(prompt='Do something')
 
 
+@pytest.mark.parametrize('prompt', [
+    'Hello ORCA, how are you?',
+    'Explain in plain language why unprotected steel rusts.',
+    'Give me three practical ideas for organizing a small electronics bench.',
+])
+def test_clear_tool_free_conversation_uses_one_direct_pass(monkeypatch, prompt):
+    gateway = ModelRuntimeGateway({'forge_qwen'})
+    calls = []
+    monkeypatch.setattr(gateway, 'invoke', lambda **kwargs:
+                        calls.append(kwargs) or {'summary': 'ok'})
+    monkeypatch.setattr('orca.runtime.bounded_json_transport',
+                        lambda *_: pytest.fail('routing pass must be skipped'))
+    assert gateway.chat(prompt=prompt) == {'mode': 'reason', 'result': {'summary': 'ok'}}
+    assert calls == [{'service_id': 'forge_qwen', 'bot_id': 'orca',
+                      'prompt': prompt, 'history': [], 'use_tool_broker': False}]
+
+
+@pytest.mark.parametrize('prompt', [
+    'Explain the current weather.',
+    'What is the status of FORGE?',
+    'Give me ideas and calculate the beam stress.',
+    'Explain why steel rusts and search for the latest paper.',
+    'Hello, open calculator.',
+    'Tell me a story about today\'s news.',
+    'Explain how to simulate a buck converter.',
+    'Give me ideas and estimate the required torque.',
+])
+def test_fast_path_refuses_fresh_or_quantitative_requests(monkeypatch, prompt):
+    gateway = ModelRuntimeGateway({'forge_qwen'})
+    monkeypatch.setattr('orca.runtime.bounded_json_transport',
+                        lambda *_: envelope({'mode': 'reason', 'image_prompt': ''}))
+    calls = []
+    monkeypatch.setattr(gateway, 'invoke', lambda **kwargs:
+                        calls.append(kwargs) or {'summary': 'ok'})
+    gateway.chat(prompt=prompt)
+    assert 'use_tool_broker' not in calls[0]
+
+
+def test_fast_path_does_not_bypass_history_aware_routing(monkeypatch):
+    gateway = ModelRuntimeGateway({'forge_qwen'})
+    monkeypatch.setattr('orca.runtime.bounded_json_transport',
+                        lambda *_: envelope({'mode': 'reason', 'image_prompt': ''}))
+    calls = []
+    monkeypatch.setattr(gateway, 'invoke', lambda **kwargs:
+                        calls.append(kwargs) or {'summary': 'ok'})
+    history = [{'role': 'user', 'content': 'We were discussing a circuit.'}]
+    gateway.chat(prompt='Explain that again.', history=history)
+    assert calls[0]['history'] == history
+    assert 'use_tool_broker' not in calls[0]
+
+
+def test_fast_path_does_not_weaken_prompt_validation(monkeypatch):
+    gateway = ModelRuntimeGateway({'forge_qwen'})
+    monkeypatch.setattr(gateway, 'invoke',
+                        lambda **_kwargs: pytest.fail('secret prompt must not reach model'))
+    with pytest.raises(ValueError, match='secret-shaped'):
+        gateway.chat(prompt='Hello, token=abcdefghijklmnop')
+
+
 def test_adapter_sends_history_as_messages_not_system_instructions():
     calls = []
     history = [{'role': 'user', 'content': 'My project is Cedar.'},

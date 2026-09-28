@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 import json
+import re
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
@@ -11,6 +12,35 @@ from .security import redact, redact_text
 from .bots import BOT_PROGRAMS
 from .conversation import validate_history, recent_history
 from .tools import ReadOnlyToolBroker, ToolRequest, TOOL_ARGUMENT_SCHEMAS
+
+
+_DIRECT_CONVERSATION_INTENT = re.compile(
+    r"^(?:hi\b|hello\b|hey\b|good (?:morning|afternoon|evening)\b|"
+    r"how are you\b|thanks?\b|thank you\b|explain\b|what is\b|why (?:does|do|is|are)\b|"
+    r"how does\b|brainstorm\b|give me .{0,80}\bideas?\b|tell me (?:a joke|a story)\b)",
+    re.IGNORECASE,
+)
+_DIRECT_CONVERSATION_BLOCKERS = re.compile(
+    r"\b(?:calculate|compute|solve|analyze|analyse|simulate|estimate|convert|evaluate|derive|"
+    r"equation|integral|derivative|matrix|numeric|"
+    r"voltage|current|resistor|capacitor|inductor|circuit|beam|stress|torque|"
+    r"temperature|pressure|measurement|datasheet|review|code|script|program|"
+    r"file|document|repository|repo|drive|notion|linear|search|look up|latest|"
+    r"today|news|weather|price|stock|health|status|open|launch|image|photo|"
+    r"picture|canvas|visual|diagram|deploy|install|update|fix|build)\b",
+    re.IGNORECASE,
+)
+
+
+def direct_conversation_fast_path(prompt: str, conversation: list[dict]) -> bool:
+    """Use one model pass only for clearly tool-free, history-free conversation."""
+
+    return bool(
+        not conversation
+        and len(prompt) <= 1_500
+        and _DIRECT_CONVERSATION_INTENT.search(prompt.strip())
+        and not _DIRECT_CONVERSATION_BLOCKERS.search(prompt)
+    )
 
 
 @dataclass(frozen=True)
@@ -235,7 +265,7 @@ class SandboxedOpenAIAdapter:
         # answer budget on an invisible reasoning trace or tool-plan thinking.
         generation_options = ({
             "chat_template_kwargs": {"enable_thinking": False},
-            "temperature": 0.7, "top_p": 0.8, "top_k": 20,
+            "temperature": 0.2 if bot_id == "orca" else 0.7, "top_p": 0.8, "top_k": 20,
         } if model == "ORCA-QWEN" else {})
         if tool_broker is not None:
             available = {
@@ -244,6 +274,46 @@ class SandboxedOpenAIAdapter:
                 if name in tool_broker.handlers and name in TOOL_ARGUMENT_SCHEMAS
             }
             if available:
+                item_schema = {
+                    "type": "object", "properties": {
+                        "name": {"type": "string", "enum": sorted(available)},
+                        "arguments": {"type": "object"}},
+                    "required": ["name", "arguments"], "additionalProperties": False,
+                }
+                if "engineering.calculate" in available:
+                    from .engineering import CATALOG as engineering_models
+                    engineering_item = {
+                        "type": "object", "properties": {
+                            "name": {"type": "string", "const": "engineering.calculate"},
+                            "arguments": {"type": "object", "properties": {
+                                "tool": {"type": "string", "enum": sorted(engineering_models)},
+                                "values": {"type": "object", "additionalProperties": {"type": "string"}}},
+                                "required": ["tool", "values"], "additionalProperties": False}},
+                        "required": ["name", "arguments"], "additionalProperties": False,
+                    }
+                    other_tools = sorted(set(available) - {"engineering.calculate", "math.scientific"})
+                    if other_tools:
+                        item_schema["properties"]["name"]["enum"] = other_tools
+                        item_schema = {"anyOf": [engineering_item, item_schema]}
+                    else:
+                        item_schema = engineering_item
+                if "math.scientific" in available:
+                    from .scientific import scientific_argument_schema
+                    science_item = {
+                        "type": "object", "properties": {
+                            "name": {"type": "string", "const": "math.scientific"},
+                            "arguments": scientific_argument_schema()},
+                        "required": ["name", "arguments"], "additionalProperties": False,
+                    }
+                    if "engineering.calculate" in available:
+                        item_schema = {"anyOf": [science_item, item_schema]}
+                    else:
+                        other_tools = sorted(set(available) - {"math.scientific"})
+                        if other_tools:
+                            item_schema["properties"]["name"]["enum"] = other_tools
+                            item_schema = {"anyOf": [science_item, item_schema]}
+                        else:
+                            item_schema = science_item
                 plan_payload = {
                     "model": model,
                     "messages": [
@@ -274,15 +344,7 @@ class SandboxedOpenAIAdapter:
                                 "properties": {
                                     "tool_requests": {
                                         "type": "array", "maxItems": 4,
-                                        "items": {
-                                            "type": "object",
-                                            "properties": {
-                                                "name": {"type": "string", "enum": sorted(available)},
-                                                "arguments": {"type": "object"},
-                                            },
-                                            "required": ["name", "arguments"],
-                                            "additionalProperties": False,
-                                        },
+                                        "items": item_schema,
                                     },
                                 },
                                 "required": ["tool_requests"],
@@ -362,6 +424,15 @@ class SandboxedOpenAIAdapter:
                         requests=[ToolRequest(item["name"], item["arguments"])
                                   for item in requests],
                     )
+                    engineering_results = [result for result in results if result.name == "engineering.calculate"]
+                    if engineering_results:
+                        from .engineering import engineering_chat_summary
+                        return {
+                            "summary": "\n\n".join(engineering_chat_summary(result.output) for result in engineering_results),
+                            "evidence": ["Deterministic engineering calculator; interpreted SI inputs shown explicitly"],
+                            "uncertainty": "Verify interpreted inputs and model assumptions; no design safety certification.",
+                            "next_gate": "none",
+                        }
                     prompt = (
                         prompt + "\n\nVerified read-only tool results:\n"
                         + json.dumps(
@@ -519,6 +590,37 @@ class ModelRuntimeGateway:
             raise ValueError("chat prompt must contain 1-12000 characters")
         if redact_text(prompt) != prompt:
             raise ValueError("prompt contains secret-shaped data")
+        from .calculator import calculate, chat_expression
+        from .scientific import scientific_calculate, chat_science_request
+        scientific_request = chat_science_request(prompt)
+        if scientific_request is not None:
+            result = scientific_calculate(**scientific_request)
+            if result.get("status") == "ok":
+                summary = "Exact: " + result["exact"] + "\nNumerical preview: " + str(result["numeric"])
+                summary += "\n" + " ".join(result.get("notes", []))
+            elif result.get("status") == "unresolved":
+                summary = "Not fully solved: " + result["exact"]
+            else:
+                summary = result.get("error", "Scientific calculation could not complete.")
+            return {"mode":"reason", "result":{"summary":summary,
+                "evidence":["Bounded symbolic math worker"], "uncertainty":"Review domains and assumptions; numerical previews are rounded.", "next_gate":"none"}}
+        expression = chat_expression(prompt)
+        if expression is not None:
+            result = calculate(expression)
+            if result["status"] == "ok":
+                relation = "≈" if result["approximate"] else "="
+                summary = f"{result['expression']} {relation} {result['result']}"
+                uncertainty = "Rounded to 40 significant decimal digits" if result["approximate"] else "Exact decimal arithmetic"
+            else:
+                summary = result["error"]
+                uncertainty = "No numeric result was produced"
+            return {"mode": "reason", "result": {"summary": summary,
+                "evidence": ["Computed by the bounded decimal calculator"],
+                "uncertainty": uncertainty, "next_gate": "none"}}
+        if direct_conversation_fast_path(prompt, conversation):
+            return {"mode": "reason", "result": self.invoke(
+                service_id="forge_qwen", bot_id="orca", prompt=prompt,
+                history=conversation, use_tool_broker=False)}
         modes = {
             "reason": ("forge_qwen", "orca"), "code": ("forge_smith", "smith"),
             "review": ("kiln_quench", "quench"), "engineer": ("forge_qwen", "smith"),
@@ -568,7 +670,8 @@ class ModelRuntimeGateway:
         return {"mode": mode, "result": self.invoke(
             service_id=service, bot_id=bot, prompt=prompt, history=conversation)}
 
-    def invoke(self, *, service_id: str, bot_id: str, prompt: str, history=None) -> dict:
+    def invoke(self, *, service_id: str, bot_id: str, prompt: str, history=None,
+               use_tool_broker: bool = True) -> dict:
         if service_id not in self.enabled_services:
             raise PermissionError("model service is disabled")
         endpoint, model, allowed_bots = self._definitions[service_id]
@@ -582,6 +685,6 @@ class ModelRuntimeGateway:
         )
         return adapter.invoke(
             bot_id=bot_id, model=model, prompt=prompt,
-            tool_broker=self.tool_broker,
+            tool_broker=self.tool_broker if use_tool_broker else None,
             history=recent_history(validate_history(history), 4000 if service_id == "kiln_quench" else 12000),
         )

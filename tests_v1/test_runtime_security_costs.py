@@ -25,7 +25,7 @@ from orca.models import ModelRoute, ModelRouter
 
 def test_prompt_contracts_are_versioned_and_complete():
     assert set(PROMPT_CONTRACTS) == {"orca", "smith", "quench", "security_gate"}
-    assert PROMPT_CONTRACTS["orca"].version == "1.2.0"
+    assert PROMPT_CONTRACTS["orca"].version == "1.4.0"
     assert all(contract.version == "1.1.0" for key, contract in PROMPT_CONTRACTS.items()
                if key != "orca")
     assert all("evidence" in contract.required_output_fields for contract in PROMPT_CONTRACTS.values())
@@ -357,7 +357,7 @@ def test_qwen_uses_direct_answers_for_both_tool_planning_and_final_output(tmp_pa
     assert len(calls) == 2
     for payload in calls:
         assert payload["chat_template_kwargs"] == {"enable_thinking": False}
-        assert payload["temperature"] == 0.7
+        assert payload["temperature"] == 0.2
         assert payload["response_format"]["type"] == "json_schema"
         assert payload["tools"] == []
 

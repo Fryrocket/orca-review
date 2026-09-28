@@ -2,6 +2,10 @@ import argparse
 import os
 from pathlib import Path
 from .chat_memory import ChatMemory
+from .bot_creator import BotProfiles
+from .calculator import calculate
+from .scientific import scientific_calculate
+from .engineering import engineering_chat_calculate, engineering_catalog
 
 from .evidence import EvidenceStore
 from .control_plane import ControlPlane
@@ -44,7 +48,9 @@ def main() -> None:
         enabled_services.discard("forge_qwen")
     tool_workspace = os.environ.get("ORCA_TOOL_WORKSPACE_ROOT", os.getcwd())
     read_tools = WorkspaceReadTools(tool_workspace)
-    handlers = {**read_tools.handlers(), **PublicWebReadTools().handlers()}
+    handlers = {**read_tools.handlers(), **PublicWebReadTools().handlers(), "math.calculate": calculate,
+                "math.scientific": scientific_calculate, "engineering.calculate": engineering_chat_calculate,
+                "engineering.catalog": engineering_catalog}
     rclone_config = os.environ.get("ORCA_RCLONE_CONFIG")
     drive_token_file = os.environ.get("ORCA_GOOGLE_DRIVE_TOKEN_FILE")
     if rclone_config:
@@ -70,6 +76,7 @@ def main() -> None:
           identity_tokens=identity_authenticator, runtime_gateway=runtime_gateway,
           inventory_provider=inventory_provider,
           chat_memory=ChatMemory(Path(args.database).with_name("orca-chat-memory.db")),
+          bot_profiles=BotProfiles(Path(args.database).with_name("orca-bot-profiles.db")),
           trusted_network_no_auth=args.trusted_network_no_auth)
 
 

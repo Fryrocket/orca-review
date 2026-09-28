@@ -148,6 +148,13 @@ def test_inventory_endpoint_is_read_only_and_fails_closed():
             result = json.load(response)
         assert result["read_only"] is True
         assert result["items"][0]["name"] == "Resistor"
+        with urlopen(
+                f"http://127.0.0.1:{server.server_port}/api/inventory/analysis") as response:
+            analyzed = json.load(response)
+        assert analyzed["snapshot"]["read_only"] is True
+        assert analyzed["analysis"]["read_only"] is True
+        assert analyzed["analysis"]["metrics"]["records"] == 1
+        assert analyzed["analysis"]["controls"]["stock_changes"] == "disabled"
     finally:
         server.shutdown()
         server.server_close()
@@ -238,6 +245,87 @@ def test_trusted_network_mode_allows_login_free_fry_inference():
         )
         with urlopen(request) as response:
             assert json.load(response)["summary"] == "done"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_business_chat_creates_tracked_job_and_records_result_for_review():
+    class Gateway:
+        def __init__(self):
+            self.calls = 0
+
+        def chat(self, **payload):
+            self.calls += 1
+            assert payload["prompt"] == "Research connector health"
+            return {
+                "mode": "reason",
+                "result": {"summary": "Checked", "evidence": [],
+                           "uncertainty": "none", "next_gate": "review"},
+            }
+
+    control = ControlPlane()
+    gateway = Gateway()
+    server = OrcaHTTPServer(
+        ("127.0.0.1", 0), control, runtime_gateway=gateway,
+        trusted_network_no_auth=True,
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        create = Request(
+            f"http://127.0.0.1:{server.server_port}/api/business/workflows",
+            data=json.dumps({
+                "workflow_id": "business-01-connector-health",
+                "title": "Connector health",
+            }).encode(),
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+                "Idempotency-Key": "business-workflow-request-0001",
+                "X-ORCA-Expected-Revision": str(control.state_revision),
+            },
+        )
+        with urlopen(create) as response:
+            job = json.load(response)
+        assert response.status == 201
+        assert job["status"] == "running"
+        assert job["task_type"] == "business_workflow"
+
+        chat = Request(
+            f"http://127.0.0.1:{server.server_port}/api/chat",
+            data=json.dumps({
+                "prompt": "Research connector health",
+                "history": [],
+                "business_job_id": job["id"],
+            }).encode(),
+            method="POST",
+            headers={"Content-Type": "application/json"},
+        )
+        with urlopen(chat) as response:
+            result = json.load(response)
+        assert result["result"]["summary"] == "Checked"
+        tracked = control.jobs[job["id"]]
+        assert tracked.status.value == "review"
+        assert tracked.reviewer == "quench"
+        events = control.evidence.list(correlation_id=tracked.correlation_id, limit=20)
+        assert any(event["kind"] == "business.workflow.result" for event in events)
+
+        duplicate = Request(
+            f"http://127.0.0.1:{server.server_port}/api/chat",
+            data=json.dumps({
+                "prompt": "Research connector health",
+                "history": [],
+                "business_job_id": job["id"],
+            }).encode(),
+            method="POST",
+            headers={"Content-Type": "application/json"},
+        )
+        with pytest.raises(HTTPError) as error:
+            urlopen(duplicate)
+        assert error.value.code == 400
+        assert "not running" in json.loads(error.value.read())["error"]
+        assert gateway.calls == 1
     finally:
         server.shutdown()
         server.server_close()
