@@ -126,6 +126,21 @@ def append_event(handle, event: dict) -> None:
     handle.flush()
 
 
+def compact_result(result: dict) -> dict:
+    """Keep verification metadata, never copy large state/model bodies into logs."""
+    compact = {key: value for key, value in result.items() if key != "body"}
+    body = result.get("body")
+    if body is not None:
+        encoded = json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
+        compact["body_sha256"] = hashlib.sha256(encoded).hexdigest()
+        if isinstance(body, dict):
+            compact["body_keys"] = sorted(str(key) for key in body)[:40]
+            for key in ("status", "integrity_valid", "mode"):
+                if key in body and isinstance(body[key], (str, bool, int, float, type(None))):
+                    compact[f"body_{key}"] = body[key]
+    return compact
+
+
 def run(args: argparse.Namespace) -> dict:
     output_dir = Path(args.output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -164,7 +179,7 @@ def run(args: argparse.Namespace) -> dict:
                     if not result["ok"]:
                         failures += 1
                         cycle_health_ok = False
-                    append_event(events, {"kind": "read_probe", **result})
+                    append_event(events, {"kind": "read_probe", **compact_result(result)})
                 consecutive_health_failures = (0 if cycle_health_ok
                                                else consecutive_health_failures + 1)
 
@@ -179,7 +194,7 @@ def run(args: argparse.Namespace) -> dict:
                     if not result["ok"]:
                         failures += 1
                     append_event(events, {"kind": "model_probe", "service_id": service_id,
-                                          "bot_id": bot_id, **result})
+                                          "bot_id": bot_id, **compact_result(result)})
                     model_index += 1
                     next_model = time.monotonic() + args.model_every
 
