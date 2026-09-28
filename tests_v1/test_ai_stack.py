@@ -70,8 +70,8 @@ def test_concurrent_ai_service_budgets_do_not_overcommit_hosts():
 
 
 def test_ladders_escalate_to_deeper_reasoning_then_independent_review():
-    assert AI_LADDERS["interactive"] == ("anvil_reflex", "forge_qwen", "forge_smith", "fry")
-    assert AI_LADDERS["coding"] == ("forge_qwen", "forge_smith", "kiln_quench", "fry")
+    assert AI_LADDERS["interactive"] == ("kiln_codex", "forge_qwen", "forge_smith", "fry")
+    assert AI_LADDERS["coding"] == ("kiln_codex", "forge_smith", "kiln_quench", "fry")
     assert AI_LADDERS["review"] == ("kiln_quench", "fry")
     assert AI_LADDERS["monitoring"][:2] == ("ember_sentinel", "forge_policy")
     assert AI_LADDERS["large_gpu_inference"] == ("forge_qwen", "forge_crucible", "fry")
@@ -92,7 +92,7 @@ def test_control_plane_exposes_stack_without_enabling_model_calls():
         not service["runtime_enabled"]
         for service in stack["services"].values()
     )
-    assert stack["ladders"]["coding"][0]["service_id"] == "forge_qwen"
+    assert stack["ladders"]["coding"][0]["service_id"] == "kiln_codex"
     assert stack["ladders"]["coding"][1]["service_id"] == "forge_smith"
     assert stack["ladders"]["review"][0]["node_id"] == "kiln"
     assert stack["crucible_acceptance"]["status"] == "blocked"

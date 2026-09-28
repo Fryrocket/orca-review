@@ -1863,8 +1863,8 @@ class ControlPlane:
             if service["runtime_enabled"]
         }
         runtime_services_by_bot = {
-            "orca": {"forge_qwen"},
-            "smith": {"forge_qwen", "forge_smith"},
+            "orca": {"kiln_codex", "forge_qwen"},
+            "smith": {"kiln_codex", "forge_qwen", "forge_smith"},
             "quench": {"kiln_quench"},
             "security_gate": {"kiln_quench"},
         }

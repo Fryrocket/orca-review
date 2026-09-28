@@ -81,9 +81,9 @@ let state = {
 
 const routes = {
   auto: {
-    service_id: 'forge_qwen', label: 'ORCA · Auto', name: 'ORCA · All capabilities',
-    duty: 'Automatically chooses chat, coding, review, engineering, visual planning or image generation and uses recent conversation context.',
-    node: 'FORGE + KILN', context: 'Conversation memory on'
+    service_id: 'kiln_codex', label: 'ORCA · Codex Auto', name: 'ORCA · Codex + local specialists',
+    duty: 'Codex handles governed reasoning and coding; ORCA routes tools and approvals; Qwen and SMITH provide local fallback.',
+    node: 'KILN + FORGE', context: 'Conversation memory on'
   },
   photo: {
     label: 'Images · CRUCIBLE', name: 'ORCA Image Studio',
@@ -91,14 +91,14 @@ const routes = {
     node: 'FORGE · SDXL', context: '768 × 768'
   },
   reason: {
-    service_id: 'forge_qwen', bot_id: 'orca', label: 'Qwen 3.5 · CRUCIBLE',
-    name: 'ORCA · Qwen 3.5', duty: 'Conversation, explanations, brainstorming and planning on CRUCIBLE.',
-    node: 'FORGE · ROCm', context: '16K context'
+    service_id: 'kiln_codex', bot_id: 'orca', label: 'Codex · KILN',
+    name: 'ORCA · Codex', duty: 'Conversation, explanations, research planning and hard reasoning through the governed KILN bridge.',
+    node: 'KILN · OpenAI', context: 'ORCA memory + approvals'
   },
   code: {
-    service_id: 'forge_smith', bot_id: 'smith', label: 'SMITH · Qwen Coder',
-    name: 'SMITH', duty: 'Coding, implementation, documentation and repository-scale synthesis.',
-    node: 'FORGE · CPU', context: '16K context'
+    service_id: 'kiln_codex', bot_id: 'smith', label: 'Codex · Code',
+    name: 'Codex + SMITH fallback', duty: 'Coding, implementation, documentation and repository-scale synthesis under ORCA controls.',
+    node: 'KILN + FORGE', context: 'Read-only until approved'
   },
   review: {
     service_id: 'kiln_quench', bot_id: 'quench', label: 'QUENCH · BILLOWS',
@@ -106,14 +106,14 @@ const routes = {
     node: 'KILN · CUDA', context: '4K context'
   },
   engineer: {
-    service_id: 'forge_qwen', bot_id: 'smith', label: 'Qwen 3.5 · Engineering',
-    name: 'Qwen Engineer', duty: 'Tradeoffs, calculations, mechanisms, circuits and failure analysis.',
-    node: 'FORGE · ROCm', context: '16K context'
+    service_id: 'kiln_codex', bot_id: 'smith', label: 'Codex · Engineering',
+    name: 'Codex Engineer', duty: 'Tradeoffs, calculations, mechanisms, circuits and failure analysis with deterministic ORCA tools.',
+    node: 'KILN + FORGE', context: 'Verified calculators'
   },
   visual: {
-    service_id: 'forge_qwen', bot_id: 'orca', label: 'ORCA · Visual Direction',
+    service_id: 'kiln_codex', bot_id: 'orca', label: 'Codex · Visual Direction',
     name: 'Visual Director', duty: 'Structured visual concepts, diagrams, compositions and production briefs.',
-    node: 'FORGE · ROCm', context: '16K context'
+    node: 'KILN · OpenAI', context: 'ORCA memory + tools'
   }
 };
 
@@ -578,8 +578,8 @@ function renderActions() {
 }
 function renderCoderStack() {
   const services = state.ai_stack?.services || {};
-  const ids = ['forge_qwen', 'forge_smith', 'kiln_quench'];
-  $('#coder-stack').innerHTML = ids.map(id => { const service = services[id] || {}; return `<div class="specialist-row"><div><strong>${esc(id === 'forge_qwen' ? 'Qwen Conversation' : id === 'forge_smith' ? 'SMITH' : 'QUENCH')}</strong><div class="meta">${esc(service.model || 'loading')}</div></div><span class="state ${service.runtime_enabled ? 'complete' : 'failed'}">${service.runtime_enabled ? 'READY' : 'GATED'}</span></div>`; }).join('');
+  const ids = ['kiln_codex', 'forge_qwen', 'forge_smith', 'kiln_quench'];
+  $('#coder-stack').innerHTML = ids.map(id => { const service = services[id] || {}; return `<div class="specialist-row"><div><strong>${esc(id === 'kiln_codex' ? 'Codex on KILN' : id === 'forge_qwen' ? 'Qwen Conversation' : id === 'forge_smith' ? 'SMITH' : 'QUENCH')}</strong><div class="meta">${esc(service.model || 'loading')}</div></div><span class="state ${service.runtime_enabled ? 'complete' : 'failed'}">${service.runtime_enabled ? 'READY' : 'GATED'}</span></div>`; }).join('');
 }
 
 async function refresh() {

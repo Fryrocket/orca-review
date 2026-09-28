@@ -39,6 +39,12 @@ AI_SERVICES = {
         "deterministic ORCA control plane", "python", "cpu",
         0, 1, 4, deployment_state="live",
     ),
+    "kiln_codex": AIServiceProfile(
+        "kiln_codex", "kiln",
+        "preferred governed conversation, coding, engineering and planning",
+        "Codex (ChatGPT-authenticated)", "codex-cli bridge", "OpenAI",
+        32_000, 1, 1, deployment_state="live_external", may_author=True,
+    ),
     "anvil_reflex": AIServiceProfile(
         "anvil_reflex", "anvil",
         "fast private operator triage, summarization and prompt preparation",
@@ -90,10 +96,10 @@ AI_SERVICES = {
 # processing. These are advisory routes; ORCA model invocation remains disabled.
 AI_LADDERS = {
     "orchestration": ("forge_policy",),
-    "interactive": ("anvil_reflex", "forge_qwen", "forge_smith", "fry"),
-    "coding": ("forge_qwen", "forge_smith", "kiln_quench", "fry"),
-    "documentation": ("anvil_reflex", "forge_qwen", "forge_smith", "kiln_quench", "fry"),
-    "operations_plan": ("forge_qwen", "forge_smith", "kiln_quench", "fry"),
+    "interactive": ("kiln_codex", "forge_qwen", "forge_smith", "fry"),
+    "coding": ("kiln_codex", "forge_smith", "kiln_quench", "fry"),
+    "documentation": ("kiln_codex", "forge_qwen", "forge_smith", "kiln_quench", "fry"),
+    "operations_plan": ("kiln_codex", "forge_qwen", "forge_smith", "kiln_quench", "fry"),
     "review": ("kiln_quench", "fry"),
     "security_review": ("kiln_quench", "fry"),
     "verification": ("kiln_quench", "fry"),
@@ -113,7 +119,7 @@ COGNITIVE_FABRIC = {
     "sentinel_surface": "ember",
     "memory_pooling": False,
     "automatic_execution": False,
-    "cloud_fallback": False,
+    "cloud_fallback": "governed Codex on KILN; local Qwen/SMITH remain available",
 }
 
 
@@ -126,7 +132,7 @@ def ladder_snapshot(
             "ORCA_ENABLED_MODEL_SERVICES", "").split(",") if value.strip()
     }
     known_runtime_services = {
-        "anvil_reflex", "forge_smith", "forge_qwen", "kiln_quench"
+        "anvil_reflex", "forge_smith", "forge_qwen", "kiln_quench", "kiln_codex"
     }
     enabled = requested & known_runtime_services
     if not acceptance["activation_ready"]:

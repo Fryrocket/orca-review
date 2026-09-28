@@ -11,7 +11,7 @@ UMask=0077
 WorkingDirectory=/opt/orca/current
 Environment=PYTHONUNBUFFERED=1
 Environment=ORCA_CRUCIBLE_ACCEPTANCE_FILE=/var/lib/orca/crucible-acceptance.json
-Environment=ORCA_ENABLED_MODEL_SERVICES=forge_qwen,forge_smith,kiln_quench
+Environment=ORCA_ENABLED_MODEL_SERVICES=kiln_codex,forge_qwen,forge_smith,kiln_quench
 Environment=ORCA_INVENTORY_SSH_KEY=/var/lib/orca/inventory-ssh-key
 Environment=ORCA_INVENTORY_KNOWN_HOSTS=/var/lib/orca/inventory-known-hosts
 Environment=ORCA_RCLONE_CONFIG=/var/lib/orca/rclone.conf

@@ -1,0 +1,27 @@
+[Unit]
+Description=ORCA bounded Codex reasoning bridge on KILN
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=fryrocket
+Group=fryrocket
+UMask=0077
+Environment=HOME=/home/fryrocket
+Environment=PATH=/home/fryrocket/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/usr/bin/python3 /opt/orca-codex/orca/codex_bridge.py --host 127.0.0.1 --port 11437 --workspace /var/lib/orca-codex/workspace
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/orca-codex
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

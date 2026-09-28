@@ -1,0 +1,24 @@
+[Unit]
+Description=Loopback-only reverse tunnel from FORGE ORCA to KILN Codex
+After=network-online.target orca-codex-bridge.service
+Wants=network-online.target orca-codex-bridge.service
+
+[Service]
+Type=simple
+User=fryrocket
+Group=fryrocket
+Environment=HOME=/home/fryrocket
+ExecStart=/usr/bin/ssh -NT -R 127.0.0.1:11437:127.0.0.1:11437 -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 forge
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

@@ -97,6 +97,33 @@ def test_clear_tool_free_conversation_uses_one_direct_pass(monkeypatch, prompt):
                       'prompt': prompt, 'history': [], 'use_tool_broker': False}]
 
 
+def test_codex_is_preferred_for_direct_conversation_when_enabled(monkeypatch):
+    gateway = ModelRuntimeGateway({'kiln_codex', 'forge_qwen', 'forge_smith'})
+    calls = []
+    monkeypatch.setattr(gateway, 'invoke', lambda **kwargs:
+                        calls.append(kwargs) or {'summary': 'Codex reply'})
+    result = gateway.chat(prompt='Hello ORCA, how are you?')
+    assert result == {'mode': 'reason', 'result': {'summary': 'Codex reply'}}
+    assert calls[0]['service_id'] == 'kiln_codex'
+
+
+def test_codex_transport_failure_falls_back_to_local_qwen(monkeypatch):
+    calls = []
+    valid = {'summary': 'local fallback', 'evidence': ['Qwen'],
+             'uncertainty': 'none', 'next_gate': 'none'}
+    def transport(url, payload, timeout):
+        calls.append(url)
+        if ':11437/' in url:
+            raise RuntimeError('bridge down')
+        return envelope(valid)
+    monkeypatch.setattr('orca.runtime.bounded_json_transport', transport)
+    gateway = ModelRuntimeGateway({'kiln_codex', 'forge_qwen'})
+    assert gateway.invoke(service_id='kiln_codex', bot_id='orca',
+                          prompt='hello', use_tool_broker=False) == valid
+    assert calls == ['http://127.0.0.1:11437/v1/chat/completions',
+                     'http://127.0.0.1:11436/v1/chat/completions']
+
+
 @pytest.mark.parametrize('prompt', [
     'Explain the current weather.',
     'What is the status of FORGE?',
