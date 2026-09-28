@@ -110,7 +110,8 @@ class ControlPlane:
         self._mutation_lock = threading.RLock()
         self._transaction_depth = 0
         self.evidence = evidence or EvidenceStore()
-        self.state_store = StateStore(self.evidence.db)
+        self.state_store = StateStore(
+            self.evidence.db, connection_lock=self.evidence._lock)
         if not self.evidence.verify():
             raise RuntimeError("evidence chain integrity check failed")
         self.state_store.verify_integrity()
@@ -274,6 +275,11 @@ class ControlPlane:
         self._assert_integrity()
         if self.state_store.current_revision() != self.state_revision:
             raise RuntimeError("stale control-plane instance; reload before mutation")
+
+    @read_synchronized
+    def assert_fresh(self) -> None:
+        """Public read boundary for threaded health and subsystem endpoints."""
+        self._assert_fresh()
 
     @synchronized
     def execute_idempotent(

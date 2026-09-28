@@ -1,4 +1,5 @@
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 from threading import Thread
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -96,6 +97,32 @@ def test_state_endpoint_is_readable_and_truthful():
         assert {n["id"] for n in data["nodes"]} == {"anvil", "forge", "kiln", "ember", "iris"}
         assert all(n["state"] == "unproven" for n in data["nodes"])
         assert all(c["writes_enabled"] is False for c in data["connectors"])
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_concurrent_health_state_and_business_reads_share_sqlite_safely():
+    server = OrcaHTTPServer(("127.0.0.1", 0), ControlPlane())
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    paths = ("/api/health", "/api/state", "/api/business/state")
+
+    def read(index):
+        with urlopen(
+            f"http://127.0.0.1:{server.server_port}{paths[index % len(paths)]}",
+            timeout=10,
+        ) as response:
+            payload = json.load(response)
+            return response.status, payload
+
+    try:
+        with ThreadPoolExecutor(max_workers=24) as pool:
+            results = list(pool.map(read, range(600)))
+        assert all(status == 200 for status, _ in results)
+        assert all("error" not in payload for _, payload in results)
+        assert server.control_plane.evidence.verify() is True
+        assert server.control_plane.state_store.verify_integrity() is True
     finally:
         server.shutdown()
         server.server_close()

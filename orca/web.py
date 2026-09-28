@@ -380,7 +380,7 @@ class OrcaHandler(BaseHTTPRequestHandler):
                 )
         if path == "/api/business/state":
             try:
-                self.server.control_plane._assert_fresh()
+                self.server.control_plane.assert_fresh()
                 return self._json(self.server.control_plane.business.snapshot())
             except RuntimeError:
                 return self._json(
@@ -389,7 +389,7 @@ class OrcaHandler(BaseHTTPRequestHandler):
                 )
         if path == "/api/health":
             try:
-                self.server.control_plane._assert_fresh()
+                self.server.control_plane.assert_fresh()
             except RuntimeError:
                 return self._json(
                     {"status": "unhealthy", "integrity_valid": False},

@@ -19,6 +19,13 @@ def test_schema_version_is_initialized_and_exposed(tmp_path):
     assert store.db.execute("SELECT version FROM schema_meta").fetchone()[0] == CURRENT_SCHEMA_VERSION
 
 
+def test_control_state_can_share_the_evidence_connection_lock(tmp_path):
+    store = EvidenceStore(tmp_path / "locked.db")
+    state = StateStore(store.db, connection_lock=store._lock)
+    assert state._lock is store._lock
+    assert state.verify_integrity() is True
+
+
 def test_newer_database_schema_fails_closed(tmp_path):
     path = tmp_path / "future.db"
     db = sqlite3.connect(path)
