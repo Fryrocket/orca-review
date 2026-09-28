@@ -39,7 +39,7 @@ def test_edit_workflows_use_real_source_pixels_and_preserve_unmasked_regions():
     {'strength': float('nan')}, {'strength': True}, {'strength': 0}, {'strength': 1.1},
     {'image': 'http://example.com/image.png'}, {'image': '../secret'}, {'workflow': {}},
     {'mask': base64.b64encode(png(128, 64)).decode()},
-    {'image': base64.b64encode(png(1024, 64)).decode()},
+    {'image': base64.b64encode(png(1224, 64)).decode()},
     {'image': base64.b64encode(png()[:-1]).decode()},
 ])
 def test_edit_rejects_untrusted_inputs(extra):
@@ -55,7 +55,7 @@ def test_png_rejects_broken_crc_and_trailing_data():
 
 def test_edit_gateway_routes_only_edit_uploads_with_larger_limit():
     source = (MODULE_PATH.parents[1] / 'orca_studio_gateway.py').read_text()
-    assert '8_000_000 if self.path == "/api/images/edit" else 1_000_000' in source
+    assert '18_000_000 if self.path == "/api/images/edit" else 1_000_000' in source
     assert '"/api/images/edit": "/edit"' in source
 
 
@@ -68,9 +68,11 @@ def test_canvas_undo_uses_pixel_snapshots_without_relaxing_content_security():
 
 def test_image_request_defaults_are_bounded_and_workflow_is_sdxl():
     request = broker.validate_request({"prompt": "A copper robot in a green workshop"})
-    assert request["width"] == request["height"] == 768
-    assert request["steps"] == 20
-    assert 0 <= request["seed"] < 2**63
+    assert request["width"] == request["height"] == 1024
+    assert request["steps"] == 28
+    assert request["sampler"] == "dpmpp_2m"
+    assert request["scheduler"] == "karras"
+    assert 0 <= request["seed"] < 2**53
     workflow = broker.build_workflow(request)
     assert workflow["1"]["inputs"]["ckpt_name"] == "sd_xl_base_1.0.safetensors"
     assert workflow["5"]["inputs"]["latent_image"] == ["4", 0]
@@ -78,9 +80,10 @@ def test_image_request_defaults_are_bounded_and_workflow_is_sdxl():
 
 
 @pytest.mark.parametrize("payload", [
-    {}, {"prompt": ""}, {"prompt": "x", "width": 1024},
-    {"prompt": "x", "width": 768, "height": 768, "steps": 31},
+    {}, {"prompt": ""}, {"prompt": "x", "width": 1024, "height": 768},
+    {"prompt": "x", "width": 768, "height": 768, "steps": 41},
     {"prompt": "x", "extra": True}, {"prompt": "x", "seed": -1},
+    {"prompt": "x", "sampler": "untrusted"}, {"prompt": "x", "cfg": 13},
 ])
 def test_image_request_rejects_unbounded_or_unknown_fields(payload):
     with pytest.raises(ValueError):
@@ -119,3 +122,15 @@ def test_comfy_free_accepts_empty_success_body(monkeypatch):
     assert broker.comfy_json("POST", "/free", {"free_memory": True}) == {}
     with pytest.raises(ValueError):
         broker.comfy_json("GET", "/history/example")
+
+
+def test_native_sdxl_formats_and_high_quality_sampler_are_bounded():
+    request = broker.validate_request({
+        "prompt": "product photo", "width": 1216, "height": 832,
+        "steps": 36, "cfg": 6.5, "sampler": "dpmpp_sde", "scheduler": "karras",
+    })
+    workflow = broker.build_workflow(request)
+    assert workflow["4"]["inputs"] == {"width": 1216, "height": 832, "batch_size": 1}
+    assert workflow["5"]["inputs"]["sampler_name"] == "dpmpp_sde"
+    assert workflow["5"]["inputs"]["scheduler"] == "karras"
+    assert workflow["5"]["inputs"]["cfg"] == 6.5

@@ -131,6 +131,10 @@ def test_chat_images_are_local_and_downloadable():
     assert "download.download = `ORCA-photo-" in js
     assert "image.alt = imagePrompt" in js
     assert "imagePrompt.length > 1500" in js
+    assert "width: 1024, height: 1024, steps: 28" in js
+    assert "Edit in Canvas" in js
+    assert "id=\"image-quality\"" in html
+    assert "id=\"image-seed\"" in html
     assert "for (const url of chatImageURLs) URL.revokeObjectURL(url)" in js
 
 

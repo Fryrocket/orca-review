@@ -310,7 +310,7 @@ async function generateChatImage(prompt) {
   if (!imagePrompt || imagePrompt.length > 1500) throw Error('Please use an image description of 1–1,500 characters.');
   const response = await fetch('/api/images/generate', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({prompt: imagePrompt, width: 768, height: 768, steps: 20})
+    body: JSON.stringify({prompt: imagePrompt, width: 1024, height: 1024, steps: 28})
   });
   if (!response.ok) {
     let detail;
@@ -333,9 +333,20 @@ async function generateChatImage(prompt) {
   const download = document.createElement('a');
   download.href = url; download.download = `ORCA-photo-${Date.now()}.png`;
   download.textContent = 'Save PNG'; download.className = 'chat-image-download';
+  const edit = document.createElement('button');
+  edit.type = 'button'; edit.textContent = 'Edit in Canvas'; edit.className = 'chat-image-download';
+  edit.addEventListener('click', async () => {
+    show('canvas');
+    await showCanvasImage(url);
+    canvasDescription = imagePrompt;
+    $('#visual-prompt').value = imagePrompt;
+    $('#visual-result').textContent = 'Loaded from chat. Describe the change, then edit the whole image or a selected area.';
+  });
   const note = document.createElement('p');
-  note.textContent = `768 × 768 · seed ${response.headers.get('X-ORCA-Image-Seed') || 'recorded by broker'} · Save before starting a new chat or refreshing.`;
-  bubble.append(heading, image, download, note); item.append(bubble);
+  const size = response.headers.get('X-ORCA-Image-Size') || '1024x1024';
+  const seed = response.headers.get('X-ORCA-Image-Seed') || 'recorded by broker';
+  note.textContent = `${size.replace('x', ' × ')} · seed ${seed} · ${response.headers.get('X-ORCA-Image-Steps') || 28} steps · Save before refreshing.`;
+  bubble.append(heading, image, download, edit, note); item.append(bubble);
   $('#conversation').append(item);
   image.addEventListener('load', () => { $('#conversation').scrollTop = $('#conversation').scrollHeight; });
   return `Generated a new image on CRUCIBLE from this description: ${imagePrompt}. The image was displayed in chat. Only its description is retained in memory, not its pixels.`;
@@ -773,7 +784,7 @@ function decodeCanvasImage(source) {
 async function showCanvasImage(source, saveUndo = true) {
   const image = await decodeCanvasImage(source);
   if (image.naturalWidth * image.naturalHeight > 40_000_000) throw Error('Image is too large; resize it below 40 megapixels first.');
-  const scale = Math.min(1, 768 / Math.max(image.naturalWidth, image.naturalHeight));
+  const scale = Math.min(1, 1024 / Math.max(image.naturalWidth, image.naturalHeight));
   const width = Math.max(64, Math.round(image.naturalWidth * scale / 8) * 8);
   const height = Math.max(64, Math.round(image.naturalHeight * scale / 8) * 8);
   if (saveUndo) snapshotCanvas();
@@ -846,8 +857,14 @@ async function runCanvasImage(edit = false, selection = false) {
   if (edit && !canvasHasImage) { target.textContent = 'Upload, draw or generate an image first.'; return; }
   if (selection && !maskPainted) { target.textContent = 'Choose Select area to edit, then brush over the part you want changed.'; return; }
   const [width, height] = $('#image-size').value.split('x').map(Number);
-  const payload = edit ? {prompt, strength: Number($('#edit-strength').value) / 100, steps: 20,
-    image: canvas.toDataURL('image/png').split(',')[1]} : {prompt, width, height, steps: 20};
+  const steps = Number($('#image-quality').value);
+  const negativePrompt = $('#negative-prompt').value.trim();
+  const seedValue = $('#image-seed').value.trim();
+  const common = {prompt, steps, sampler: 'dpmpp_2m', scheduler: 'karras'};
+  if (negativePrompt) common.negative_prompt = negativePrompt;
+  if (seedValue) common.seed = Number(seedValue);
+  const payload = edit ? {...common, strength: Number($('#edit-strength').value) / 100,
+    image: canvas.toDataURL('image/png').split(',')[1]} : {...common, width, height};
   if (selection) {
     const mask = document.createElement('canvas'); mask.width = canvas.width; mask.height = canvas.height;
     const ctx = mask.getContext('2d'); ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, mask.width, mask.height);
@@ -864,7 +881,9 @@ async function runCanvasImage(edit = false, selection = false) {
     const url = URL.createObjectURL(await response.blob());
     try { await showCanvasImage(url); } finally { URL.revokeObjectURL(url); }
     canvasDescription = prompt;
-    target.textContent = selection ? 'Selected area edited. The rest is preserved.' : edit ? 'Edited locally. Undo is available.' : 'Generated locally. Ready to edit or export.';
+    const seed = response.headers.get('X-ORCA-Image-Seed');
+    if (seed) $('#image-seed').value = seed;
+    target.textContent = `${selection ? 'Selected area edited; the rest is preserved.' : edit ? 'Edited locally; Undo is available.' : 'Generated locally; ready to edit or export.'}${seed ? ` Seed ${seed}.` : ''}`;
   } catch (error) { target.textContent = error.message; }
   finally { setCanvasBusy(false); }
 }

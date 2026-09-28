@@ -29,7 +29,7 @@ class Gateway(BaseHTTPRequestHandler):
         except ValueError:
             self.send_error(400, "invalid content length")
             return
-        limit = 8_000_000 if self.path == "/api/images/edit" else 1_000_000
+        limit = 18_000_000 if self.path == "/api/images/edit" else 1_000_000
         if length < 0 or length > limit:
             self.send_error(413, "request body too large")
             return

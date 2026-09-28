@@ -24,7 +24,7 @@ COMFY_HOST = "127.0.0.1"
 COMFY_PORT = 8188
 CHECKPOINT = "sd_xl_base_1.0.safetensors"
 MAX_BODY_BYTES = 16_384
-MAX_EDIT_BODY_BYTES = 8_000_000
+MAX_EDIT_BODY_BYTES = 18_000_000
 JOB_LOCK = threading.Lock()
 MANAGED_ENGINE = os.environ.get("ORCA_IMAGE_MANAGED_ENGINE", "1") == "1"
 IMAGE_WORKER = os.environ.get("ORCA_IMAGE_WORKER", "KILN")
@@ -32,7 +32,8 @@ IMAGE_WORKER = os.environ.get("ORCA_IMAGE_WORKER", "KILN")
 
 def validate_request(value: object) -> dict[str, object]:
     if not isinstance(value, dict) or set(value) - {
-            "prompt", "negative_prompt", "width", "height", "steps", "seed"}:
+            "prompt", "negative_prompt", "width", "height", "steps", "seed",
+            "cfg", "sampler", "scheduler"}:
         raise ValueError("image request has an invalid schema")
     prompt = value.get("prompt")
     if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > 1_500:
@@ -43,23 +44,36 @@ def validate_request(value: object) -> dict[str, object]:
     )
     if not isinstance(negative, str) or len(negative) > 1_000:
         raise ValueError("negative_prompt must contain at most 1000 characters")
-    width = value.get("width", 768)
-    height = value.get("height", 768)
+    width = value.get("width", 1024)
+    height = value.get("height", 1024)
+    allowed_dimensions = {
+        (512, 512), (768, 768), (1024, 1024),
+        (1216, 832), (832, 1216), (1152, 896), (896, 1152),
+    }
     if (type(width) is not int or type(height) is not int
-            or width not in {512, 640, 768} or height not in {512, 640, 768}
-            or width * height > 589_824):
-        raise ValueError("dimensions must be 512, 640, or 768 and at most 768x768")
-    steps = value.get("steps", 20)
-    if type(steps) is not int or not 1 <= steps <= 30:
-        raise ValueError("steps must be an integer from 1 to 30")
+            or (width, height) not in allowed_dimensions):
+        raise ValueError("dimensions must use an approved SDXL aspect ratio")
+    steps = value.get("steps", 28)
+    if type(steps) is not int or not 8 <= steps <= 40:
+        raise ValueError("steps must be an integer from 8 to 40")
+    cfg = value.get("cfg", 7.0)
+    if type(cfg) not in (float, int) or isinstance(cfg, bool) or not math.isfinite(cfg) or not 1 <= cfg <= 12:
+        raise ValueError("cfg must be a finite number from 1 to 12")
+    sampler = value.get("sampler", "dpmpp_2m")
+    if sampler not in {"dpmpp_2m", "dpmpp_sde", "euler_ancestral"}:
+        raise ValueError("sampler is not approved")
+    scheduler = value.get("scheduler", "karras")
+    if scheduler not in {"karras", "normal"}:
+        raise ValueError("scheduler is not approved")
     seed = value.get("seed")
     if seed is None:
-        seed = random.SystemRandom().randrange(0, 2**63)
-    if type(seed) is not int or not 0 <= seed < 2**63:
-        raise ValueError("seed must be an integer from 0 through 2^63-1")
+        seed = random.SystemRandom().randrange(0, 2**53)
+    if type(seed) is not int or not 0 <= seed < 2**53:
+        raise ValueError("seed must be a browser-safe integer from 0 through 2^53-1")
     return {
         "prompt": prompt.strip(), "negative_prompt": negative.strip(),
         "width": width, "height": height, "steps": steps, "seed": seed,
+        "cfg": float(cfg), "sampler": sampler, "scheduler": scheduler,
     }
 
 
@@ -74,8 +88,8 @@ def build_workflow(request: dict[str, object]) -> dict[str, object]:
         "4": {"class_type": "EmptyLatentImage", "inputs": {
             "width": request["width"], "height": request["height"], "batch_size": 1}},
         "5": {"class_type": "KSampler", "inputs": {
-            "seed": request["seed"], "steps": request["steps"], "cfg": 7.0,
-            "sampler_name": "euler", "scheduler": "normal", "denoise": 1.0,
+            "seed": request["seed"], "steps": request["steps"], "cfg": request["cfg"],
+            "sampler_name": request["sampler"], "scheduler": request["scheduler"], "denoise": 1.0,
             "model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0],
             "latent_image": ["4", 0]}},
         "6": {"class_type": "VAEDecode", "inputs": {
@@ -102,7 +116,7 @@ def build_workflow(request: dict[str, object]) -> dict[str, object]:
 
 def decode_png(value):
     """Accept only bounded, single-frame 8-bit RGB/RGBA PNGs; strip metadata."""
-    if not isinstance(value, str) or len(value) > 4_000_000:
+    if not isinstance(value, str) or len(value) > 8_000_000:
         raise ValueError("image must be a bounded base64 PNG")
     try:
         raw = base64.b64decode(value, validate=True)
@@ -125,9 +139,13 @@ def decode_png(value):
             if offset != 8 or size != 13:
                 raise ValueError("invalid PNG header")
             width, height, depth, color, compression, filtering, interlace = struct.unpack(">IIBBBBB", data)
-            if (not 64 <= width <= 768 or not 64 <= height <= 768 or width % 8 or height % 8
+            if (not 64 <= width <= 1216 or not 64 <= height <= 1216
+                    or width * height > 1_048_576 or width % 8 or height % 8
                     or depth != 8 or color not in (2, 6) or compression or filtering or interlace):
-                raise ValueError("PNG must be RGB/RGBA, 64-768 pixels, with dimensions divisible by 8")
+                raise ValueError(
+                    "PNG must be RGB/RGBA, 64-1216 pixels, at most 1048576 pixels, "
+                    "with dimensions divisible by 8"
+                )
             dimensions = (width, height)
             expected = (width * (3 if color == 2 else 4) + 1) * height
         elif kind == b"IDAT" and dimensions:
@@ -155,10 +173,12 @@ def decode_png(value):
 
 def validate_edit_request(value):
     if not isinstance(value, dict) or set(value) - {
-            "prompt", "negative_prompt", "steps", "seed", "image", "mask", "strength"}:
+            "prompt", "negative_prompt", "steps", "seed", "cfg", "sampler",
+            "scheduler", "image", "mask", "strength"}:
         raise ValueError("edit request has an invalid schema")
     request = validate_request({k: v for k, v in value.items()
-                                if k in {"prompt", "negative_prompt", "steps", "seed"}})
+                                if k in {"prompt", "negative_prompt", "steps", "seed",
+                                         "cfg", "sampler", "scheduler"}})
     strength = value.get("strength", .65)
     if type(strength) not in (float, int) or not math.isfinite(strength) or not .1 <= strength <= 1:
         raise ValueError("edit strength must be between 0.1 and 1")
@@ -292,6 +312,8 @@ class ImageBroker(BaseHTTPRequestHandler):
             return
         self._json({"status": "healthy", "engine": "ComfyUI", "model": CHECKPOINT,
                     "capabilities": ["generate", "image_to_image", "masked_edit"],
+                    "max_generation": "1216x832 / 1024x1024",
+                    "samplers": ["dpmpp_2m", "dpmpp_sde", "euler_ancestral"],
                     "worker": IMAGE_WORKER}, 200)
 
     def do_POST(self) -> None:
@@ -317,6 +339,9 @@ class ImageBroker(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "image/png")
             self.send_header("Content-Length", str(len(content)))
             self.send_header("X-ORCA-Image-Seed", str(request["seed"]))
+            self.send_header("X-ORCA-Image-Size", f'{request["width"]}x{request["height"]}')
+            self.send_header("X-ORCA-Image-Steps", str(request["steps"]))
+            self.send_header("X-ORCA-Image-Sampler", str(request["sampler"]))
             self.send_header("X-ORCA-Image-Worker", IMAGE_WORKER)
             self.send_header("X-ORCA-Comfy-Prompt", prompt_id)
             self.end_headers()
