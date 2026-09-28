@@ -23,10 +23,13 @@ READ_PATHS = (
     "/api/health", "/api/health", "/api/health", "/api/state",
     "/api/images/health", "/api/videos/health",
 )
+MODEL_HEALTH_PROMPT = (
+    "Provide a brief greeting. Do not request or use any tools."
+)
 MODEL_PROBES = (
-    ("kiln_codex", "orca", "Return only the word healthy."),
-    ("forge_qwen", "smith", "Return only the word healthy."),
-    ("kiln_quench", "quench", "Return only the word healthy."),
+    ("kiln_codex", "orca", MODEL_HEALTH_PROMPT),
+    ("forge_qwen", "smith", MODEL_HEALTH_PROMPT),
+    ("kiln_quench", "quench", MODEL_HEALTH_PROMPT),
 )
 IMAGE_PROMPTS = (
     "A realistic product photo of a compact black electronics module on a clean workbench, neutral labels, soft studio lighting, no brand marks",
