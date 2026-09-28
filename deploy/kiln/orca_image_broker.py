@@ -403,6 +403,19 @@ def _saved_media(entry: object, suffix: str) -> dict[str, object] | None:
     return None
 
 
+def video_model_ready() -> bool:
+    """Ask the running engine; broker sandboxing intentionally hides model files."""
+    try:
+        catalogs = {
+            VIDEO_MODEL: comfy_json("GET", "/object_info/UNETLoader", timeout=10),
+            VIDEO_VAE: comfy_json("GET", "/object_info/VAELoader", timeout=10),
+            VIDEO_ENCODER: comfy_json("GET", "/object_info/CLIPLoader", timeout=10),
+        }
+    except (OSError, RuntimeError, ValueError):
+        return False
+    return all(name in json.dumps(catalog) for name, catalog in catalogs.items())
+
+
 def generate_video(request: dict[str, object]) -> tuple[bytes, str]:
     if "image_bytes" in request:
         upload_edit_image(request["image_bytes"], "orca-video-source.png")
@@ -462,11 +475,7 @@ class ImageBroker(BaseHTTPRequestHandler):
         if self.path != "/health":
             self._json({"error": "not found"}, 404)
             return
-        video_ready = all(os.path.isfile(path) for path in (
-            f"/home/fryrocket/orca-comfyui/models/diffusion_models/{VIDEO_MODEL}",
-            f"/home/fryrocket/orca-comfyui/models/vae/{VIDEO_VAE}",
-            f"/home/fryrocket/orca-comfyui/models/text_encoders/{VIDEO_ENCODER}",
-        ))
+        video_ready = video_model_ready()
         capabilities = ["generate", "image_to_image", "masked_edit"]
         if video_ready:
             capabilities.extend(["text_to_video", "image_to_video", "mp4_export"])

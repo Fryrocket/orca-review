@@ -188,3 +188,19 @@ def test_saved_media_finds_nested_mp4_only():
     entry = {"gifs": [{"filename": "ORCA/video_00001.mp4", "subfolder": "ORCA", "type": "output"}]}
     assert broker._saved_media(entry, ".mp4")["filename"].endswith(".mp4")
     assert broker._saved_media(entry, ".png") is None
+
+
+def test_video_readiness_uses_running_engine_catalog_not_protected_files(monkeypatch):
+    def request(method, path, body=None, **kwargs):
+        assert method == "GET"
+        names = {
+            "/object_info/UNETLoader": broker.VIDEO_MODEL,
+            "/object_info/VAELoader": broker.VIDEO_VAE,
+            "/object_info/CLIPLoader": broker.VIDEO_ENCODER,
+        }
+        return {"node": {"input": {"required": {"model": [[names[path]]]}}}}
+    monkeypatch.setattr(broker, "comfy_json", request)
+    assert broker.video_model_ready() is True
+
+    monkeypatch.setattr(broker, "comfy_json", lambda *args, **kwargs: {})
+    assert broker.video_model_ready() is False
