@@ -295,6 +295,26 @@ def test_state_survives_restart(tmp_path):
     assert restored.jobs[job.id].status is JobStatus.PAUSED
 
 
+def test_legacy_iris_state_migrates_to_temper_on_restore(tmp_path):
+    path = tmp_path / "orca.db"
+    cp = ControlPlane(EvidenceStore(path))
+    job = cp.submit(title="legacy edge work", lane="bgm", requested_by="orca",
+                    assigned_to="smith", target_node="temper",
+                    action=Action("read", "sensor queue"))
+    job.target_node = "iris"
+    cp.paused_nodes.add("iris")
+    cp.node_health["iris"] = cp.node_health.pop("temper")
+    cp.node_enrollments["iris"] = {
+        "key_fingerprint": "legacy-fingerprint", "last_nonce": -1}
+    cp._persist()
+
+    restored = ControlPlane(EvidenceStore(path))
+    assert restored.jobs[job.id].target_node == "temper"
+    assert "temper" in restored.paused_nodes and "iris" not in restored.paused_nodes
+    assert "temper" in restored.node_health and "iris" not in restored.node_health
+    assert "temper" in restored.node_enrollments and "iris" not in restored.node_enrollments
+
+
 def test_global_emergency_stop_is_fry_only_persistent_and_fail_closed(tmp_path):
     path = tmp_path / "orca.db"
     cp = ControlPlane(EvidenceStore(path))

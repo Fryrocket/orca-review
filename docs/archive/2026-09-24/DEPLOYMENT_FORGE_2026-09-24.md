@@ -6,7 +6,7 @@
 - **KILN:** worker node and private SSH relay; it does not own ORCA state.
 - **ANVIL:** operator workstation; it accesses the console only through a persistent loopback tunnel.
 - **EMBER:** monitoring/backup node; no ORCA state or service was placed there.
-- **IRIS:** remains unproven and outside this deployment.
+- **TEMPER (then named IRIS):** remains unproven and outside this deployment.
 
 ## Release
 
@@ -46,4 +46,4 @@
 
 ## Remaining gates
 
-This is an observation-mode deployment, not cutover acceptance. Connector writes, provider mutations, model calls, spending, remote commands, automated scheduling/delivery, and GPU runtimes remain disabled. RX9700 installation/driver/runtime testing, authenticated node heartbeat enrollment, IRIS onboarding, trusted external evidence, provider credential restoration/rotation, and controlled failure/recovery drills remain open.
+This is an observation-mode deployment, not cutover acceptance. Connector writes, provider mutations, model calls, spending, remote commands, automated scheduling/delivery, and GPU runtimes remain disabled. RX9700 installation/driver/runtime testing, authenticated node heartbeat enrollment, TEMPER onboarding, trusted external evidence, provider credential restoration/rotation, and controlled failure/recovery drills remain open.

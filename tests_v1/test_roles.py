@@ -9,7 +9,7 @@ def test_complete_role_catalog_is_valid_and_visible():
     assert set(roles) == set(ROLE_CATALOG)
     assert {"orca", "smith", "qwen_conversation", "quench", "security_gate"} <= set(roles)
     assert {"anvil_reflex", "forge_retrieval", "ember_sentinel"} <= set(roles)
-    assert {"ampere", "relay", "iris", "heartbeat_agents", "fry"} <= set(roles)
+    assert {"ampere", "relay", "temper", "heartbeat_agents", "fry"} <= set(roles)
 
 
 def test_author_review_and_human_authority_stay_separate():
@@ -28,10 +28,10 @@ def test_models_and_retrieval_are_services_not_agents():
     assert "act_as_agent" in ROLE_CATALOG["qwen_conversation"].prohibited
 
 
-def test_candidates_and_iris_remain_inactive_and_lane_bounded():
-    assert all(not ROLE_CATALOG[x].active for x in ("ampere", "relay", "iris"))
-    assert ROLE_CATALOG["iris"].lanes == ("bgm",)
-    assert "body_action_without_r3" in ROLE_CATALOG["iris"].prohibited
+def test_candidates_and_temper_remain_inactive_and_lane_bounded():
+    assert all(not ROLE_CATALOG[x].active for x in ("ampere", "relay", "temper"))
+    assert ROLE_CATALOG["temper"].lanes == ("bgm",)
+    assert "body_action_without_r3" in ROLE_CATALOG["temper"].prohibited
 
 
 def test_every_core_bot_has_a_bounded_program_and_handoff():

@@ -22,7 +22,7 @@ approval after independent QUENCH review.
 | FORGE | Authoritative ORCA control plane and primary infrastructure/Gitea | Loopback-only service healthy; signed health agent healthy; remote execution disabled |
 | KILN | Inference/supporting-services worker and relay | Signed health and model inventories healthy; ORCA model invocation and commands disabled |
 | EMBER | Backup, monitoring, UPS/NUT, and recovery observer | No live ORCA enrollment or restore role proven |
-| IRIS | BGM edge client for MQTT/logging/calibration/inference/dashboard signals | Separate BGM lane; physical/production effects are R3 |
+| TEMPER | BGM edge client for MQTT/logging/calibration/Hailo inference/dashboard signals | Separate BGM lane; physical/production effects are R3 |
 
 FORGE is the active authoritative observation host. This does not constitute
 production cutover acceptance; connector writes, remote execution, model
@@ -76,7 +76,7 @@ invocation, and automatic failover remain disabled.
 
 ## Hardware acceptance matrix
 
-For each of ANVIL, FORGE, KILN, EMBER, and IRIS preserve evidence for:
+For each of ANVIL, FORGE, KILN, EMBER, and TEMPER preserve evidence for:
 
 - expected node fingerprint and lane;
 - successful fresh signed heartbeat and replay/stale/bad-signature rejection;
@@ -87,7 +87,7 @@ For each of ANVIL, FORGE, KILN, EMBER, and IRIS preserve evidence for:
 - no secret value in logs, state snapshots, alerts, or UI;
 - QUENCH review and Fry decision for every release-impacting exception.
 
-IRIS additionally requires an explicit BGM safety review before any MQTT write,
+TEMPER additionally requires an explicit BGM safety review before any MQTT write,
 calibration change, cellular action, physical output, or body-adjacent workflow.
 
 ## Release evidence required
@@ -105,7 +105,7 @@ calibration change, cellular action, physical output, or body-adjacent workflow.
   archive or deletion separately.
 
 This plan is not cutover approval. Signed health is established for ANVIL,
-FORGE, and KILN only; EMBER and IRIS remain outside the active ORCA deployment.
+FORGE, and KILN only; EMBER and TEMPER remain outside the active ORCA deployment.
 The offline readiness checker can inventory fixed-schema, revision-bound local
 artifacts, but reports them only as `present_unverified` and keeps them blocking.
 Local JSON cannot authenticate QUENCH, credential restoration, or deployment;

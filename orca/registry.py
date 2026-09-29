@@ -59,6 +59,9 @@ class FleetNode:
 
 
 # Inventory facts only. Runtime health starts unproven until a verified probe exists.
+LEGACY_NODE_IDS = {"iris": "temper"}
+
+
 NODES = {
     "anvil": FleetNode("anvil", "ANVIL", "forge", "workstation",
                        "operator console, development and review", "192.168.4.20 (local workstation)",
@@ -103,9 +106,17 @@ NODES = {
                        storage_gib=477, wired_network_mbps=1_000,
                        capabilities=("monitoring", "ups_watch", "watchdog",
                                      "backup_observer", "wake_signals", "local_arm64")),
-    "iris": FleetNode("iris", "IRIS", "bgm", "edge-ai",
-                      "MQTT, logging, calibration, inference and dashboards",
-                      "BGM LAN / cellular path", "R3"),
+    "temper": FleetNode("temper", "TEMPER", "bgm", "edge-ai",
+                        "MQTT, logging, calibration, Hailo inference and dashboards",
+                        "BGM LAN / cellular path", "R3",
+                        cpu="Broadcom BCM2712 quad-core Arm Cortex-A76",
+                        cpu_cores=4, cpu_threads=4, architecture="arm64",
+                        memory_gib=16,
+                        gpu="Hailo-8 edge AI accelerator (26 TOPS INT8)",
+                        storage_gib=500, wired_network_mbps=1_000,
+                        capabilities=("mqtt", "sensor_ingest", "signal_processing",
+                                      "calibration", "edge_inference",
+                                      "offline_queue", "dashboards", "local_arm64")),
 }
 
 

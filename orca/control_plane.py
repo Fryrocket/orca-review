@@ -14,7 +14,7 @@ from .security import redact, redact_text
 from .bots import BOT_BUILD_QUEUE, BotRegistry, MIGRATION_CANDIDATES
 from .evidence import EvidenceStore
 from .policy import PolicyEngine, PolicyViolation
-from .registry import AGENTS, CONNECTORS, LANES, NODES
+from .registry import AGENTS, CONNECTORS, LANES, LEGACY_NODE_IDS, NODES
 from .roles import role_snapshot
 from .state import StateStore, job_from_dict, job_to_dict
 from .costs import CostLedger
@@ -200,6 +200,21 @@ class ControlPlane:
         if not saved:
             return
         saved = redact(saved)
+        # Preserve old durable state while making TEMPER the only canonical and
+        # visible node identity. Evidence events remain immutable historical facts.
+        for row in saved.get("jobs", []):
+            legacy_target = row.get("target_node")
+            if legacy_target in LEGACY_NODE_IDS:
+                row["target_node"] = LEGACY_NODE_IDS[legacy_target]
+        for field in ("paused_nodes",):
+            saved[field] = [LEGACY_NODE_IDS.get(node_id, node_id)
+                            for node_id in saved.get(field, [])]
+        for field in ("node_health", "node_enrollments"):
+            mapping = saved.get(field, {})
+            for legacy_id, canonical_id in LEGACY_NODE_IDS.items():
+                if legacy_id in mapping and canonical_id not in mapping:
+                    mapping[canonical_id] = mapping[legacy_id]
+                mapping.pop(legacy_id, None)
         self.jobs = {row["id"]: job_from_dict(row) for row in saved.get("jobs", [])}
         self.approvals = {
             row["id"]: Approval(

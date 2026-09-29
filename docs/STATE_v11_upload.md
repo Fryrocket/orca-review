@@ -36,7 +36,7 @@ Supersedes v10 (2026-09-21T1618Z). Read this FIRST every session. Cap 100 lines.
 - Local-first routing; cloud fallback requires Fry R3 plus a positive cost cap.
 - Responsive operator console: overview, work, approvals, evidence, incidents,
   security, agents, fleet, connectors, and costs. Loopback bind by default.
-- Hardware fleet registry: ANVIL, FORGE, KILN, EMBER, and IRIS. Targeted jobs fail
+- Hardware fleet registry: ANVIL, FORGE, KILN, EMBER, and TEMPER. Targeted jobs fail
   closed while unproven; rekey invalidates health, receiver time drives expiry,
   and nonce state is locked under an owner-controlled directory plus injected transport.
 - Core bot definitions: ORCA, SMITH, QUENCH, and independent advisory security
@@ -60,7 +60,7 @@ Supersedes v10 (2026-09-21T1618Z). Read this FIRST every session. Cap 100 lines.
 - ANVIL reaches the console through a persistent loopback tunnel relayed by KILN; no LAN listener exists.
 - Alert delivery stays disabled; retention is guarded/audited with zero deletion.
 - Clean install/reconstruction passed 273 tests on schema v4 with integrity checks.
-- Live reads passed for ANVIL/FORGE/KILN/EMBER and six providers. ANVIL/FORGE/KILN heartbeats are live/restart-verified with remote execution disabled. IRIS, Cloudflare, credentials, and remaining rollout are open.
+- Live reads passed for ANVIL/FORGE/KILN/EMBER and six providers. ANVIL/FORGE/KILN heartbeats are live/restart-verified with remote execution disabled. TEMPER, Cloudflare, credentials, and remaining rollout are open.
 - Autonomous cloud budget remains zero. No model/API purchase is authorized.
 - Rendered desktop and 390×844 phone QA passed with no browser warnings/errors.
 - QUENCH verified exact clean commit `9eb7638`: 516 tests and isolated schema-v4 recovery passed. Trusted external evidence, approved-release/secret restore, and deployment drills remain open.

@@ -580,7 +580,7 @@ function render() {
   const events = state.events.slice(0, 30).map(eventRow).join('') || '<div class="stack empty">No evidence recorded.</div>';
   $('#event-list').innerHTML = events;
   $('#evidence-list').innerHTML = events;
-  $('#fabric-summary').innerHTML = state.nodes.filter(node => node.id !== 'iris').map(node => `<div class="fabric-node"><span><i style="background:${node.state === 'healthy' && !node.paused ? 'var(--mint)' : 'var(--amber)'}"></i>${esc(node.name)}</span><span>${node.paused ? 'paused' : esc(node.state)}</span></div>`).join('');
+  $('#fabric-summary').innerHTML = state.nodes.filter(node => node.id !== 'temper').map(node => `<div class="fabric-node"><span><i style="background:${node.state === 'healthy' && !node.paused ? 'var(--mint)' : 'var(--amber)'}"></i>${esc(node.name)}</span><span>${node.paused ? 'paused' : esc(node.state)}</span></div>`).join('');
   renderSafety(); renderSecurity(); renderAgents(); renderConnectors(); renderGovernance(); renderCosts(); renderActions(); renderCoderStack(); renderBusinessMetrics();
   renderInventoryWorkflows();
   if (typeof renderFabricTelemetry === 'function') renderFabricTelemetry(state.nodes);

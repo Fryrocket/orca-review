@@ -126,7 +126,7 @@ def build():
         para("BEFORE LIVE ROLLOUT - NOT REQUIRED TO KEEP CODING", SECTION),
         check("4. Confirm the service host and hardware availability.",
               "Confirm where ORCA should run and when ANVIL, FORGE, KILN, EMBER, and "
-              "IRIS are available for live checks using existing approved access."),
+              "TEMPER is available for live checks using existing approved access."),
         check("5. Confirm safe credential provisioning.",
               "Provide the approved secret-store reference, never a key in chat or "
               "documents. Replace exposed credentials before enabling providers."),

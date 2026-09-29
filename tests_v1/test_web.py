@@ -94,7 +94,7 @@ def test_state_endpoint_is_readable_and_truthful():
         assert {b["id"] for b in data["bots"]} == {
             "orca", "smith", "quench", "security_gate"}
         assert all(b["runtime_enabled"] is False for b in data["bots"])
-        assert {n["id"] for n in data["nodes"]} == {"anvil", "forge", "kiln", "ember", "iris"}
+        assert {n["id"] for n in data["nodes"]} == {"anvil", "forge", "kiln", "ember", "temper"}
         assert all(n["state"] == "unproven" for n in data["nodes"])
         assert all(c["writes_enabled"] is False for c in data["connectors"])
     finally:

@@ -17,7 +17,7 @@ chain corruption, stale revisions, or databases from a newer schema.
 
 ## Fleet scope
 
-ORCA governs work across the hardware fleet, not only the machine hosting the console. The initial registry contains ANVIL (operator workstation), FORGE (primary infrastructure and Gitea), KILN (inference and supporting services), EMBER (backup, monitoring and UPS/NUT), and IRIS (BGM edge/AI). Future nodes must be registered before jobs may target them.
+ORCA governs work across the hardware fleet, not only the machine hosting the console. The initial registry contains ANVIL (operator workstation), FORGE (primary infrastructure and Gitea), KILN (inference and supporting services), EMBER (backup, monitoring and UPS/NUT), and TEMPER (BGM edge/AI). Future nodes must be registered before jobs may target them.
 
 Every node-targeted job carries a stable node ID and project lane. Cross-lane targeting fails closed. Node health starts as `unproven`; inventory presence is not proof of reachability or service health. Per-node pause blocks new work for that node and emits hash-chained evidence. Enrollment is Fry-only, persists only a key fingerprint, and signed heartbeats enforce freshness and monotonic nonces. Stale contact degrades/offlines and pauses the node. Remote execution remains disabled until transport allowlists, scoped executors, rollback, emergency stop, and an independent review are implemented and approved.
 
@@ -78,7 +78,7 @@ The interface must be responsive, distinguish healthy/degraded/offline/unproven,
 - Author/reviewer/deployer separation is enforced end to end.
 - Every connector action is classified before execution.
 - Per-job pause and global emergency stop are tested.
-- Per-node pause, authenticated health reporting and fail-closed loss-of-contact behavior are tested on ANVIL, FORGE, KILN, EMBER and IRIS.
+- Per-node pause, authenticated health reporting and fail-closed loss-of-contact behavior are tested on ANVIL, FORGE, KILN, EMBER and TEMPER.
 - Dashboard works at phone and desktop widths without exposing secrets.
 - At least one advisory-only live workflow completes across Notion, Linear, Git and Drive.
 - Restore drill proves the control plane can be reconstructed from documented state.

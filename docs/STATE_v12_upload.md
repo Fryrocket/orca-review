@@ -23,7 +23,7 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
 - EMBER: `192.168.4.26`; Tailscale `100.87.165.66`; Raspberry Pi 4, 8 GB,
   512 GB USB SSD. CyberPower UPS is online at 100% charge and 4% load with
   7,025 seconds estimated runtime; no NUT errors appeared in the last 30 minutes.
-- IRIS was not proven online during this refresh. Do not infer a live address.
+- TEMPER was not proven online during this refresh. Do not infer a live address.
 
 ## CRUCIBLE AND GPU STATUS
 

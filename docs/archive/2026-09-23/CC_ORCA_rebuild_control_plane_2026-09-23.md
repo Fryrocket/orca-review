@@ -105,7 +105,7 @@ dated sections and the final acceptance slice are authoritative for current stat
 
 ## Fleet expansion — 2026-09-23
 
-ORCA now treats the hardware fleet as a first-class control surface. The registry includes ANVIL, FORGE, KILN, EMBER, and IRIS with stable IDs, duties, lanes, address labels, permission floors, pause state, and explicit remote-execution state. Jobs may target a node; unknown nodes and cross-lane targets fail closed. Per-node pause blocks newly submitted work and records hash-chained evidence. Node health supports healthy, degraded, offline, and unproven states with last-verification timestamps.
+ORCA now treats the hardware fleet as a first-class control surface. The registry includes ANVIL, FORGE, KILN, EMBER, and TEMPER (then named IRIS) with stable IDs, duties, lanes, address labels, permission floors, pause state, and explicit remote-execution state. Jobs may target a node; unknown nodes and cross-lane targets fail closed. Per-node pause blocks newly submitted work and records hash-chained evidence. Node health supports healthy, degraded, offline, and unproven states with last-verification timestamps.
 
 The operator console includes a Fleet view. Inventory presence is not reported as live health: every node starts unproven. Remote execution remains disabled on every node. No SSH action, service change, deployment, or physical action was performed.
 
@@ -237,7 +237,7 @@ These are bounded input-level signals, not proof of live repository policy, vuln
 
 ## Multi-host and migration design slice — 2026-09-23
 
-The HTTP server now refuses every non-loopback bind until reviewed transport security exists, closing accidental LAN/tailnet exposure through a CLI flag. `docs/MULTI_HOST_ROLLOUT_PLAN.md` defines a single-authoritative-writer topology, per-identity authenticated transport requirements, idempotency/revision fields, manual failover, transactional release migration, rollback evidence, and a hardware acceptance matrix for ANVIL, FORGE, KILN, EMBER, and IRIS. It explicitly forbids network-shared SQLite, automatic failover, connector writes, remote execution, secret copying, and production placement before the applicable reviews and Fry R3 decision. The canonical cc-bridge copy is [CC_ORCA_multi_host_rollout_2026-09-23.md](https://drive.google.com/file/d/1rtSBuoI2bvVSSrszkmjwJzJa8Jyufqq8/view?usp=drivesdk).
+The HTTP server now refuses every non-loopback bind until reviewed transport security exists, closing accidental LAN/tailnet exposure through a CLI flag. `docs/MULTI_HOST_ROLLOUT_PLAN.md` defines a single-authoritative-writer topology, per-identity authenticated transport requirements, idempotency/revision fields, manual failover, transactional release migration, rollback evidence, and a hardware acceptance matrix for ANVIL, FORGE, KILN, EMBER, and TEMPER (then named IRIS). It explicitly forbids network-shared SQLite, automatic failover, connector writes, remote execution, secret copying, and production placement before the applicable reviews and Fry R3 decision. The canonical cc-bridge copy is [CC_ORCA_multi_host_rollout_2026-09-23.md](https://drive.google.com/file/d/1rtSBuoI2bvVSSrszkmjwJzJa8Jyufqq8/view?usp=drivesdk).
 
 This is a design and fail-closed local control, not production deployment. Host placement, live credentials, transport implementation, real heartbeats, and migration execution remain unproven.
 
