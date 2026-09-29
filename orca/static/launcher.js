@@ -2,7 +2,8 @@
 const StudioLauncher = (() => {
   const views = {studio: 'studio', chat: 'studio', code: 'projects', canvas: 'canvas',
     inventory: 'inventory', engineering: 'engineering', operations: 'operations',
-    business: 'business', quasarvolt: 'business', 'quasarvolt supply': 'business',
+    business: 'business', quasarvolt: 'business', 'quasar vault': 'business',
+    'quasarvolt supply': 'business', 'quasar vault supply': 'business',
     'product builder': 'product-builder', 'product development': 'product-builder'};
   const operationsViews = {fabric: 'fleet', 'system health': 'fleet', fleet: 'fleet',
     'bot creator': 'bot-creator', bots: 'bot-creator', work: 'work', jobs: 'work',
@@ -77,7 +78,7 @@ const StudioLauncher = (() => {
   }
   function parseTask(text) {
     if (typeof text !== 'string' || text.length > 12000) return null;
-    const match = /^(?:(?:hey\s+)?orca[, ]+)?(?:(?:can|could|would|will) you\s+)?(?:please\s+)?(?:use|work (?:in|with))\s+(.+)$/i.exec(text.trim());
+    const match = /^(?:(?:hey\s+)?orca[, ]+)?(?:(?:can|could|would|will) you\s+)?(?:please\s+)?(?:use|work (?:in|with)|in)\s+(.+)$/i.exec(text.trim());
     if (!match || /\b(?:don't|do not|never)\s+(?:use|open|launch)\b/i.test(text)) return null;
     const remainder = match[1].replace(/\s*[.!?]?$/, '');
     const choices = [
@@ -90,6 +91,8 @@ const StudioLauncher = (() => {
       const pattern = new RegExp(`^${choice.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+(?:to|for)\\s+(.+)$`, 'i');
       const task = pattern.exec(remainder);
       if (task?.[1]?.trim()) return {...choice, kind: 'task', launchKind: choice.kind, task: task[1].trim()};
+      const colon = new RegExp(`^${choice.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[:,]\\s*(.+)$`, 'i').exec(remainder);
+      if (colon?.[1]?.trim()) return {...choice, kind: 'task', launchKind: choice.kind, task: colon[1].trim()};
     }
     return null;
   }

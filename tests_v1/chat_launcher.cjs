@@ -7,6 +7,12 @@ const {parse, parseTask, parseProject, webURL} = context.launcher;
 for (const text of ['Open Canvas', 'can you open the canvas?', 'Orca, please open canvas', 'show canvas please']) {
   assert.equal(parse(text).target, 'canvas', text);
 }
+for (const [text, target] of [['open studio', 'studio'], ['open code', 'projects'],
+  ['open canvas', 'canvas'], ['open inventory', 'inventory'],
+  ['open engineering', 'engineering'], ['open operations', 'operations'],
+  ['open Quasar Vault', 'business'], ['open product builder', 'product-builder']]) {
+  assert.equal(parse(text).target, target, text);
+}
 for (const [text, target] of [['open web browser', 'chrome'], ['open Chrome', 'chrome'],
   ['launch firefox', 'firefox'],
   ['open files', 'files'], ['open calculator', 'calculator'], ['open text editor', 'editor'],
@@ -40,6 +46,10 @@ assert.deepEqual(JSON.parse(JSON.stringify(parseTask('use FreeCAD to design an e
   {label: 'freecad', kind: 'task', target: 'freecad', launchKind: 'app', task: 'design an enclosure'});
 assert.deepEqual(JSON.parse(JSON.stringify(parseTask('use inventory to find 100 uF capacitors'))),
   {label: 'inventory', kind: 'task', target: 'inventory', launchKind: 'view', task: 'find 100 uF capacitors'});
+assert.deepEqual(JSON.parse(JSON.stringify(parseTask('in engineering, calculate a voltage divider'))),
+  {label: 'engineering', kind: 'task', target: 'engineering', launchKind: 'view', task: 'calculate a voltage divider'});
+assert.deepEqual(JSON.parse(JSON.stringify(parseTask('in Quasar Vault: research a product'))),
+  {label: 'quasar vault', kind: 'task', target: 'business', launchKind: 'view', task: 'research a product'});
 assert.equal(parseTask('explain how to use FreeCAD to design an enclosure'), null);
 assert.equal(parseTask('do not use FreeCAD to change this file'), null);
 for (const text of ['Do not open calculator', 'Explain how to open firefox', 'open terminal',
