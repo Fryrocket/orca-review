@@ -27,7 +27,17 @@ const StudioLauncher = (() => {
     'libreoffice draw': 'libreoffice_draw', 'libre office draw': 'libreoffice_draw',
     draw: 'libreoffice_draw', 'libreoffice impress': 'libreoffice_impress',
     'libre office impress': 'libreoffice_impress', impress: 'libreoffice_impress',
-    'libreoffice math': 'libreoffice_math', 'libre office math': 'libreoffice_math'};
+    'libreoffice math': 'libreoffice_math', 'libre office math': 'libreoffice_math',
+    'archive manager': 'archive_manager', calendar: 'calendar', characters: 'characters',
+    chatbox: 'chatbox', camera: 'cheese', cheese: 'cheese',
+    'document scanner': 'document_scanner', scanner: 'document_scanner',
+    'document viewer': 'document_viewer', 'pdf viewer': 'document_viewer',
+    fonts: 'fonts', 'font viewer': 'fonts', 'image viewer': 'image_viewer',
+    'power statistics': 'power_statistics', rhythmbox: 'rhythmbox',
+    'music player': 'rhythmbox', shotwell: 'shotwell', 'photo manager': 'shotwell',
+    thunderbird: 'thunderbird', mail: 'thunderbird', email: 'thunderbird',
+    'to do': 'todo', tasks: 'todo', videos: 'videos', 'video player': 'videos',
+    help: 'help'};
   const sites = {'google drive': 'https://drive.google.com/', 'quasarvolt drive': 'https://drive.google.com/drive/folders/1gDmk8L_NyVi6Hc7kSjIAQyhiAAyYOYl_',
     erpnext: 'https://erpnext.com/', paperless: 'https://docs.paperless-ngx.com/',
     documenso: 'https://docs.documenso.com/', metabase: 'https://www.metabase.com/docs/latest/',

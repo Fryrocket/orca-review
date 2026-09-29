@@ -15,7 +15,10 @@ for (const [text, target] of [['open web browser', 'browser'], ['launch firefox'
   ['open FreeCAD', 'freecad'], ['open LibreOffice', 'libreoffice'],
   ['open Writer', 'libreoffice_writer'], ['open LibreOffice calculator', 'libreoffice_calc'],
   ['open LibreOffice Draw', 'libreoffice_draw'], ['open Impress', 'libreoffice_impress'],
-  ['open LibreOffice Math', 'libreoffice_math']]) {
+  ['open LibreOffice Math', 'libreoffice_math'], ['open document scanner', 'document_scanner'],
+  ['open PDF viewer', 'document_viewer'], ['open image viewer', 'image_viewer'],
+  ['open Thunderbird', 'thunderbird'], ['open video player', 'videos'],
+  ['open calendar', 'calendar'], ['open archive manager', 'archive_manager']]) {
   assert.equal(parse(text).target, target);
 }
 assert.equal(parse('open notion').url, 'https://www.notion.so/');

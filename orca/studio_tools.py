@@ -20,8 +20,28 @@ APPLICATIONS = (
     "Web browser", "Files", "Calculator", "Text editor", "KiCad",
     "KiCad Image Converter", "KiCad PCB Calculator", "KiCad PCB Editor",
     "KiCad Schematic Editor", "KiCad Gerber Viewer", "FreeCAD", "LibreOffice", "Writer", "Calc", "Draw",
-    "Impress", "LibreOffice Math",
+    "Impress", "LibreOffice Math", "Archive Manager", "Calendar",
+    "Characters", "Chatbox", "Cheese", "Document Scanner", "Document Viewer",
+    "Fonts", "Image Viewer", "Power Statistics", "Rhythmbox", "Shotwell",
+    "Thunderbird Mail", "To Do", "Videos", "Help",
 )
+
+APPLICATION_POLICY = {
+    "automatic": (
+        "engineering, office, media, document, scanning, viewing, browser, calendar, "
+        "task, file and local utility applications"
+    ),
+    "approval_controlled": (
+        "sending mail or messages, publishing, purchases, account changes, credential entry, "
+        "downloads that execute software, printing, and external writes"
+    ),
+    "blocked": (
+        "terminal and console tools, passwords and keys, settings, disks, network configuration, "
+        "software installation or updates, startup configuration, remote desktop, peer-to-peer "
+        "transfer, service control, permissions, and security administration"
+    ),
+    "write_roots": ("ORCA Projects", "QuasarVolt business records", "explicitly selected user files"),
+}
 
 BUSINESS_AREAS = (
     "market and product discovery", "vendors and supplier intelligence",
@@ -38,7 +58,10 @@ SERVICE_ACCESS = (
     {"service": "KiCad suite", "access": ["open", "file_handoff"], "write_scope": "application-owned project files"},
     {"service": "FreeCAD", "access": ["open", "file_handoff"], "write_scope": "application-owned project files"},
     {"service": "LibreOffice suite", "access": ["open", "file_handoff"], "write_scope": "application-owned business and project files"},
-    {"service": "Web services", "access": ["open_governed_browser"], "write_scope": "no account write without approval"},
+    {"service": "Web services", "access": ["open_governed_browser", "navigate", "research", "prepare_forms"],
+     "write_scope": "downloads and uploads stay scoped; no account or external write without approval"},
+    {"service": "KILN non-core applications", "access": ["open", "task_handoff", "project_file_handoff"],
+     "write_scope": "approved project and business locations only"},
 )
 
 PROTECTED_CORE = (
@@ -73,6 +96,7 @@ class StudioReadTools:
             result["workspaces"] = WORKSPACES
         if area in {"all", "applications"}:
             result["applications"] = APPLICATIONS
+            result["application_policy"] = APPLICATION_POLICY
             result["service_access"] = SERVICE_ACCESS
         if area in {"all", "business"}:
             result["business_areas"] = BUSINESS_AREAS
