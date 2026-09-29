@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const context = vm.createContext({URL});
 vm.runInContext(fs.readFileSync('orca/static/launcher.js', 'utf8') + '\nglobalThis.launcher = StudioLauncher;', context);
-const {parse, parseProject, webURL} = context.launcher;
+const {parse, parseTask, parseProject, webURL} = context.launcher;
 for (const text of ['Open Canvas', 'can you open the canvas?', 'Orca, please open canvas', 'show canvas please']) {
   assert.equal(parse(text).target, 'canvas', text);
 }
@@ -31,6 +31,12 @@ assert.equal(parse('use inventory').target, 'inventory');
 assert.equal(parse('open system health').target, 'fleet');
 assert.equal(parse('open bot creator').target, 'bot-creator');
 assert.equal(parse('open example.com').url, 'https://example.com/');
+assert.deepEqual(JSON.parse(JSON.stringify(parseTask('use FreeCAD to design an enclosure'))),
+  {label: 'freecad', kind: 'task', target: 'freecad', launchKind: 'app', task: 'design an enclosure'});
+assert.deepEqual(JSON.parse(JSON.stringify(parseTask('use inventory to find 100 uF capacitors'))),
+  {label: 'inventory', kind: 'task', target: 'inventory', launchKind: 'view', task: 'find 100 uF capacitors'});
+assert.equal(parseTask('explain how to use FreeCAD to design an enclosure'), null);
+assert.equal(parseTask('do not use FreeCAD to change this file'), null);
 for (const text of ['Do not open calculator', 'Explain how to open firefox', 'open terminal',
   'open calculator and delete files', 'He said "open files"', 'open __proto__', 'open constructor']) {
   assert.equal(parse(text), null, text);

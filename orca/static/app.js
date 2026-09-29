@@ -457,6 +457,7 @@ async function runPrompt(prompt, mode = activeMode) {
   const history = boundedHistory(conversationHistory);
   const businessWorkflow = globalThis.ORCABusinessWorkflow?.take?.(prompt.trim()) || null;
   let businessJob = null;
+  let verifiedHandoff = '';
   appendUserMessage(prompt.trim());
   appendThinking(pcbRequest ? 'ORCA is creating an editable KiCad board draft…' : videoRequest ? 'CRUCIBLE is generating your video…' : imageRequest ? 'CRUCIBLE is generating your image…' : 'ORCA is working');
   try {
@@ -465,6 +466,21 @@ async function runPrompt(prompt, mode = activeMode) {
       const memory = await generateChatPCB(prompt);
       await rememberConversation(prompt.trim(), memory);
       return;
+    }
+    const toolTask = StudioLauncher.parseTask(prompt);
+    if (toolTask) {
+      if (toolTask.launchKind === 'view') {
+        show(toolTask.target);
+        verifiedHandoff = `ORCA opened the ${toolTask.label} workspace from the user's explicit request. Continue the requested task using only available governed tools.`;
+      } else if (toolTask.launchKind === 'operations') {
+        showOps(toolTask.target);
+        verifiedHandoff = `ORCA opened the ${toolTask.label} Operations room from the user's explicit request. Continue the requested task using only available governed tools.`;
+      } else {
+        const outcome = await StudioLauncher.launch(toolTask);
+        verifiedHandoff = outcome.ok
+          ? `KILN accepted the user's explicit request to open ${toolTask.label}. Continue the task, but do not claim control of that application's interface or unsaved files.`
+          : `${toolTask.label} could not be opened: ${outcome.message} Continue only with chat capabilities and state the limitation if it matters.`;
+      }
     }
     const project = StudioLauncher.parseProject(prompt);
     if (project) {
@@ -505,7 +521,8 @@ async function runPrompt(prompt, mode = activeMode) {
     let result, imagePrompt = imageRequest ? prompt : null;
     let videoPrompt = videoRequest ? prompt : null;
     if (mode === 'auto' && !videoRequest) {
-      const chosen = await postChat(prompt.trim(), history, businessJob?.id || null);
+      const inferencePrompt = verifiedHandoff ? `${prompt.trim()}\n\nVerified ORCA handoff: ${verifiedHandoff}` : prompt.trim();
+      const chosen = await postChat(inferencePrompt, history, businessJob?.id || null);
       if (!routes[chosen.mode] || chosen.mode === 'auto') throw Error('Studio returned an unknown capability.');
       route = routes[chosen.mode];
       imagePrompt = chosen.mode === 'photo' ? chosen.image_prompt : null;
@@ -513,7 +530,10 @@ async function runPrompt(prompt, mode = activeMode) {
       if (imagePrompt) {
         $('#active-thinking')?.remove(); appendThinking('CRUCIBLE is generating your image…');
       }
-    } else if (!imageRequest && !videoRequest) result = await postInference(prompt.trim(), mode, history);
+    } else if (!imageRequest && !videoRequest) {
+      const inferencePrompt = verifiedHandoff ? `${prompt.trim()}\n\nVerified ORCA handoff: ${verifiedHandoff}` : prompt.trim();
+      result = await postInference(inferencePrompt, mode, history);
+    }
     if (videoPrompt) {
       const memory = await generateChatVideo(videoPrompt);
       await rememberConversation(prompt.trim(), memory);

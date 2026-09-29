@@ -33,6 +33,20 @@ BUSINESS_AREAS = (
     "agent control and business simulation",
 )
 
+SERVICE_ACCESS = (
+    {"service": "KiCad PCB Editor", "access": ["open", "create_draft", "save_project_artifact"], "write_scope": "ORCA Projects only"},
+    {"service": "KiCad suite", "access": ["open", "file_handoff"], "write_scope": "application-owned project files"},
+    {"service": "FreeCAD", "access": ["open", "file_handoff"], "write_scope": "application-owned project files"},
+    {"service": "LibreOffice suite", "access": ["open", "file_handoff"], "write_scope": "application-owned business and project files"},
+    {"service": "Web services", "access": ["open_governed_browser"], "write_scope": "no account write without approval"},
+)
+
+PROTECTED_CORE = (
+    "ORCA source code and active release", "policy and approval rules",
+    "authentication and secrets", "service units and deployment configuration",
+    "evidence integrity controls and rollback assets",
+)
+
 
 class StudioReadTools:
     """Read-only bridge from ORCA Chat to Studio's registered capabilities."""
@@ -50,17 +64,23 @@ class StudioReadTools:
                 "Read-only inspection may run directly. Stock changes, spending, publishing, "
                 "external messages, permissions, deletion and irreversible actions remain approval-controlled."
             ),
+            "core_authority": (
+                "External authenticated Frontier engineering sessions only; ORCA Chat, local models, "
+                "custom bots, workflows, plugins and KILN applications are excluded."
+            ),
         }
         if area in {"all", "workspaces"}:
             result["workspaces"] = WORKSPACES
         if area in {"all", "applications"}:
             result["applications"] = APPLICATIONS
+            result["service_access"] = SERVICE_ACCESS
         if area in {"all", "business"}:
             result["business_areas"] = BUSINESS_AREAS
         if area in {"all", "tools"}:
             snapshot = self.control_snapshot()
             result["read_tools"] = snapshot.get("tool_catalog", {})
             result["connectors"] = snapshot.get("connector_capabilities", [])
+        result["protected_core"] = PROTECTED_CORE
         return result
 
     def inventory_search(self, *, query: str = "", state: str = "all", limit: int = 20) -> dict:

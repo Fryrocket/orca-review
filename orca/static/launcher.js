@@ -64,6 +64,24 @@ const StudioLauncher = (() => {
     }
     return null;
   }
+  function parseTask(text) {
+    if (typeof text !== 'string' || text.length > 12000) return null;
+    const match = /^(?:(?:hey\s+)?orca[, ]+)?(?:(?:can|could|would|will) you\s+)?(?:please\s+)?(?:use|work (?:in|with))\s+(.+)$/i.exec(text.trim());
+    if (!match || /\b(?:don't|do not|never)\s+(?:use|open|launch)\b/i.test(text)) return null;
+    const remainder = match[1].replace(/\s*[.!?]?$/, '');
+    const choices = [
+      ...Object.entries(views).map(([label, target]) => ({label, kind: 'view', target})),
+      ...Object.entries(operationsViews).map(([label, target]) => ({label, kind: 'operations', target})),
+      ...Object.entries(apps).map(([label, target]) => ({label, kind: 'app', target})),
+      ...Object.entries(sites).map(([label, url]) => ({label, kind: 'app', target: 'browser', url})),
+    ].sort((left, right) => right.label.length - left.label.length);
+    for (const choice of choices) {
+      const pattern = new RegExp(`^${choice.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+(?:to|for)\\s+(.+)$`, 'i');
+      const task = pattern.exec(remainder);
+      if (task?.[1]?.trim()) return {...choice, kind: 'task', launchKind: choice.kind, task: task[1].trim()};
+    }
+    return null;
+  }
   function parseProject(text) {
     if (typeof text !== 'string' || text.length > 2000) return null;
     const value = text.trim();
@@ -122,5 +140,5 @@ const StudioLauncher = (() => {
       catch { clearTimeout(timer); pending.delete(id); resolve({ok: false, message: 'KILN could not receive the CAD draft.'}); }
     });
   }
-  return {parse, parseProject, webURL, launch, createProject, openArtifact, saveCadDraft};
+  return {parse, parseTask, parseProject, webURL, launch, createProject, openArtifact, saveCadDraft};
 })();
