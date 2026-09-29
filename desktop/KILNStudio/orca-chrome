@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+profile_root="${HOME}/.local/share/orca-browser/profile"
+mkdir -p -m 0700 "$profile_root"
+
+for target in "$@"; do
+  case "$target" in
+    http://*|https://*) ;;
+    *) exit 64 ;;
+  esac
+done
+
+exec /usr/bin/google-chrome-stable \
+  --user-data-dir="$profile_root" \
+  --no-first-run \
+  --no-default-browser-check \
+  --new-window \
+  "$@"

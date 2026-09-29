@@ -20,7 +20,7 @@ from gi.repository import Gdk, Gio, GLib, Gtk, WebKit2  # noqa: E402
 STUDIO_URL = "http://127.0.0.1:8788/"
 STUDIO_ORIGIN = ("http", "127.0.0.1", 8788)
 APP_IDS = {
-    "chrome": "google-chrome.desktop",
+    "chrome": "orca-chrome.desktop",
     "firefox": "firefox.desktop",
     "files": "org.gnome.Nautilus.desktop",
     "calculator": "org.gnome.Calculator.desktop",
@@ -55,7 +55,8 @@ APP_IDS = {
     "videos": "org.gnome.Totem.desktop",
     "help": "yelp.desktop",
 }
-KICAD10_APPS = {
+LOCAL_APPS = {
+    "chrome",
     "kicad", "kicad_image_converter", "kicad_pcb_calculator",
     "kicad_pcb_editor", "kicad_schematic_editor", "kicad_gerber_viewer",
 }
@@ -146,7 +147,7 @@ def validate_cad_draft_request(payload):
 
 def desktop_app_info(app):
     """Resolve only fixed allowlisted desktop entries from trusted directories."""
-    root = Path.home() / ".local/share/applications" if app in KICAD10_APPS else Path("/usr/share/applications")
+    root = Path.home() / ".local/share/applications" if app in LOCAL_APPS else Path("/usr/share/applications")
     return Gio.DesktopAppInfo.new_from_filename(str(root / APP_IDS[app]))
 
 
