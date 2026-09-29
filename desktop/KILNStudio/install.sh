@@ -9,9 +9,14 @@ desktop_dir="${HOME}/Desktop"
 
 install -d -m 0755 "$app_dir" "$launcher_dir" "$icon_dir" "$desktop_dir"
 install -m 0755 "$root_dir/kiln-studio.py" "$app_dir/kiln-studio.py"
+install -m 0644 "$root_dir/project_builder.py" "$app_dir/project_builder.py"
+install -m 0755 "$root_dir/kicad10-launch" "$app_dir/kicad10-launch"
 install -m 0644 "$root_dir/kiln-studio.svg" "$icon_dir/kiln-studio.svg"
 install -m 0755 "$root_dir/kiln-studio.desktop" "$launcher_dir/kiln-studio.desktop"
 install -m 0755 "$root_dir/kiln-studio.desktop" "$desktop_dir/KILN Studio.desktop"
+for launcher in "$root_dir"/kicad10/*.desktop; do
+  install -m 0644 "$launcher" "$launcher_dir/$(basename "$launcher")"
+done
 
 if command -v update-desktop-database >/dev/null 2>&1; then
   update-desktop-database "$launcher_dir" >/dev/null 2>&1 || true

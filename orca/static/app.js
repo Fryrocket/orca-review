@@ -320,6 +320,52 @@ function wantsChatVideo(prompt, mode) {
   text = text.replace(/^please\s+/, '');
   return /^(?:generate|create|make|render|produce)\s+(?:me\s+)?(?:a\s+)?(?:short\s+)?(?:video|clip|animation)\b/.test(text);
 }
+function wantsChatPCB(prompt) {
+  let text = prompt.trim().toLowerCase();
+  if (/\b(?:don't|do not|never)\s+(?:generate|create|make|write|build)\b/.test(text)) return false;
+  if (/^(?:how|why|explain|describe|review|open|show)\b/.test(text)) return false;
+  text = text.replace(/^(?:(?:hey[ ,]+)?orca[,:]?\s+)?(?:(?:please|can you|could you|would you|will you)\s+)*/, '');
+  text = text.replace(/^(?:i\s+(?:want|need|would like)|i'd like)\s+(?:you to\s+)?/, '');
+  return /^(?:generate|create|make|write|build|lay out)\b[^\n]{0,200}\b(?:\.kicad_pcb|kicad\s+(?:pcb|board)|pcb\s+(?:file|board|layout))\b/i.test(text)
+    || /^\/pcb\s+\S/i.test(prompt.trim());
+}
+async function generateChatPCB(prompt) {
+  const boardPrompt = prompt.trim().replace(/^\/pcb\s+/i, '');
+  const response = await fetch('/api/cad/pcb-draft', {
+    method: 'POST', headers: {'Content-Type': 'application/json',
+      'X-ORCA-Identity': studioAuth.identity, 'X-ORCA-Identity-Token': studioAuth.token},
+    body: JSON.stringify({prompt: boardPrompt})
+  });
+  let result;
+  try { result = await response.json(); } catch { throw Error('CAD service returned an unreadable response.'); }
+  if (!response.ok) throw Error(result.error || `PCB draft creation failed (${response.status})`);
+  const blob = new Blob([result.content], {type: 'application/x-kicad-pcb'});
+  const url = URL.createObjectURL(blob); chatImageURLs.add(url);
+  $('#active-thinking')?.remove();
+  const item = document.createElement('div'); item.className = 'message assistant';
+  const bubble = document.createElement('div'); bubble.className = 'bubble chat-image-result';
+  const heading = document.createElement('h3'); heading.textContent = 'Editable KiCad PCB draft';
+  const note = document.createElement('p');
+  note.textContent = `${result.preset} · ${result.width_mm} × ${result.height_mm} mm · Unrouted engineering draft. Verify schematic, nets, footprints, clearances, stackup, ERC and DRC before fabrication.`;
+  const download = document.createElement('a');
+  download.href = url; download.download = result.filename;
+  download.textContent = `Save ${result.filename}`; download.className = 'chat-image-download';
+  bubble.append(heading, note, download);
+  if (globalThis.ORCA_DESKTOP_APP) {
+    const open = document.createElement('button'); open.type = 'button';
+    open.className = 'chat-image-download'; open.textContent = 'Save and open in PCB Editor';
+    open.addEventListener('click', async () => {
+      open.disabled = true;
+      const outcome = await StudioLauncher.saveCadDraft(result.filename, result.content);
+      note.textContent = outcome.message;
+      open.disabled = false;
+    });
+    bubble.append(open);
+  }
+  item.append(bubble); $('#conversation').append(item);
+  $('#conversation').scrollTop = $('#conversation').scrollHeight;
+  return `Created ${result.filename} as an editable, unrouted KiCad PCB draft in chat. Manufacturing release remains blocked until schematic, footprint, ERC, DRC and engineering review are complete.`;
+}
 async function generateChatImage(prompt) {
   const imagePrompt = prompt.trim().replace(/^\/image\s+/i, '');
   if (!imagePrompt || imagePrompt.length > 1500) throw Error('Please use an image description of 1–1,500 characters.');
@@ -404,16 +450,22 @@ async function runPrompt(prompt, mode = activeMode) {
   if (inferencePending || !prompt.trim()) return;
   inferencePending = true;
   $('#send-prompt').disabled = true;
-  const videoRequest = wantsChatVideo(prompt, mode);
-  const imageRequest = !videoRequest && mode !== 'auto' && wantsChatImage(prompt, mode);
-  let route = routes[videoRequest ? 'video' : imageRequest ? 'photo' : mode];
+  const pcbRequest = wantsChatPCB(prompt);
+  const videoRequest = !pcbRequest && wantsChatVideo(prompt, mode);
+  const imageRequest = !pcbRequest && !videoRequest && mode !== 'auto' && wantsChatImage(prompt, mode);
+  let route = routes[pcbRequest ? 'engineer' : videoRequest ? 'video' : imageRequest ? 'photo' : mode];
   const history = boundedHistory(conversationHistory);
   const businessWorkflow = globalThis.ORCABusinessWorkflow?.take?.(prompt.trim()) || null;
   let businessJob = null;
   appendUserMessage(prompt.trim());
-  appendThinking(videoRequest ? 'CRUCIBLE is generating your video…' : imageRequest ? 'CRUCIBLE is generating your image…' : 'ORCA is working');
+  appendThinking(pcbRequest ? 'ORCA is creating an editable KiCad board draft…' : videoRequest ? 'CRUCIBLE is generating your video…' : imageRequest ? 'CRUCIBLE is generating your image…' : 'ORCA is working');
   try {
     if (businessWorkflow) businessJob = await startBusinessWorkflow(businessWorkflow);
+    if (pcbRequest) {
+      const memory = await generateChatPCB(prompt);
+      await rememberConversation(prompt.trim(), memory);
+      return;
+    }
     const project = StudioLauncher.parseProject(prompt);
     if (project) {
       const plan = await postProjectPlan(project.prompt);

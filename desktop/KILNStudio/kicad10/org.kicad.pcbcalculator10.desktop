@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=KiCad 10 PCB Calculator
+Comment=PCB electrical and mechanical calculator
+Exec=/home/fryrocket/.local/lib/kiln-studio/kicad10-launch pcb_calculator
+Icon=org.kicad.pcbcalculator
+Terminal=false
+Categories=Development;Electronics;
+StartupNotify=true

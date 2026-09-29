@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=KiCad 10 PCB Editor
+Comment=Create and edit printed circuit boards
+Exec=/home/fryrocket/.local/lib/kiln-studio/kicad10-launch pcbnew %f
+Icon=org.kicad.pcbnew
+Terminal=false
+Categories=Development;Electronics;
+StartupNotify=true
+MimeType=application/x-kicad-pcb;

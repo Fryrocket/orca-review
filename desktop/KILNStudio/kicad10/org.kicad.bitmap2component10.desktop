@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=KiCad 10 Image Converter
+Comment=Convert bitmap images to KiCad graphics
+Exec=/home/fryrocket/.local/lib/kiln-studio/kicad10-launch bitmap2component %f
+Icon=org.kicad.bitmap2component
+Terminal=false
+Categories=Graphics;Electronics;
+StartupNotify=true

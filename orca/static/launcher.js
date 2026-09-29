@@ -16,7 +16,10 @@ const StudioLauncher = (() => {
     'kicad pcb calculator': 'kicad_pcb_calculator', 'pcb calculator': 'kicad_pcb_calculator',
     'kicad pcb editor': 'kicad_pcb_editor', 'pcb editor': 'kicad_pcb_editor', pcbnew: 'kicad_pcb_editor',
     'kicad schematic editor': 'kicad_schematic_editor', 'schematic editor': 'kicad_schematic_editor',
-    eeschema: 'kicad_schematic_editor', libreoffice: 'libreoffice', 'libre office': 'libreoffice',
+    eeschema: 'kicad_schematic_editor', 'kicad gerber viewer': 'kicad_gerber_viewer',
+    'gerber viewer': 'kicad_gerber_viewer', gerbview: 'kicad_gerber_viewer',
+    freecad: 'freecad', 'free cad': 'freecad',
+    libreoffice: 'libreoffice', 'libre office': 'libreoffice',
     'libreoffice writer': 'libreoffice_writer', 'libre office writer': 'libreoffice_writer',
     writer: 'libreoffice_writer', 'libreoffice calc': 'libreoffice_calc',
     'libre office calc': 'libreoffice_calc', 'libreoffice calculator': 'libreoffice_calc',
@@ -35,7 +38,9 @@ const StudioLauncher = (() => {
     'amazon seller': 'https://sellercentral.amazon.com/', 'seller central': 'https://sellercentral.amazon.com/',
     'ebay seller': 'https://www.ebay.com/sh/ovw',
     'alibaba seller': 'https://seller.alibaba.com/', 'alibaba.com seller': 'https://seller.alibaba.com/',
-    'temu seller': 'https://seller.temu.com/', aws: 'https://console.aws.amazon.com/'};
+    'temu seller': 'https://seller.temu.com/', aws: 'https://console.aws.amazon.com/',
+    easyeda: 'https://easyeda.com/editor', 'easyeda editor': 'https://easyeda.com/editor',
+    'kicad documentation': 'https://docs.kicad.org/'};
   function webURL(value) {
     if (typeof value !== 'string' || value.length > 2048 || /[\s\\]/.test(value)) return null;
     try {
@@ -106,5 +111,16 @@ const StudioLauncher = (() => {
       catch { clearTimeout(timer); pending.delete(id); resolve({ok: false, message: 'KILN could not receive the artifact request.'}); }
     });
   }
-  return {parse, parseProject, webURL, launch, createProject, openArtifact};
+  function saveCadDraft(filename, content) {
+    const handler = globalThis.webkit?.messageHandlers?.orcaLauncher;
+    if (!handler) return Promise.resolve({ok: false, message: 'Saving and opening CAD files requires native KILN Studio. You can still download the board from chat.'});
+    const id = globalThis.crypto.randomUUID();
+    return new Promise(resolve => {
+      const timer = setTimeout(() => { pending.delete(id); resolve({ok: false, message: 'No CAD save confirmation received.'}); }, 20000);
+      pending.set(id, result => { clearTimeout(timer); resolve(result); });
+      try { handler.postMessage(JSON.stringify({id, action: 'save_cad_draft', filename, content})); }
+      catch { clearTimeout(timer); pending.delete(id); resolve({ok: false, message: 'KILN could not receive the CAD draft.'}); }
+    });
+  }
+  return {parse, parseProject, webURL, launch, createProject, openArtifact, saveCadDraft};
 })();

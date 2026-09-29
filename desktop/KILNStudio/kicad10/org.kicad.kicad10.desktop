@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=KiCad 10
+Comment=Electronic design automation suite
+Exec=/home/fryrocket/.local/lib/kiln-studio/kicad10-launch %F
+Icon=org.kicad.kicad
+Terminal=false
+Categories=Development;Electronics;
+StartupNotify=true
+MimeType=application/x-kicad-project;

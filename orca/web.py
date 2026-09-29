@@ -498,7 +498,7 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     "nonce": heartbeat.nonce,
                     "status": "accepted",
                 }, HTTPStatus.OK)
-            if path in {"/api/inference", "/api/chat", "/api/memory", "/api/science", "/api/engineering", "/api/project/plan"}:
+            if path in {"/api/inference", "/api/chat", "/api/memory", "/api/science", "/api/engineering", "/api/project/plan", "/api/cad/pcb-draft"}:
                 try:
                     authenticated_identity = self._authenticate_mutation()
                 except IdentityAuthenticationError as exc:
@@ -512,6 +512,11 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     raise IdentityAuthorizationError(
                         "only Fry may initiate local model inference")
                 data = self._body()
+                if path == "/api/cad/pcb-draft":
+                    if set(data) != {"prompt"}:
+                        raise ValueError("PCB draft creation requires one prompt")
+                    from .cad import create_kicad_pcb_draft
+                    return self._json(create_kicad_pcb_draft(data["prompt"]))
                 if path == "/api/project/plan":
                     if set(data) != {"prompt"}:
                         raise ValueError("Project planning requires one prompt")

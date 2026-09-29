@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=KiCad 10 Schematic Editor
+Comment=Create and edit electronic schematics
+Exec=/home/fryrocket/.local/lib/kiln-studio/kicad10-launch eeschema %f
+Icon=org.kicad.eeschema
+Terminal=false
+Categories=Development;Electronics;
+StartupNotify=true
+MimeType=application/x-kicad-schematic;

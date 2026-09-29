@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# KiCad 10's local API accepts same-user automation.  Keep its socket directory
+# private even when the graphical login session uses a collaborative umask.
+umask 077
+exec /opt/kicad/10.0.6/kicad-10.0.6-x86_64.AppImage "$@"

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=KiCad 10 Gerber Viewer
+Exec=/home/fryrocket/.local/lib/kiln-studio/kicad10-launch gerbview %f
+Icon=org.kicad.gerbview
+Terminal=false
+Categories=Development;Electronics;
+MimeType=application/x-gerber;

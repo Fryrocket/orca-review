@@ -11,7 +11,8 @@ for (const [text, target] of [['open web browser', 'browser'], ['launch firefox'
   ['open files', 'files'], ['open calculator', 'calculator'], ['open text editor', 'editor'],
   ['open KiCad', 'kicad'], ['open KiCad image converter', 'kicad_image_converter'],
   ['open PCB calculator', 'kicad_pcb_calculator'], ['open PCB editor', 'kicad_pcb_editor'],
-  ['open schematic editor', 'kicad_schematic_editor'], ['open LibreOffice', 'libreoffice'],
+  ['open schematic editor', 'kicad_schematic_editor'], ['open Gerber viewer', 'kicad_gerber_viewer'],
+  ['open FreeCAD', 'freecad'], ['open LibreOffice', 'libreoffice'],
   ['open Writer', 'libreoffice_writer'], ['open LibreOffice calculator', 'libreoffice_calc'],
   ['open LibreOffice Draw', 'libreoffice_draw'], ['open Impress', 'libreoffice_impress'],
   ['open LibreOffice Math', 'libreoffice_math']]) {
@@ -23,6 +24,8 @@ assert.equal(parse('open erpnext').url, 'https://erpnext.com/');
 assert.equal(parse('open paperless').url, 'https://docs.paperless-ngx.com/');
 assert.equal(parse('open documenso').url, 'https://docs.documenso.com/');
 assert.equal(parse('open metabase').url, 'https://www.metabase.com/docs/latest/');
+assert.equal(parse('open easyeda').url, 'https://easyeda.com/editor');
+assert.equal(parse('open kicad documentation').url, 'https://docs.kicad.org/');
 assert.equal(parse('open product builder').target, 'product-builder');
 assert.equal(parse('use inventory').target, 'inventory');
 assert.equal(parse('open system health').target, 'fleet');
@@ -52,7 +55,8 @@ const calls = [];
 const runContext = vm.createContext({StudioLauncher: context.launcher,
   inferencePending: false, activeMode: 'auto', conversationHistory: [],
   routes: {auto: {}, reason: {}}, $: () => ({disabled: false}),
-  wantsChatImage: () => false, wantsChatVideo: () => false, boundedHistory: () => [],
+  wantsChatImage: () => false, wantsChatVideo: () => false, wantsChatPCB: () => false,
+  boundedHistory: () => [],
   appendUserMessage: () => {}, appendThinking: () => {},
   show: id => calls.push(['show', id]), appendAssistant: value => calls.push(['reply', value.summary]),
   showOps: id => calls.push(['ops', id]),

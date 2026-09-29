@@ -19,7 +19,7 @@ WORKSPACES = (
 APPLICATIONS = (
     "Web browser", "Files", "Calculator", "Text editor", "KiCad",
     "KiCad Image Converter", "KiCad PCB Calculator", "KiCad PCB Editor",
-    "KiCad Schematic Editor", "LibreOffice", "Writer", "Calc", "Draw",
+    "KiCad Schematic Editor", "KiCad Gerber Viewer", "FreeCAD", "LibreOffice", "Writer", "Calc", "Draw",
     "Impress", "LibreOffice Math",
 )
 
