@@ -35,7 +35,7 @@ def test_chat_capability_registry_covers_every_sidebar_workspace_and_apps():
         "studio", "projects", "canvas", "inventory", "engineering",
         "operations", "business", "product-builder",
     }
-    assert {"KiCad PCB Editor", "Writer", "Calc", "Web browser", "Document Scanner",
+    assert {"KiCad PCB Editor", "Writer", "Calc", "Web browser (Google Chrome)", "Document Scanner",
             "Image Viewer", "Thunderbird Mail", "Videos"} <= set(result["applications"])
     assert "web.search" in result["read_tools"]
     assert "approval-controlled" in result["governance"]

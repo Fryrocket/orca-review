@@ -7,7 +7,8 @@ const {parse, parseTask, parseProject, webURL} = context.launcher;
 for (const text of ['Open Canvas', 'can you open the canvas?', 'Orca, please open canvas', 'show canvas please']) {
   assert.equal(parse(text).target, 'canvas', text);
 }
-for (const [text, target] of [['open web browser', 'browser'], ['launch firefox', 'firefox'],
+for (const [text, target] of [['open web browser', 'chrome'], ['open Chrome', 'chrome'],
+  ['launch firefox', 'firefox'],
   ['open files', 'files'], ['open calculator', 'calculator'], ['open text editor', 'editor'],
   ['open KiCad', 'kicad'], ['open KiCad image converter', 'kicad_image_converter'],
   ['open PCB calculator', 'kicad_pcb_calculator'], ['open PCB editor', 'kicad_pcb_editor'],
@@ -21,6 +22,7 @@ for (const [text, target] of [['open web browser', 'browser'], ['launch firefox'
   ['open calendar', 'calendar'], ['open archive manager', 'archive_manager']]) {
   assert.equal(parse(text).target, target);
 }
+assert.equal(parse('open notion').target, 'chrome');
 assert.equal(parse('open notion').url, 'https://www.notion.so/');
 assert.equal(parse('open quasarvolt drive').url, 'https://drive.google.com/drive/folders/1gDmk8L_NyVi6Hc7kSjIAQyhiAAyYOYl_');
 assert.equal(parse('open erpnext').url, 'https://erpnext.com/');

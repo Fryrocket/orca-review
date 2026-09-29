@@ -20,6 +20,7 @@ from gi.repository import Gdk, Gio, GLib, Gtk, WebKit2  # noqa: E402
 STUDIO_URL = "http://127.0.0.1:8788/"
 STUDIO_ORIGIN = ("http", "127.0.0.1", 8788)
 APP_IDS = {
+    "chrome": "google-chrome.desktop",
     "firefox": "firefox.desktop",
     "files": "org.gnome.Nautilus.desktop",
     "calculator": "org.gnome.Calculator.desktop",
@@ -90,7 +91,7 @@ def validate_launch(payload):
     app, uri = payload["app"], payload["url"]
     if not isinstance(app, str) or app not in {*APP_IDS, "browser"}:
         raise ValueError("App is not in the launch allowlist")
-    if not isinstance(uri, str) or (uri and (app != "browser" or not valid_web_url(uri))):
+    if not isinstance(uri, str) or (uri and (app not in {"browser", "chrome"} or not valid_web_url(uri))):
         raise ValueError("Invalid website address")
     return app, uri
 
@@ -270,7 +271,8 @@ class KilnStudio(Gtk.Application):
                     info = desktop_app_info(app)
                     if info is None:
                         raise ValueError("This app is not installed on KILN")
-                    if not info.launch([], None):
+                    files = [Gio.File.new_for_uri(uri)] if uri else []
+                    if not info.launch(files, None):
                         raise ValueError("KILN could not launch this app")
                     message = f"KILN accepted the launch request for {app}."
                 reply = {"id": payload["id"], "ok": True, "message": message}

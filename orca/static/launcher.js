@@ -8,7 +8,8 @@ const StudioLauncher = (() => {
     'bot creator': 'bot-creator', bots: 'bot-creator', work: 'work', jobs: 'work',
     approvals: 'approvals', evidence: 'evidence', incidents: 'incidents', security: 'security',
     agents: 'agents', connectors: 'connectors', costs: 'costs'};
-  const apps = {browser: 'browser', 'web browser': 'browser', firefox: 'firefox',
+  const apps = {browser: 'chrome', 'web browser': 'chrome', chrome: 'chrome',
+    'google chrome': 'chrome', firefox: 'firefox',
     files: 'files', 'file manager': 'files', calculator: 'calculator',
     'text editor': 'editor', gedit: 'editor', kicad: 'kicad',
     'kicad manager': 'kicad', 'kicad image converter': 'kicad_image_converter',
@@ -67,10 +68,10 @@ const StudioLauncher = (() => {
     if (Object.hasOwn(views, key)) return {kind: 'view', target: views[key], label: key};
     if (Object.hasOwn(operationsViews, key)) return {kind: 'operations', target: operationsViews[key], label: key};
     if (Object.hasOwn(apps, key)) return {kind: 'app', target: apps[key], label: key};
-    if (Object.hasOwn(sites, key)) return {kind: 'app', target: 'browser', url: sites[key], label: key};
+    if (Object.hasOwn(sites, key)) return {kind: 'app', target: 'chrome', url: sites[key], label: key};
     if (/^(?:[a-z][a-z0-9+.-]*:|www\.)/i.test(target) || /^[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/\S*)?$/i.test(target)) {
       const url = webURL(/^[a-z][a-z0-9+.-]*:/i.test(target) ? target : `https://${target}`);
-      return url ? {kind: 'app', target: 'browser', url, label: url} : {kind: 'error', label: 'Only HTTP or HTTPS websites without embedded passwords can be opened.'};
+      return url ? {kind: 'app', target: 'chrome', url, label: url} : {kind: 'error', label: 'Only HTTP or HTTPS websites without embedded passwords can be opened.'};
     }
     return null;
   }
@@ -83,7 +84,7 @@ const StudioLauncher = (() => {
       ...Object.entries(views).map(([label, target]) => ({label, kind: 'view', target})),
       ...Object.entries(operationsViews).map(([label, target]) => ({label, kind: 'operations', target})),
       ...Object.entries(apps).map(([label, target]) => ({label, kind: 'app', target})),
-      ...Object.entries(sites).map(([label, url]) => ({label, kind: 'app', target: 'browser', url})),
+      ...Object.entries(sites).map(([label, url]) => ({label, kind: 'app', target: 'chrome', url})),
     ].sort((left, right) => right.label.length - left.label.length);
     for (const choice of choices) {
       const pattern = new RegExp(`^${choice.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+(?:to|for)\\s+(.+)$`, 'i');
