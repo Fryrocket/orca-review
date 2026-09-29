@@ -34,6 +34,8 @@ TOOL_CATALOG = {
     "notion.read": ToolCapability("notion.read", "knowledge", "Read approved Notion context", "notion", PermissionLevel.R0),
     "linear.read": ToolCapability("linear.read", "work", "Read approved Linear work items", "linear", PermissionLevel.R0),
     "node.observe": ToolCapability("node.observe", "fleet", "Observe enrolled node health", None, PermissionLevel.R0),
+    "studio.capabilities": ToolCapability("studio.capabilities", "studio", "List registered Studio workspaces, applications, business areas and tools", None, PermissionLevel.R0),
+    "inventory.search": ToolCapability("inventory.search", "inventory", "Search the canonical KILN inventory without changing stock", None, PermissionLevel.R0),
 }
 
 
@@ -44,6 +46,7 @@ BOT_TOOL_MANIFESTS = {
         "file.read", "file.search", "repo.read", "web.search", "web.fetch",
         "terminal.inspect", "drive.read", "drive.search", "notion.read",
         "linear.read", "node.observe",
+        "studio.capabilities", "inventory.search",
     }),
     "smith": frozenset({
         "math.scientific", "engineering.calculate", "engineering.catalog",
@@ -51,12 +54,14 @@ BOT_TOOL_MANIFESTS = {
         "file.read", "file.search", "repo.read", "web.search", "web.fetch",
         "terminal.inspect", "drive.read", "drive.search", "notion.read",
         "linear.read", "node.observe",
+        "studio.capabilities", "inventory.search",
     }),
     "quench": frozenset({
         "math.scientific", "engineering.calculate", "engineering.catalog",
         "math.calculate",
         "file.read", "file.search", "repo.read", "web.search", "web.fetch",
         "terminal.inspect", "drive.read", "drive.search", "node.observe",
+        "studio.capabilities", "inventory.search",
     }),
     "security_gate": frozenset(),
 }
@@ -85,6 +90,9 @@ TOOL_ARGUMENT_SCHEMAS = {
     "web.fetch": {"url": "public HTTP or HTTPS URL"},
     "drive.search": {"query": "Drive file-name query"},
     "drive.read": {"path": "Google Drive path relative to My Drive"},
+    "studio.capabilities": {"area": "Optional: all, workspaces, applications, business, or tools"},
+    "inventory.search": {"query": "Optional item, SKU, category, location, lot or serial text", "state": "Optional: all, healthy, reorder, stockout, or attention", "limit": "Optional integer 1-50"},
+    "node.observe": {"node_id": "Optional enrolled node ID or all"},
 }
 
 

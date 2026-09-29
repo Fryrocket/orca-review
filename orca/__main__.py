@@ -16,6 +16,7 @@ from .inventory import InventoryProvider
 from .read_tools import WorkspaceReadTools
 from .connector_tools import GoogleDriveReadTools, PublicWebReadTools, RcloneDriveReadTools
 from .tools import ReadOnlyToolBroker
+from .studio_tools import StudioReadTools
 from .web import serve
 
 
@@ -46,9 +47,22 @@ def main() -> None:
     }
     if not current_crucible_acceptance()["activation_ready"]:
         enabled_services.discard("forge_qwen")
+    inventory_key = os.environ.get("ORCA_INVENTORY_SSH_KEY")
+    inventory_known_hosts = os.environ.get("ORCA_INVENTORY_KNOWN_HOSTS")
+    inventory_provider = (
+        InventoryProvider(
+            key_file=inventory_key,
+            known_hosts_file=inventory_known_hosts,
+        )
+        if inventory_key and inventory_known_hosts else None
+    )
+    control_plane = ControlPlane(EvidenceStore(args.database))
     tool_workspace = os.environ.get("ORCA_TOOL_WORKSPACE_ROOT", os.getcwd())
     read_tools = WorkspaceReadTools(tool_workspace)
-    handlers = {**read_tools.handlers(), **PublicWebReadTools().handlers(), "math.calculate": calculate,
+    studio_tools = StudioReadTools(
+        control_snapshot=control_plane.snapshot, inventory_provider=inventory_provider)
+    handlers = {**read_tools.handlers(), **PublicWebReadTools().handlers(),
+                **studio_tools.handlers(), "math.calculate": calculate,
                 "math.scientific": scientific_calculate, "engineering.calculate": engineering_chat_calculate,
                 "engineering.catalog": engineering_catalog}
     rclone_config = os.environ.get("ORCA_RCLONE_CONFIG")
@@ -62,16 +76,7 @@ def main() -> None:
         ModelRuntimeGateway(enabled_services, tool_broker=tool_broker)
         if enabled_services else None
     )
-    inventory_key = os.environ.get("ORCA_INVENTORY_SSH_KEY")
-    inventory_known_hosts = os.environ.get("ORCA_INVENTORY_KNOWN_HOSTS")
-    inventory_provider = (
-        InventoryProvider(
-            key_file=inventory_key,
-            known_hosts_file=inventory_known_hosts,
-        )
-        if inventory_key and inventory_known_hosts else None
-    )
-    serve(ControlPlane(EvidenceStore(args.database)), host=args.host, port=args.port,
+    serve(control_plane, host=args.host, port=args.port,
           operator_token=os.environ.get("ORCA_OPERATOR_TOKEN"),
           identity_tokens=identity_authenticator, runtime_gateway=runtime_gateway,
           inventory_provider=inventory_provider,

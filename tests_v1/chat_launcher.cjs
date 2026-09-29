@@ -23,6 +23,10 @@ assert.equal(parse('open erpnext').url, 'https://erpnext.com/');
 assert.equal(parse('open paperless').url, 'https://docs.paperless-ngx.com/');
 assert.equal(parse('open documenso').url, 'https://docs.documenso.com/');
 assert.equal(parse('open metabase').url, 'https://www.metabase.com/docs/latest/');
+assert.equal(parse('open product builder').target, 'product-builder');
+assert.equal(parse('use inventory').target, 'inventory');
+assert.equal(parse('open system health').target, 'fleet');
+assert.equal(parse('open bot creator').target, 'bot-creator');
 assert.equal(parse('open example.com').url, 'https://example.com/');
 for (const text of ['Do not open calculator', 'Explain how to open firefox', 'open terminal',
   'open calculator and delete files', 'He said "open files"', 'open __proto__', 'open constructor']) {
@@ -48,9 +52,10 @@ const calls = [];
 const runContext = vm.createContext({StudioLauncher: context.launcher,
   inferencePending: false, activeMode: 'auto', conversationHistory: [],
   routes: {auto: {}, reason: {}}, $: () => ({disabled: false}),
-  wantsChatImage: () => false, boundedHistory: () => [],
+  wantsChatImage: () => false, wantsChatVideo: () => false, boundedHistory: () => [],
   appendUserMessage: () => {}, appendThinking: () => {},
   show: id => calls.push(['show', id]), appendAssistant: value => calls.push(['reply', value.summary]),
+  showOps: id => calls.push(['ops', id]),
   rememberConversation: async () => {},
   postChat: async () => { throw Error('Explicit launcher must not call the model'); }
 });
@@ -61,6 +66,9 @@ vm.runInContext(app.slice(app.indexOf('async function runPrompt('), app.indexOf(
   assert.deepEqual(calls.shift(), ['reply', 'Opened canvas.']);
   await runContext.runPrompt('open calculator');
   assert.match(calls.shift()[1], /requires the updated native KILN/);
+  await runContext.runPrompt('open bot creator');
+  assert.deepEqual(calls.shift(), ['ops', 'bot-creator']);
+  assert.deepEqual(calls.shift(), ['reply', 'Opened bot creator.']);
   assert.equal(runContext.inferencePending, false);
   console.log('Chat launcher integration checks passed');
 })().catch(error => { console.error(error); process.exitCode = 1; });

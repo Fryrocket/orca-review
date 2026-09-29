@@ -2,7 +2,12 @@
 const StudioLauncher = (() => {
   const views = {studio: 'studio', chat: 'studio', code: 'projects', canvas: 'canvas',
     inventory: 'inventory', engineering: 'engineering', operations: 'operations',
-    business: 'business', quasarvolt: 'business', 'quasarvolt supply': 'business'};
+    business: 'business', quasarvolt: 'business', 'quasarvolt supply': 'business',
+    'product builder': 'product-builder', 'product development': 'product-builder'};
+  const operationsViews = {fabric: 'fleet', 'system health': 'fleet', fleet: 'fleet',
+    'bot creator': 'bot-creator', bots: 'bot-creator', work: 'work', jobs: 'work',
+    approvals: 'approvals', evidence: 'evidence', incidents: 'incidents', security: 'security',
+    agents: 'agents', connectors: 'connectors', costs: 'costs'};
   const apps = {browser: 'browser', 'web browser': 'browser', firefox: 'firefox',
     files: 'files', 'file manager': 'files', calculator: 'calculator',
     'text editor': 'editor', gedit: 'editor', kicad: 'kicad',
@@ -40,11 +45,12 @@ const StudioLauncher = (() => {
     } catch { return null; }
   }
   function parse(text) {
-    const match = /^(?:(?:hey\s+)?orca[, ]+)?(?:(?:can|could|would) you\s+)?(?:please\s+)?(?:open|launch|show|take me to)\s+(.+?)\s*[.!?]?$/i.exec(text.trim());
+    const match = /^(?:(?:hey\s+)?orca[, ]+)?(?:(?:can|could|would) you\s+)?(?:please\s+)?(?:open|launch|show|use|take me to)\s+(.+?)\s*[.!?]?$/i.exec(text.trim());
     if (!match) return null;
     const target = match[1].replace(/\s+please$/i, '').replace(/^the\s+/i, '');
     const key = target.toLowerCase();
     if (Object.hasOwn(views, key)) return {kind: 'view', target: views[key], label: key};
+    if (Object.hasOwn(operationsViews, key)) return {kind: 'operations', target: operationsViews[key], label: key};
     if (Object.hasOwn(apps, key)) return {kind: 'app', target: apps[key], label: key};
     if (Object.hasOwn(sites, key)) return {kind: 'app', target: 'browser', url: sites[key], label: key};
     if (/^(?:[a-z][a-z0-9+.-]*:|www\.)/i.test(target) || /^[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/\S*)?$/i.test(target)) {

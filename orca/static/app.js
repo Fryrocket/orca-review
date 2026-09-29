@@ -430,6 +430,9 @@ async function runPrompt(prompt, mode = activeMode) {
       if (launch.kind === 'view') {
         show(launch.target);
         message = `Opened ${launch.label}.`;
+      } else if (launch.kind === 'operations') {
+        showOps(launch.target);
+        message = `Opened ${launch.label}.`;
       } else if (launch.kind === 'error') message = launch.label;
       else {
         const outcome = await StudioLauncher.launch(launch);
