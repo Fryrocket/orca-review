@@ -102,7 +102,7 @@ class OrcaHandler(BaseHTTPRequestHandler):
     def _security_headers(self) -> None:
         self.send_header(
             "Content-Security-Policy",
-            "default-src 'self'; img-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'",
+            "default-src 'self'; img-src 'self' blob:; media-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'",
         )
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")

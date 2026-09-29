@@ -88,6 +88,7 @@ def test_state_endpoint_is_readable_and_truthful():
         assert response.headers["X-Content-Type-Options"] == "nosniff"
         assert "frame-ancestors 'none'" in response.headers["Content-Security-Policy"]
         assert "img-src 'self' blob:" in response.headers["Content-Security-Policy"]
+        assert "media-src 'self' blob:" in response.headers["Content-Security-Policy"]
         assert data["evidence_chain_valid"] is True
         assert {a["id"] for a in data["agents"]} == {
             "orca", "smith", "quench", "security_gate", "fry"}
