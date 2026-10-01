@@ -35,11 +35,11 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   given a dedicated restricted relay key, and FORGE accepted its owner-enrolled
   signed heartbeat. Owner authorization on 2026-10-01 made TEMPER a full FORGE
   ecosystem member and authorized the tested ORCA core integration. Immutable
-  release `cab7a6ec79948bc1383c0a27ce327602fc52a937` is live on FORGE with
+  release `66398a66c260ec455a83f5b5dcdda257bdff9c5b` is live on FORGE with
   health and integrity valid and rollback preserved to
-  `66633e60564dca32ce158d70b98c163e10df2f6f`. TEMPER now appears in the FORGE
+  `cab7a6ec79948bc1383c0a27ce327602fc52a937`. TEMPER now appears in the FORGE
   fabric with its edge-worker, sensor, MQTT, telemetry, storage and Hailo
-  capabilities. The exact release passed 1,045 tests. Four packaged Hailo-8
+  capabilities. The exact release passed 1,047 tests. Four packaged Hailo-8
   vision models now pass direct accelerator execution: YOLOv6n at about 140.9
   FPS, YOLOv8s at 148.22 FPS, YOLOv5n segmentation at 61.32 FPS and YOLOv8s
   pose at 228.5 FPS. These are hardware-only measurements, not end-to-end
@@ -58,10 +58,15 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   signed ten-frame jobs through YOLOv6n, YOLOv8s, YOLOv5n segmentation and
   YOLOv8s pose. All four completed in 1.158-1.252 seconds, wrote metadata only,
   performed no external action, and left both services at zero restarts. Peak
-  observed CPU temperature was 51.0 C. ORCA exposes the governed edge catalog
-  and recommends TEMPER for vision, sensor and future audio workloads. Signed
-  bounded camera inference is accepted; autonomous execution, file input,
-  custom models and business workflow activation remain individually gated.
+  observed CPU temperature was 51.0 C. The supplied 960x1280 JPEG fixture then
+  exposed a still-image end-of-stream timeout; it failed closed with preserved
+  evidence and no external action. The broker was corrected to use a bounded
+  image-freeze stage, and the same SHA-256-pinned image passed all four models
+  in 0.734-0.767 seconds. It produced metadata only, recovered with zero
+  restarts, and remained at 49.9 C. ORCA exposes the governed edge catalog and
+  recommends TEMPER for vision, sensor and future audio workloads. Signed
+  bounded camera and approved-file inference are accepted; autonomous
+  execution, custom models and business workflow activation remain gated.
 
 ## CRUCIBLE AND GPU STATUS
 
@@ -96,8 +101,8 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   stays blocked because no accepted model-serving capability is registered.
 - No push, merge, spending, credential change, or connector scope expansion was
   performed. The tested ORCA tree was activated on FORGE as immutable release
-  `/opt/orca/releases/cab7a6ec79948bc1383c0a27ce327602fc52a937`; release
-  `/opt/orca/releases/66633e60564dca32ce158d70b98c163e10df2f6f` remains the
+  `/opt/orca/releases/66398a66c260ec455a83f5b5dcdda257bdff9c5b`; release
+  `/opt/orca/releases/cab7a6ec79948bc1383c0a27ce327602fc52a937` remains the
   `/var/lib/orca/previous-release` rollback target.
 
 ## 2026-09-30 LOCAL IMPLEMENTATION DELTA
@@ -185,8 +190,10 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   artifacts pass direct accelerator execution. Their ORCA model catalog is
   live. The signed bounded job broker, all four synthetic post-processing paths,
   the physical camera profile and signed camera jobs through all four models are
-  accepted. File input, custom models and autonomous workflows remain gated by
-  provenance and per-workflow acceptance.
+  accepted. The user-supplied JPEG fixture also passes signed bounded file
+  inference through all four models with input/model hashes and metadata-only
+  output. Custom models and autonomous workflows remain gated by provenance and
+  per-workflow acceptance.
   The read-only camera inventory service is active with zero restarts, excludes
   the Pi's internal codec devices and the camera's UVC metadata companion, and
   reports one connected USB camera at `/dev/video0`.
