@@ -588,7 +588,8 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
 - KILN's persistent Docker `DOCKER-USER` chain blocks Redis from the LAN and
   restricts Gitea and MinIO to the management LAN or Tailscale. Its protected
   port attestation lets unprivileged Security Watch distinguish a blocked
-  container socket from a real exposure; the live report is healthy with zero
+  container socket from a real exposure; a Docker unit dependency re-applies
+  the filter after future Docker restarts. The live report is healthy with zero
   findings and the required services have zero restarts. FORGE ORCA and Gitea,
   EMBER backup/UPS/relay paths, and every required KILN route remained healthy.
 - TEMPER retired anonymous MQTT 1883 after proving the authenticated 41883
@@ -614,7 +615,7 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   The timer remains active with zero restarts; after firewall activation and the
   Docker protected-port attestation, the current report is `healthy`, has zero
   findings, reads no secret content, and applies no changes.
-- Final source regression passed **1,113/1,113**. ORCA `/api/health` returned
+- Final source regression passed **1,114/1,114**. ORCA `/api/health` returned
   healthy with valid integrity. ANVIL, FORGE, KILN, EMBER and TEMPER all report
   fresh signed healthy heartbeats, and the Linux nodes show no failed units.
   ANVIL's application firewall and FileVault are on; stealth mode remains the

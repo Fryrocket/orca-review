@@ -86,6 +86,7 @@ purchase, or contact outsiders.
   reachable, and Redis was independently confirmed unreachable from the LAN.
   Security Watch now consumes a root-produced, non-secret protected-port
   attestation and reports healthy with zero findings.
+  A Docker unit dependency re-applies the filter after future Docker restarts.
 - FORGE: UFW and fail2ban are active. Effective SSH policy is
   `PasswordAuthentication no`, `PermitRootLogin no`, and
   `PubkeyAuthentication yes`. Fresh nested SSH, Gitea and ORCA probes passed.
@@ -98,7 +99,7 @@ purchase, or contact outsiders.
   TEMPER Watch, which reports healthy with zero exceptions. HailoRT, the signed
   node, dashboard, telemetry and Pironman services remained active at about
   49°C.
-- The complete ORCA source suite passed **1,113/1,113** after the changes. All
+- The complete ORCA source suite passed **1,114/1,114** after the changes. All
   four Linux nodes showed no failed units at final verification. ORCA health and
   integrity were valid, and all five signed node heartbeats were healthy.
 

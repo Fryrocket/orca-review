@@ -25,3 +25,9 @@ def test_kiln_docker_firewall_service_has_narrow_capabilities():
     assert "CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW" in unit
     assert "RemainAfterExit=yes" in unit
     assert "RuntimeDirectory=orca-kiln-docker-firewall" in unit
+    assert "PartOf=docker.service" in unit
+
+
+def test_docker_restart_reapplies_the_orca_filter():
+    dropin = (ROOT / "deploy/kiln/20-orca-firewall.conf").read_text()
+    assert "Wants=orca-kiln-docker-firewall.service" in dropin

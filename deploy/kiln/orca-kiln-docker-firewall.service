@@ -2,6 +2,7 @@
 Description=ORCA KILN Docker ingress firewall
 After=docker.service network-online.target
 Requires=docker.service
+PartOf=docker.service
 
 [Service]
 Type=oneshot
