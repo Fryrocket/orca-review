@@ -814,5 +814,21 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   `STATE_v11_upload.md` was moved, without deletion, into the existing Drive
   `archive` folder. Other operating, recovery, security, hardware, acceptance,
   and rollout documents remain active.
+- The final eight-hour soak was stopped safely at 2026-10-01 18:31 CDT after
+  the second scheduled short-video sample failed with HTTP 400. Both image
+  samples passed, all 20,051 bounded read probes and 18 model probes remained
+  healthy, ORCA integrity and the evidence chain were valid, all five nodes
+  were present, both pause lists were empty, and the soak service had zero
+  restarts. The two failures were the two video attempts, for an aggregate
+  failure rate of about 0.00996%; the stop was triggered by repetition, not by
+  the aggregate-rate threshold.
+- Root cause is an exact policy/schema mismatch: the soak runner deliberately
+  requests the approved 33-frame short sample, while the deployed KILN image
+  broker currently accepts only 49, 73, or 121 frames. The owner expressly
+  prohibited 49- and 73-frame jobs for this run, so the correct remediation is
+  to add and test a bounded 33-frame broker path, not to retry a prohibited
+  length. The stopped run and both successful image artifacts remain preserved
+  under `/var/lib/orca-soak/20261001-8h`. No outside security audit begins
+  until this soak gate is repaired, rerun, completed, and reconciled.
 
 END STATE.md — AS OF 2026-10-01
