@@ -131,20 +131,20 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   superseded `cc-bridge` records moved into the dated archive while current
   handoffs, IDs, active business folders and personal folders remained intact.
 
-- Inventory barcode scanning is implemented and verified in the local ORCA
-  candidate. It supports common USB and Bluetooth HID scanners, rapid scan
+- Inventory barcode scanning is live in ORCA release
+  `a915527981434785efc1ca8ad847e8fc08feace7`. It supports common USB and
+  Bluetooth HID scanners, rapid scan
   capture, SKU and alias lookup, counted-quantity aggregation, and governed
   receiving and transfer handoffs. UPC-A, EAN-8, EAN-13 and GTIN-14 check
   digits are validated; common AIM prefixes are normalized; unknown or invalid
   codes fail visibly and never change stock. Count adjustments, receiving and
   transfers still require ORCA's existing review and approval paths. The full
-  regression suite passed 1,068 tests. This capability is **implemented,
-  tested and staged, but not live**: the active continuity safeguard currently
-  prohibits deploying a new ORCA core release. The live FORGE release remains
-  healthy and unchanged.
+  regression suite passed 1,068 tests before the subsequent TEMPER dataset
+  expansion. Physical scanner acceptance on KILN remains open, but the parser,
+  routing and Inventory UI are live; no scanner is required for ORCA startup.
 
-- TEMPER visual-inventory dataset planning is implemented and verified in the
-  local ORCA candidate. The new read-only planner produces deterministic,
+- TEMPER visual-inventory dataset planning is live in ORCA release
+  `a915527981434785efc1ca8ad847e8fc08feace7`. The new read-only planner produces deterministic,
   SHA-256-identified manifests tied to exact inventory SKUs and barcodes,
   bounded 70/15/15 train-validation-test targets, camera/background/lighting
   coverage, hard negatives, two-pass label review, near-duplicate split
@@ -154,9 +154,15 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   ledger remains authoritative. Planning cannot capture images, train a model,
   deploy a model or change stock. The expanded TEMPER simulation passed seven
   checks with zero captures, dataset writes, training, jobs or external action;
-  the complete ORCA regression passed 1,075 tests. This capability is
-  **implemented, tested and staged, but not live** under the active no-core-
-  release continuity safeguard.
+  the complete ORCA regression passed 1,075 tests. The live planner probe
+  produced a deterministic manifest, exposed the registered tool handler and
+  retained capture, training, deployment and stock mutation as false. The
+  dataset/model itself remains unbuilt pending representative labelled images.
+  FORGE health and integrity are valid with zero ORCA restarts. Rollback points
+  to `/opt/orca/releases/35a3f35ac6cdf28727ec92a7d93e3f1c968b2dfd`.
+  The first post-activation probe used the wrong barcode result-field name and
+  stopped without changing the healthy service; the corrected UPC-A, dataset,
+  edge-API, UI and KILN-gateway probes all passed.
 
 ## CRUCIBLE AND GPU STATUS
 
