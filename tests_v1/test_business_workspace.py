@@ -278,7 +278,7 @@ def test_legal_connections_accounting_and_final_simulation_are_first_class():
     assert "Credential &amp; remote-access broker" in source
     assert "bots cannot enumerate or export the keychain" in source
     assert "SMITH is retired" in source
-    assert "TEMPER · Hailo-8 · MQTT" in source
+    assert "TEMPER · FORGE · Hailo-8 · MQTT" in source
     assert "ACCOUNTING CONTROL CENTER" in source
     assert "FINAL ACCEPTANCE PLAN" in source
     assert "Concept-to-sale business simulation" in source

@@ -298,7 +298,7 @@ def test_state_survives_restart(tmp_path):
 def test_legacy_iris_state_migrates_to_temper_on_restore(tmp_path):
     path = tmp_path / "orca.db"
     cp = ControlPlane(EvidenceStore(path))
-    job = cp.submit(title="legacy edge work", lane="bgm", requested_by="orca",
+    job = cp.submit(title="legacy edge work", lane="forge", requested_by="orca",
                     assigned_to="smith", target_node="temper",
                     action=Action("read", "sensor queue"))
     job.target_node = "iris"

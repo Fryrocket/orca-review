@@ -85,9 +85,9 @@ AI_SERVICES = {
     ),
     "temper_edge": AIServiceProfile(
         "temper_edge", "temper",
-        "BGM sensor preprocessing, bounded Hailo inference, anomaly detection and offline queueing",
-        "BGM model pending physical acceptance", "HailoRT", "Hailo-8 (26 TOPS INT8)",
-        8_192, 1, 6, deployment_state="planned_unproven",
+        "FORGE edge preprocessing, sensor quality, anomaly detection and offline queueing; Hailo inference remains model-gated",
+        "CPU quality pipeline live; Hailo HEF not yet provisioned", "HailoRT", "Hailo-8 (26 TOPS INT8)",
+        8_192, 1, 6, deployment_state="hardware_live_model_gated",
     ),
     "forge_crucible": AIServiceProfile(
         "forge_crucible", "forge",
@@ -125,6 +125,7 @@ COGNITIVE_FABRIC = {
     "operator_surface": "anvil",
     "independent_review_surface": "kiln",
     "sentinel_surface": "ember",
+    "edge_surface": "temper",
     "memory_pooling": False,
     "automatic_execution": False,
     "cloud_fallback": "governed Codex on KILN; local Qwen remains available",

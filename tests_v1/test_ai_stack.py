@@ -57,11 +57,11 @@ def test_qwen_is_a_bounded_crucible_reasoner_not_an_author_or_reviewer():
     assert qwen.runtime_enabled is False
 
 
-def test_temper_edge_path_is_declared_but_stays_unproven():
+def test_temper_edge_hardware_is_live_but_model_invocation_stays_gated():
     temper = AI_SERVICES["temper_edge"]
     assert temper.node_id == "temper"
     assert temper.backend == "HailoRT"
-    assert temper.deployment_state == "planned_unproven"
+    assert temper.deployment_state == "hardware_live_model_gated"
     assert temper.runtime_enabled is False
     assert AI_LADDERS["edge_inference"] == (
         "temper_edge", "forge_qwen", "kiln_quench", "fry")

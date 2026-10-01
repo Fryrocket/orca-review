@@ -28,9 +28,9 @@ def test_models_and_retrieval_are_services_not_agents():
     assert "act_as_agent" in ROLE_CATALOG["qwen_conversation"].prohibited
 
 
-def test_candidates_and_temper_remain_inactive_and_lane_bounded():
+def test_candidates_and_temper_workloads_remain_inactive_and_lane_bounded():
     assert all(not ROLE_CATALOG[x].active for x in ("ampere", "relay", "temper"))
-    assert ROLE_CATALOG["temper"].lanes == ("bgm",)
+    assert ROLE_CATALOG["temper"].lanes == ("forge", "bgm")
     assert "body_action_without_r3" in ROLE_CATALOG["temper"].prohibited
 
 
@@ -68,7 +68,7 @@ def test_solo_operator_bot_crew_is_registered_gated_and_non_authoritative():
     assert "delete_backup" in ROLE_CATALOG["recovery_marshal"].prohibited
     assert "restart_service" in ROLE_CATALOG["reliability_sentinel"].prohibited
     assert "publish" in ROLE_CATALOG["channel_operator"].prohibited
-    assert ROLE_CATALOG["temper_watch"].lanes == ("bgm",)
+    assert ROLE_CATALOG["temper_watch"].lanes == ("forge", "bgm")
 
 
 def test_every_core_bot_has_a_bounded_program_and_handoff():
