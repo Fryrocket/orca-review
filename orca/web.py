@@ -445,6 +445,9 @@ class OrcaHandler(BaseHTTPRequestHandler):
                 )
         if path == "/api/inventory/system":
             return self._json(inventory_system_blueprint())
+        if path == "/api/solo-operator/system":
+            from .solo_operator import solo_operator_blueprint
+            return self._json(solo_operator_blueprint())
         if path == "/api/inventory":
             if self.server.inventory_provider is None:
                 return self._json(
@@ -533,7 +536,7 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     "nonce": heartbeat.nonce,
                     "status": "accepted",
                 }, HTTPStatus.OK)
-            if path in {"/api/inference", "/api/chat", "/api/memory", "/api/science", "/api/engineering", "/api/project/plan", "/api/cad/pcb-draft", "/api/temper/inventory-dataset/plan", "/api/business/muse/handoff", "/api/business/muse/email-handoff"}:
+            if path in {"/api/inference", "/api/chat", "/api/memory", "/api/science", "/api/engineering", "/api/project/plan", "/api/cad/pcb-draft", "/api/temper/inventory-dataset/plan", "/api/business/muse/handoff", "/api/business/muse/email-handoff", "/api/solo-operator/action-plan"}:
                 try:
                     authenticated_identity = self._authenticate_mutation()
                 except IdentityAuthenticationError as exc:
@@ -547,6 +550,11 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     raise IdentityAuthorizationError(
                         "only Fry may initiate local model inference")
                 data = self._body()
+                if path == "/api/solo-operator/action-plan":
+                    if set(data) != {"signals"}:
+                        raise ValueError("Action Center request has an invalid schema")
+                    from .solo_operator import build_action_plan
+                    return self._json(build_action_plan(data["signals"]))
                 if path == "/api/business/muse/handoff":
                     if set(data) != {"workflow_id", "objective"}:
                         raise ValueError("Muse handoff request has an invalid schema")

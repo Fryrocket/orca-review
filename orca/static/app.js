@@ -261,6 +261,7 @@ function show(id) {
     canvas: ['VISUAL LAB', 'Canvas'], inventory: ['BENCH CATALOG', 'Inventory'],
     engineering: ['ENGINEERING DESK', 'Engineering'], operations: ['CONTROL PLANE', 'Operations'],
     'bot-monitor': ['AGENT OBSERVABILITY', 'Bot Monitor'],
+    'solo-operator': ['SOLO OPERATOR SYSTEM', 'Action Center'],
     inbox: ['PRIVATE COMMUNICATIONS', 'Inbox'],
     communications: ['AGENTIC COMMUNICATIONS', 'Communications Hub'],
     business: ['QUASARVOLT SUPPLY', 'Business'],
@@ -272,6 +273,7 @@ function show(id) {
   if (id === 'inventory') loadInventory();
   if (id === 'inbox') globalThis.ORCAInbox?.load();
   if (id === 'communications') globalThis.ORCACommunications?.load();
+  if (id === 'solo-operator') globalThis.ORCASoloOperator?.load();
 }
 function showOps(id) {
   show('operations');

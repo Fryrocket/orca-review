@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="/business.css">
   <link rel="stylesheet" href="/inbox.css">
   <link rel="stylesheet" href="/communications.css">
+  <link rel="stylesheet" href="/solo-operator.css">
 </head>
 <body>
   <div class="app-shell">
@@ -27,6 +28,7 @@
         <button data-view="engineering"><span>⌁</span> Engineering</button>
         <button data-view="operations"><span>◎</span> Operations</button>
         <button data-view="bot-monitor"><span>◉</span> Bot Monitor</button>
+        <button data-view="solo-operator"><span>☷</span> Action Center</button>
         <button data-view="inbox"><span>✉</span> Inbox</button>
         <button data-view="communications"><span>◫</span> Communications</button>
         <button data-view="business"><span>◆</span> QuasarVolt</button>
@@ -511,6 +513,13 @@
         <div class="grid two"><article class="panel"><div class="panel-head"><h2>Recent bot activity</h2><span class="truth">EVIDENCE</span></div><div id="bot-monitor-activity" class="stack"><p>No activity loaded.</p></div></article><article class="panel"><div class="panel-head"><h2>Reporting</h2><span class="truth">OWNER BRIEFING</span></div><p>Reports summarize assignments, completions, errors, approvals, model routes, tool use, activity frequency, stale bots, and decisions that need you. Creating a schedule remains approval-controlled.</p><p id="bot-monitor-report-status" class="muted" role="status">No report staged.</p></article></div>
       </section>
 
+      <section id="solo-operator" class="view">
+        <div class="section-intro"><div><p class="eyebrow">SOLO OPERATOR SYSTEM</p><h2>Action Center</h2><p>One quiet front door for approvals, deadlines, exceptions, follow-ups, blocked work, recovery, decisions, and the connected control rooms that support them.</p></div><div><button id="solo-operator-refresh" type="button">Refresh</button><button id="solo-operator-brief" class="primary-action" type="button">Prepare owner brief</button></div></div>
+        <div class="metric-grid"><article><span>Control rooms</span><strong id="solo-operator-total">0</strong></article><article><span>Implemented candidates</span><strong id="solo-operator-candidates">0</strong></article><article><span>Staged connectors</span><strong id="solo-operator-staged">0</strong></article><article><span>External actions</span><strong>0</strong></article></div>
+        <article class="panel"><div class="panel-head"><div><h2>Connected operating layer</h2><p>Every room follows ORCA's observe → plan → route → verify → record → monitor loop. “Staged” means the design exists but a real data source or connector is not accepted.</p></div><span class="truth">ADDITIVE</span></div><div id="solo-operator-grid" class="solo-operator-grid"><p>Loading control rooms…</p></div></article>
+        <article class="panel solo-operator-boundaries"><div class="panel-head"><h2>Authority boundary</h2><span class="truth warn">OWNER CONTROLLED</span></div><div id="solo-operator-boundaries" class="tag-row"></div><p id="solo-operator-status" class="muted" role="status">Reading the current capability registry…</p></article>
+      </section>
+
       <section id="inbox" class="view">
         <div class="section-intro"><div><p class="eyebrow">PRIVATE COMMUNICATIONS</p><h2>Inbox</h2><p>Read privacy-minimized email summaries, see follow-ups and deadlines, and review reply drafts. Raw bodies and attachments are not stored in ORCA.</p></div><div class="inbox-actions"><button id="inbox-refresh" type="button">Refresh</button><button id="inbox-open-muse" class="primary-action" type="button">Open Muse Email</button></div></div>
         <div class="metric-grid"><article><span>Messages</span><strong id="inbox-total">0</strong></article><article><span>Needs follow-up</span><strong id="inbox-followups">0</strong></article><article><span>High / urgent</span><strong id="inbox-priority">0</strong></article><article><span>Mailbox actions</span><strong>0</strong><small>read-only</small></article></div>
@@ -543,5 +552,6 @@
   <script src="/business.js"></script>
   <script src="/inbox.js"></script>
   <script src="/communications.js"></script>
+  <script src="/solo-operator.js"></script>
 </body>
 </html>

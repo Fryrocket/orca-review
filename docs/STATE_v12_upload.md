@@ -717,5 +717,33 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   non-destructive recovery checks. Firewall activation, SSH/credential/trust
   changes, major updates, reboots, deletion and consequential external actions
   retain their separate verified activation gates.
+- The additive **ORCA Solo Operator System** is now implemented as a tested
+  local candidate and remains intentionally undeployed during the active
+  eight-hour soak. Its first-class Action Center is the quiet front door for
+  deduplicated approvals, deadlines, exceptions, follow-ups and blocked work.
+  The same governed operating layer registers all twelve requested control
+  rooms: Action Center; Customer & Vendor Master; Knowledge Center; Ticket &
+  Case Manager; Attachment Quarantine; Calendar & Commitment Manager; Identity
+  & Consent Gate; Dead-Letter & Recovery Queue; Business Memory Graph; Decision
+  Journal; Performance Optimizer; and Executive Morning Brief. Each module is
+  explicitly labeled implemented-candidate, candidate or staged so an absent
+  connector or canonical data source can never appear live.
+- The deterministic Action Center planning endpoint accepts only authenticated,
+  exact-schema, secret-scanned signals; rejects conflicting source identities;
+  removes exact duplicates; sorts by priority and due time; retains evidence
+  references and approval requirements; and returns a stable plan fingerprint.
+  It creates no jobs, mutates no records and performs zero external actions.
+  The interface can prepare an owner briefing through the existing governed
+  chat path, but the generated instruction expressly forbids sending, buying,
+  publishing, moving money, changing records or permissions, replaying failed
+  work, modifying ORCA core or claiming an unconnected system is live.
+- Focused Solo Operator and workspace acceptance passed **31/31**. JavaScript
+  syntax and patch checks passed, and the complete ORCA source regression passed
+  **1,140/1,140**. Remaining gates are soak completion, post-soak normalization,
+  independent evidence review, exact-candidate packaging, rollback-protected
+  deployment and live API/UI verification. Canonical relationship data,
+  approved knowledge, ticketing, file scanning, calendar, consent/suppression,
+  failed-work replay, entity resolution and real performance routing remain
+  staged behind their individual acceptance gates.
 
 END STATE.md — AS OF 2026-10-01

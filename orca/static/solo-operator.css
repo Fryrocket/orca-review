@@ -1,0 +1,12 @@
+.solo-operator-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 11px; }
+.solo-operator-grid article { border: 1px solid var(--line); border-radius: 12px; padding: 13px; background: #0a1814; display: grid; gap: 7px; }
+.solo-operator-grid header { display: grid; gap: 4px; }
+.solo-operator-grid header span { color: var(--mint); font: 800 9px ui-monospace,monospace; text-transform: uppercase; }
+.solo-operator-grid p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.solo-operator-grid small { color: #aac0b7; }
+.solo-operator-grid em { font: 700 9px ui-monospace,monospace; color: #71988a; text-transform: uppercase; }
+.solo-operator-boundaries { margin-top: 14px; }
+.tag-row { display: flex; flex-wrap: wrap; gap: 7px; }
+.tag-row span { border: 1px solid var(--line); border-radius: 999px; padding: 6px 9px; color: var(--muted); font-size: 10px; }
+@media (max-width: 1050px) { .solo-operator-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width: 720px) { .solo-operator-grid { grid-template-columns: 1fr; } }

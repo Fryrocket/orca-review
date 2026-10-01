@@ -539,6 +539,40 @@ def test_inbox_import_and_read_require_owner_auth_and_store_summaries_only():
         server.server_close()
 
 
+def test_solo_operator_catalog_and_action_plan_are_bounded_and_inert():
+    token = "t" * 32
+    server = OrcaHTTPServer(
+        ("127.0.0.1", 0), ControlPlane(), operator_token=token,
+    )
+    Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{server.server_port}/api/solo-operator/system"
+        with urlopen(url) as response:
+            catalog = json.load(response)
+        assert catalog["module_count"] == 12
+        assert catalog["external_actions"] == 0
+        payload = {"signals": [{
+            "source_id": "test-approval-1", "source": "simulation",
+            "kind": "approval", "summary": "Review the disposable test",
+            "priority": "high", "due_at": None, "workspace": "operations",
+            "owner": "fry", "evidence": "fixture:test-1", "approval_required": True,
+        }]}
+        request = Request(
+            f"http://127.0.0.1:{server.server_port}/api/solo-operator/action-plan",
+            data=json.dumps(payload).encode(), method="POST",
+            headers={"Content-Type": "application/json", "X-ORCA-Operator-Token": token},
+        )
+        with urlopen(request) as response:
+            plan = json.load(response)
+        assert plan["state"] == "owner_review_required"
+        assert plan["external_actions"] == 0
+        assert plan["jobs_created"] == 0
+        assert plan["records_mutated"] == 0
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
 def test_auto_chat_is_authenticated_and_preserves_history():
     history = [{"role": "user", "content": "My project is Cedar."}]
     class Gateway:
