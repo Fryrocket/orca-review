@@ -62,7 +62,7 @@ def test_node_observe_filters_and_new_chat_tools_are_manifested_read_only():
     tools = StudioReadTools(control_snapshot=snapshot)
     assert [node["id"] for node in tools.node_observe(node_id="kiln")["nodes"]] == ["kiln"]
     required = {"studio.capabilities", "inventory.search", "node.observe",
-                "temper.inference_capabilities"}
+                "temper.inference_capabilities", "temper.plan_inference_workflow"}
     assert required <= BOT_TOOL_MANIFESTS["orca"]
     assert all(not TOOL_CATALOG[name].mutates for name in required)
 
@@ -76,3 +76,14 @@ def test_temper_inference_tool_is_bounded_read_only_and_filters_workflows():
     assert any(workflow["id"] == "inventory_visual_count" for workflow in camera["workflows"])
     assert camera["runtime"]["automatic_execution"] is False
     assert "No facial recognition" in camera["governance"]["privacy"]
+
+
+def test_temper_workflow_planner_never_executes_and_keeps_custom_models_blocked():
+    tools = StudioReadTools(control_snapshot=snapshot)
+    ready = tools.temper_plan_inference_workflow(
+        workflow_id="product_media_preflight", input_kind="camera")
+    assert ready["state"] == "ready_for_bounded_dry_run"
+    assert ready["may_execute"] is False
+    blocked = tools.temper_plan_inference_workflow(
+        workflow_id="receiving_and_packaging_check", input_kind="image")
+    assert blocked["state"] == "blocked_custom_model_required"

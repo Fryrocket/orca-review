@@ -1,4 +1,7 @@
-from orca.edge_inference import EDGE_WORKFLOWS, H8_MODELS, edge_inference_blueprint
+import pytest
+
+from orca.edge_inference import (
+    EDGE_WORKFLOWS, H8_MODELS, edge_inference_blueprint, plan_edge_workflow)
 
 
 def test_h8_catalog_contains_only_explicit_hailo8_artifacts():
@@ -26,3 +29,19 @@ def test_camera_disconnected_is_truthfully_reported():
     snapshot = edge_inference_blueprint(camera_connected=False)
     assert snapshot["camera"]["connected"] is False
     assert snapshot["camera"]["state"] == "accepted_not_connected"
+
+
+def test_edge_workflow_plan_is_read_only_and_truthfully_gated():
+    pending = plan_edge_workflow(workflow_id="inventory_visual_count")
+    assert pending["state"] == "needs_declared_label_scope"
+    ready = plan_edge_workflow(
+        workflow_id="inventory_visual_count", labels=["box", "bottle", "box"])
+    assert ready["state"] == "ready_for_bounded_dry_run"
+    assert ready["declared_labels"] == ["box", "bottle"]
+    assert ready["may_execute"] is False
+    blocked = plan_edge_workflow(workflow_id="pcb_assembly_inspection", input_kind="image")
+    assert blocked["state"] == "blocked_custom_model_required"
+    assert "validated custom Hailo-8 model" in blocked["next_gate"]
+    assert "self-approval" in blocked["prohibited"]
+    with pytest.raises(ValueError, match="not registered"):
+        plan_edge_workflow(workflow_id="arbitrary")

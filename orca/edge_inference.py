@@ -128,6 +128,63 @@ EDGE_GOVERNANCE = {
 }
 
 
+GENERIC_VISION_WORKFLOWS = frozenset({
+    "inventory_visual_count", "product_media_preflight", "prototype_observation",
+})
+
+
+def plan_edge_workflow(*, workflow_id: str, input_kind: str = "camera",
+                       labels: tuple[str, ...] | list[str] = ()) -> dict:
+    """Build a read-only, non-executing TEMPER workflow plan."""
+    workflows = {workflow.id: workflow for workflow in EDGE_WORKFLOWS}
+    if workflow_id not in workflows:
+        raise ValueError("edge workflow is not registered")
+    if input_kind not in {"camera", "image", "video"}:
+        raise ValueError("edge workflow input is not accepted")
+    if not isinstance(labels, (tuple, list)) or len(labels) > 50 or any(
+            not isinstance(label, str) or not label.strip() or len(label) > 80
+            for label in labels):
+        raise ValueError("edge workflow labels are invalid")
+    normalized_labels = tuple(dict.fromkeys(label.strip() for label in labels))
+    workflow = workflows[workflow_id]
+    custom_required = "custom_model" in workflow.readiness or any(
+        task in {"signal_quality", "anomaly_detection", "automatic_speech_recognition"}
+        for task in workflow.model_tasks)
+    if custom_required:
+        state = "blocked_custom_model_required"
+    elif workflow_id == "inventory_visual_count" and not normalized_labels:
+        state = "needs_declared_label_scope"
+    else:
+        state = "ready_for_bounded_dry_run"
+    candidates = [model.id for model in H8_MODELS if model.task in workflow.model_tasks]
+    return {
+        "node_id": "temper",
+        "workflow": asdict(workflow),
+        "input_kind": input_kind,
+        "state": state,
+        "model_candidates": candidates,
+        "declared_labels": list(normalized_labels),
+        "generic_model_scope": workflow_id in GENERIC_VISION_WORKFLOWS,
+        "may_execute": False,
+        "next_gate": (
+            "validated custom Hailo-8 model with provenance and task evaluation"
+            if custom_required else
+            "declare the exact countable label set"
+            if state == "needs_declared_label_scope" else
+            "stage a signed bounded dry run and owner-reviewed evidence"
+        ),
+        "required_evidence": [
+            "input hash or camera device", "model id and artifact hash",
+            "frame count and timestamps", "confidence and latency",
+            "TEMPER temperature", "disposition and reviewer",
+        ],
+        "prohibited": [
+            "stock mutation", "publishing", "purchasing", "physical control",
+            "identity inference", "self-approval",
+        ],
+    }
+
+
 def edge_inference_blueprint(*, camera_connected: bool = True) -> dict:
     """Describe TEMPER's accepted edge scope without starting remote execution."""
     return {

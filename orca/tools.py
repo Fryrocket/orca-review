@@ -40,6 +40,10 @@ TOOL_CATALOG = {
         "temper.inference_capabilities", "edge",
         "Inspect TEMPER Hailo-8 models, camera readiness, applicable workflows and safety gates",
         None, PermissionLevel.R0),
+    "temper.plan_inference_workflow": ToolCapability(
+        "temper.plan_inference_workflow", "edge",
+        "Plan one governed TEMPER Hailo workflow without executing it",
+        None, PermissionLevel.R0),
 }
 
 
@@ -52,6 +56,7 @@ BOT_TOOL_MANIFESTS = {
         "linear.read", "node.observe",
         "studio.capabilities", "inventory.search",
         "temper.inference_capabilities",
+        "temper.plan_inference_workflow",
     }),
     "smith": frozenset({
         "math.scientific", "engineering.calculate", "engineering.catalog",
@@ -61,6 +66,7 @@ BOT_TOOL_MANIFESTS = {
         "linear.read", "node.observe",
         "studio.capabilities", "inventory.search",
         "temper.inference_capabilities",
+        "temper.plan_inference_workflow",
     }),
     "quench": frozenset({
         "math.scientific", "engineering.calculate", "engineering.catalog",
@@ -69,6 +75,7 @@ BOT_TOOL_MANIFESTS = {
         "terminal.inspect", "drive.read", "drive.search", "node.observe",
         "studio.capabilities", "inventory.search",
         "temper.inference_capabilities",
+        "temper.plan_inference_workflow",
     }),
     "security_gate": frozenset(),
 }
@@ -102,6 +109,10 @@ TOOL_ARGUMENT_SCHEMAS = {
     "node.observe": {"node_id": "Optional enrolled node ID or all"},
     "temper.inference_capabilities": {
         "input_type": "Optional: all, camera, image, video, sensor, or audio"},
+    "temper.plan_inference_workflow": {
+        "workflow_id": "Registered TEMPER workflow ID",
+        "input_kind": "Optional: camera, image, or video",
+        "labels": "Optional bounded list of declared labels for generic detection"},
 }
 
 

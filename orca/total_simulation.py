@@ -17,6 +17,7 @@ from .product_development_simulation import run_product_development_simulation
 from .registry import CONNECTORS, LANES, NODES
 from .roles import ROLE_CATALOG, validate_role_catalog
 from .scientific import scientific_calculate
+from .temper_inference_simulation import run_temper_inference_simulation
 from .tools import ToolAuthorizer
 from .workflow import ADVISORY_STAGES, AdvisoryWorkflow
 
@@ -31,7 +32,7 @@ FEATURE_MODULES = (
     "policy", "product_development", "product_development_simulation", "project_design",
     "read_tools", "readiness", "registry", "roles", "runtime", "schema",
     "science_worker", "scientific", "security", "security_gate", "state",
-    "studio_tools", "telemetry", "tools", "web", "workflow",
+    "studio_tools", "telemetry", "temper_inference_simulation", "tools", "web", "workflow",
 )
 
 
@@ -100,6 +101,13 @@ def run_total_simulation() -> dict[str, Any]:
             "checks": report["checks_total"], "passed": report["checks_passed"],
             "tracks": report["details"]["tracks"], "phases": report["details"]["phases"]}
 
+    def temper_check():
+        nested["temper_edge"] = run_temper_inference_simulation()
+        report = nested["temper_edge"]
+        return report["passed"] and report["details"]["external_actions"] == 0, {
+            "checks": report["checks_total"], "passed": report["checks_passed"],
+            "external_actions": report["details"]["external_actions"]}
+
     stages = [
         _stage("A", "Authority and approval boundaries", lambda: (
             "approve_r3" not in ROLE_CATALOG["orca"].authority,
@@ -111,9 +119,11 @@ def run_total_simulation() -> dict[str, Any]:
             control.business.verify(), {"integrity_valid": control.business.verify()})),
         _stage("E", "Engineering catalog", lambda: (
             len(engineering_catalog()) > 0, {"models": len(engineering_catalog())})),
-        _stage("F", "Fleet registry and lane isolation", lambda: (
-            {"anvil", "forge", "kiln", "ember", "temper"} <= set(NODES),
-            {"nodes": len(NODES), "lanes": len(LANES)})),
+        _stage("F", "Fleet registry and TEMPER edge planning", lambda: (
+            {"anvil", "forge", "kiln", "ember", "temper"} <= set(NODES)
+            and temper_check()[0],
+            {"nodes": len(NODES), "lanes": len(LANES),
+             "temper_checks": nested["temper_edge"]["checks_passed"]})),
         _stage("G", "Governance snapshot", lambda: (
             bool(governance_snapshot()), {"present": True})),
         _stage("H", "History save-first memory", memory_check),

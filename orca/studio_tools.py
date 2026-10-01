@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from .inventory import InventoryReadError, analyze_inventory_snapshot
-from .edge_inference import edge_inference_blueprint
+from .edge_inference import edge_inference_blueprint, plan_edge_workflow
 
 
 WORKSPACES = (
@@ -176,10 +176,17 @@ class StudioReadTools:
         result["filter"] = input_type
         return result
 
+    def temper_plan_inference_workflow(self, *, workflow_id: str,
+                                       input_kind: str = "camera",
+                                       labels: list[str] | None = None) -> dict:
+        return plan_edge_workflow(
+            workflow_id=workflow_id, input_kind=input_kind, labels=labels or [])
+
     def handlers(self) -> dict:
         return {
             "studio.capabilities": self.capabilities,
             "inventory.search": self.inventory_search,
             "node.observe": self.node_observe,
             "temper.inference_capabilities": self.temper_inference_capabilities,
+            "temper.plan_inference_workflow": self.temper_plan_inference_workflow,
         }
