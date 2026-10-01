@@ -690,6 +690,26 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   passed, and the complete source regression passed **1,134/1,134**. A live
   mailbox and calendar remain unconnected. Deployment and live acceptance stay
   behind successful soak completion and continuity-record reconciliation.
+  Communications checklist status:
+  - Complete: additive ORCA architecture; first-class sidebar workspace;
+    owner-authenticated read path; privacy-minimized local store; governed Muse
+    email handoff; search and filters; relationship timelines; follow-up and
+    deadline extraction; calendar candidates; suspicious-summary quarantine;
+    draft review; exception-only briefing; proposal-only routing into Business,
+    Accounting, Budget, Inventory, Channel Operations, Legal, Operations and
+    Security; secret rejection; idempotency; conflict protection; negative
+    authority checks; 41 focused checks; 1,134-check regression; rollback-safe
+    Git checkpoints; local, Drive, Notion and Linear record reconciliation.
+  - Waiting on the active gate: eight-hour soak completion; post-soak service
+    normalization; exact-candidate packaging; independent QUENCH/evidence
+    review; immutable release activation; live API/UI and rollback probes.
+  - Future connector gates: owner-authorized real mailbox connection; provider
+    reference and freshness validation; consent/suppression ledger; canonical
+    customer/vendor master; approved knowledge base; calendar/callback
+    connector; ticketing and escalation; template governance; retention and
+    deletion policy; end-to-end disposable communications simulation; bounded
+    live acceptance. Until then, the Hub remains a tested local candidate and
+    every external communication or record mutation remains disabled.
 - The existing `orca-continuity-checkpoint` heartbeat now includes the five-node
   autonomous-security posture and FOR-29. It remains active every six hours,
   stays quiet while state is healthy and unchanged, and may perform only
