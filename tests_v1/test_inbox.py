@@ -62,3 +62,17 @@ def test_inbox_message_reference_cannot_be_rewritten_by_later_import():
     changed = message(); changed["subject"] = "A different subject"
     with pytest.raises(ValueError, match="changed under"):
         store.import_packet(packet(changed, request_id="request-0002"))
+
+
+def test_inbox_exposes_read_only_communications_operating_views():
+    store = InboxStore(":memory:")
+    item = message()
+    item["deadline"] = "2026-10-03T17:00:00Z"
+    store.import_packet(packet(item))
+    view = store.communications_snapshot()
+    assert view["counts"]["messages"] == 1
+    assert view["counts"]["follow_ups"] == 1
+    assert view["counts"]["deadlines"] == 1
+    assert view["controls"]["mailbox_mutations"] == 0
+    assert view["controls"]["messages_sent"] == 0
+    assert view["controls"]["calendar_writes"] == 0

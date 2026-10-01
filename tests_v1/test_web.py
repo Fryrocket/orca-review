@@ -523,6 +523,17 @@ def test_inbox_import_and_read_require_owner_auth_and_store_summaries_only():
         assert snapshot["raw_bodies_stored"] is False
         assert snapshot["attachments_stored"] is False
         assert snapshot["mailbox_mutations"] == 0
+        request = Request(
+            f"http://127.0.0.1:{server.server_port}/api/communications",
+            headers={"X-ORCA-Operator-Token": token},
+        )
+        with urlopen(request) as response:
+            communications = json.load(response)
+        assert communications["counts"]["messages"] == 1
+        assert communications["counts"]["follow_ups"] == 1
+        assert communications["controls"]["mailbox_mutations"] == 0
+        assert communications["controls"]["messages_sent"] == 0
+        assert communications["controls"]["calendar_writes"] == 0
     finally:
         server.shutdown()
         server.server_close()

@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="/product-development.css">
   <link rel="stylesheet" href="/business.css">
   <link rel="stylesheet" href="/inbox.css">
+  <link rel="stylesheet" href="/communications.css">
 </head>
 <body>
   <div class="app-shell">
@@ -27,6 +28,7 @@
         <button data-view="operations"><span>◎</span> Operations</button>
         <button data-view="bot-monitor"><span>◉</span> Bot Monitor</button>
         <button data-view="inbox"><span>✉</span> Inbox</button>
+        <button data-view="communications"><span>◫</span> Communications</button>
         <button data-view="business"><span>◆</span> QuasarVolt</button>
         <button data-view="product-builder"><span>⬡</span> Product Builder</button>
       </nav>
@@ -517,6 +519,19 @@
           <aside class="panel inbox-import"><div class="panel-head"><div><h2>Return from Muse</h2><p>Paste the JSON package produced by the governed email handoff.</p></div><span class="truth warn">OWNER IMPORT</span></div><textarea id="inbox-import-json" rows="14" maxlength="500000" placeholder='{"handoff_id":"muse-email-…","messages":[…]}'></textarea><button id="inbox-import" type="button">Validate and import summaries</button><p id="inbox-status" class="muted" role="status">Sending, deleting, moving, labels, links and attachments remain blocked.</p></aside>
         </div>
       </section>
+
+      <section id="communications" class="view">
+        <div class="section-intro"><div><p class="eyebrow">AGENTIC COMMUNICATIONS</p><h2>Communications Hub</h2><p>Turn authorized, privacy-minimized mail into relationship history, reviewable tasks, deadline candidates, isolated risks, and one quiet owner briefing.</p></div><div class="communications-actions"><button id="communications-refresh" type="button">Refresh</button><button id="communications-open-inbox" class="primary-action" type="button">Open Inbox</button></div></div>
+        <div class="metric-grid"><article><span>Relationships</span><strong id="communications-relationships">0</strong></article><article><span>Follow-ups</span><strong id="communications-followups">0</strong></article><article><span>Deadline candidates</span><strong id="communications-deadlines">0</strong></article><article><span>Quarantined</span><strong id="communications-quarantined">0</strong></article></div>
+        <article class="panel communications-brief"><div class="panel-head"><div><h2>Daily communications brief</h2><p>Prepared from minimized summaries; no raw mail, automatic sends, or calendar writes.</p></div><span class="truth">EXCEPTION ONLY</span></div><p id="communications-headline" class="communications-headline">Waiting for authorized summaries.</p><div id="communications-top-actions" class="stack"></div></article>
+        <div class="communications-grid">
+          <article class="panel"><div class="panel-head"><h2>Follow-up queue</h2><span class="truth warn">OWNER REVIEW</span></div><div id="communications-tasks" class="stack"><p>No follow-ups loaded.</p></div></article>
+          <article class="panel"><div class="panel-head"><h2>Calendar candidates</h2><span class="truth">NO WRITE</span></div><div id="communications-calendar" class="stack"><p>No deadlines loaded.</p></div></article>
+          <article class="panel"><div class="panel-head"><h2>Customer and vendor timelines</h2><span class="truth">HISTORY</span></div><div id="communications-timelines" class="stack"><p>No relationships loaded.</p></div></article>
+          <article class="panel"><div class="panel-head"><h2>Quarantine</h2><span class="truth warn">LINKS + FILES BLOCKED</span></div><div id="communications-quarantine" class="stack"><p>No suspicious summaries detected.</p></div></article>
+        </div>
+        <p id="communications-status" class="muted" role="status">Read-only. Sending, publishing, contact changes, calendar changes, links, and attachments remain blocked.</p>
+      </section>
     </main>
   </div>
 
@@ -527,5 +542,6 @@
   <script src="/product-builder.js"></script>
   <script src="/business.js"></script>
   <script src="/inbox.js"></script>
+  <script src="/communications.js"></script>
 </body>
 </html>

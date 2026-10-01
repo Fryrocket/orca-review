@@ -262,6 +262,7 @@ function show(id) {
     engineering: ['ENGINEERING DESK', 'Engineering'], operations: ['CONTROL PLANE', 'Operations'],
     'bot-monitor': ['AGENT OBSERVABILITY', 'Bot Monitor'],
     inbox: ['PRIVATE COMMUNICATIONS', 'Inbox'],
+    communications: ['AGENTIC COMMUNICATIONS', 'Communications Hub'],
     business: ['QUASARVOLT SUPPLY', 'Business'],
     'product-builder': ['DESIGN AUTOMATION', 'Product Builder']
   };
@@ -270,6 +271,7 @@ function show(id) {
   $('#workspace-title').textContent = title;
   if (id === 'inventory') loadInventory();
   if (id === 'inbox') globalThis.ORCAInbox?.load();
+  if (id === 'communications') globalThis.ORCACommunications?.load();
 }
 function showOps(id) {
   show('operations');

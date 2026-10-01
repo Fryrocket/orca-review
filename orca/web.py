@@ -362,7 +362,7 @@ class OrcaHandler(BaseHTTPRequestHandler):
         if not self._host_allowed():
             return self._json({"error": "host header is not allowlisted"}, HTTPStatus.MISDIRECTED_REQUEST)
         path = urlparse(self.path).path
-        if path == "/api/inbox":
+        if path in {"/api/inbox", "/api/communications"}:
             try:
                 identity = self._authenticate_mutation()
             except IdentityAuthenticationError as exc:
@@ -376,6 +376,8 @@ class OrcaHandler(BaseHTTPRequestHandler):
             if self.server.inbox_store is None:
                 return self._json({"error": "Inbox storage is unavailable"},
                                   HTTPStatus.SERVICE_UNAVAILABLE)
+            if path == "/api/communications":
+                return self._json(self.server.inbox_store.communications_snapshot())
             return self._json(self.server.inbox_store.snapshot())
         if path == "/api/config":
             return self._json({

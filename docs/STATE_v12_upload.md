@@ -671,6 +671,21 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   mailbox remains unconnected; until an accepted connector exists, summaries
   enter only through the governed Muse return package. Deployment and live
   acceptance remain behind the active soak gate.
+- A separate first-class ORCA **Communications Hub** is now implemented as a
+  tested local candidate and is not deployed during the active soak. It builds
+  on the minimized Inbox records rather than creating a second mailbox. Its
+  deterministic read-only operating view produces customer/vendor timelines,
+  an owner-review follow-up queue, calendar candidates, suspicious-summary
+  quarantine and one exception-oriented daily communications brief. It uses
+  ORCA's existing Connector Steward, Evidence Auditor, Legal and Compliance
+  Clerk and Daily Briefing Officer lanes instead of creating an overlapping
+  autonomous bot. It performs zero sends, mailbox mutations, calendar writes,
+  contact writes, link opens or attachment opens; consequential external
+  actions remain separately approval-gated. Focused Communications, Inbox,
+  Muse and web acceptance passed **41/41**, JavaScript syntax and patch checks
+  passed, and the complete source regression passed **1,134/1,134**. A live
+  mailbox and calendar remain unconnected. Deployment and live acceptance stay
+  behind successful soak completion and continuity-record reconciliation.
 - The existing `orca-continuity-checkpoint` heartbeat now includes the five-node
   autonomous-security posture and FOR-29. It remains active every six hours,
   stays quiet while state is healthy and unchanged, and may perform only

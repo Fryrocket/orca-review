@@ -11,6 +11,7 @@ from threading import RLock
 from typing import Any
 
 from .security import redact_text
+from .communications import build_communications_snapshot
 
 
 _ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,159}$")
@@ -169,3 +170,7 @@ class InboxStore:
             "attachments_stored": False,
             "mailbox_mutations": 0,
         }
+
+    def communications_snapshot(self) -> dict[str, Any]:
+        """Return derived operating views without creating mailbox-side state."""
+        return build_communications_snapshot(self.snapshot()["messages"])
