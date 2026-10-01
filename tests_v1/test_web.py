@@ -568,6 +568,24 @@ def test_solo_operator_catalog_and_action_plan_are_bounded_and_inert():
         assert plan["external_actions"] == 0
         assert plan["jobs_created"] == 0
         assert plan["records_mutated"] == 0
+        snapshot_payload = {"records": [{
+            "record_id": "case-1", "module": "case_manager",
+            "title": "Review disposable case", "status": "open",
+            "priority": "high", "owner": "orca", "due_at": None,
+            "source": "simulation", "evidence": "fixture:case-1",
+            "related_ids": [], "approval_required": True,
+            "untrusted": False,
+        }]}
+        request = Request(
+            f"http://127.0.0.1:{server.server_port}/api/solo-operator/snapshot",
+            data=json.dumps(snapshot_payload).encode(), method="POST",
+            headers={"Content-Type": "application/json", "X-ORCA-Operator-Token": token},
+        )
+        with urlopen(request) as response:
+            snapshot = json.load(response)
+        assert snapshot["room_count"] == 12
+        assert snapshot["rooms"]["case_manager"][0]["record_id"] == "case-1"
+        assert snapshot["external_actions"] == snapshot["records_mutated"] == 0
     finally:
         server.shutdown()
         server.server_close()

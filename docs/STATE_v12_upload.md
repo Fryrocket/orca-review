@@ -725,9 +725,9 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   rooms: Action Center; Customer & Vendor Master; Knowledge Center; Ticket &
   Case Manager; Attachment Quarantine; Calendar & Commitment Manager; Identity
   & Consent Gate; Dead-Letter & Recovery Queue; Business Memory Graph; Decision
-  Journal; Performance Optimizer; and Executive Morning Brief. Each module is
-  explicitly labeled implemented-candidate, candidate or staged so an absent
-  connector or canonical data source can never appear live.
+  Journal; Performance Optimizer; and Executive Morning Brief. Every module is
+  now an implemented candidate, while each absent connector or canonical data
+  source remains explicitly labeled awaiting acceptance and cannot appear live.
 - The deterministic Action Center planning endpoint accepts only authenticated,
   exact-schema, secret-scanned signals; rejects conflicting source identities;
   removes exact duplicates; sorts by priority and due time; retains evidence
@@ -737,13 +737,18 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   chat path, but the generated instruction expressly forbids sending, buying,
   publishing, moving money, changing records or permissions, replaying failed
   work, modifying ORCA core or claiming an unconnected system is live.
-- Focused Solo Operator and workspace acceptance passed **31/31**. JavaScript
+- A second authenticated, inert snapshot engine now projects exact-schema,
+  secret-scanned, conflict-protected records into all twelve rooms. It derives
+  quarantine, commitments, a bounded relationship graph, an Action Center plan
+  and a five-item Executive Morning Brief. It performs no connector reads,
+  record writes, sends, calendar writes or failed-job replay.
+- Focused Solo Operator and workspace acceptance passed **33/33**. JavaScript
   syntax and patch checks passed, and the complete ORCA source regression passed
-  **1,140/1,140**. Remaining gates are soak completion, post-soak normalization,
+  **1,142/1,142**. Remaining gates are soak completion, post-soak normalization,
   independent evidence review, exact-candidate packaging, rollback-protected
   deployment and live API/UI verification. Canonical relationship data,
   approved knowledge, ticketing, file scanning, calendar, consent/suppression,
   failed-work replay, entity resolution and real performance routing remain
-  staged behind their individual acceptance gates.
+  unconnected behind their individual acceptance gates.
 
 END STATE.md — AS OF 2026-10-01

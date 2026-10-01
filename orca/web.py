@@ -536,7 +536,7 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     "nonce": heartbeat.nonce,
                     "status": "accepted",
                 }, HTTPStatus.OK)
-            if path in {"/api/inference", "/api/chat", "/api/memory", "/api/science", "/api/engineering", "/api/project/plan", "/api/cad/pcb-draft", "/api/temper/inventory-dataset/plan", "/api/business/muse/handoff", "/api/business/muse/email-handoff", "/api/solo-operator/action-plan"}:
+            if path in {"/api/inference", "/api/chat", "/api/memory", "/api/science", "/api/engineering", "/api/project/plan", "/api/cad/pcb-draft", "/api/temper/inventory-dataset/plan", "/api/business/muse/handoff", "/api/business/muse/email-handoff", "/api/solo-operator/action-plan", "/api/solo-operator/snapshot"}:
                 try:
                     authenticated_identity = self._authenticate_mutation()
                 except IdentityAuthenticationError as exc:
@@ -555,6 +555,11 @@ class OrcaHandler(BaseHTTPRequestHandler):
                         raise ValueError("Action Center request has an invalid schema")
                     from .solo_operator import build_action_plan
                     return self._json(build_action_plan(data["signals"]))
+                if path == "/api/solo-operator/snapshot":
+                    if set(data) != {"records"}:
+                        raise ValueError("Solo Operator snapshot request has an invalid schema")
+                    from .solo_operator import build_operating_snapshot
+                    return self._json(build_operating_snapshot(data["records"]))
                 if path == "/api/business/muse/handoff":
                     if set(data) != {"workflow_id", "objective"}:
                         raise ValueError("Muse handoff request has an invalid schema")
