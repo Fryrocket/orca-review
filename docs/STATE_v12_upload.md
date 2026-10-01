@@ -35,11 +35,11 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   given a dedicated restricted relay key, and FORGE accepted its owner-enrolled
   signed heartbeat. Owner authorization on 2026-10-01 made TEMPER a full FORGE
   ecosystem member and authorized the tested ORCA core integration. Immutable
-  release `66633e60564dca32ce158d70b98c163e10df2f6f` is live on FORGE with
+  release `cab7a6ec79948bc1383c0a27ce327602fc52a937` is live on FORGE with
   health and integrity valid and rollback preserved to
-  `e3bca4dd2eb1125bed122fb66d1144396d6e94a1`. TEMPER now appears in the FORGE
+  `66633e60564dca32ce158d70b98c163e10df2f6f`. TEMPER now appears in the FORGE
   fabric with its edge-worker, sensor, MQTT, telemetry, storage and Hailo
-  capabilities. The exact release passed 1,042 tests. Four packaged Hailo-8
+  capabilities. The exact release passed 1,045 tests. Four packaged Hailo-8
   vision models now pass direct accelerator execution: YOLOv6n at about 140.9
   FPS, YOLOv8s at 148.22 FPS, YOLOv5n segmentation at 61.32 FPS and YOLOv8s
   pose at 228.5 FPS. These are hardware-only measurements, not end-to-end
@@ -96,8 +96,8 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   stays blocked because no accepted model-serving capability is registered.
 - No push, merge, spending, credential change, or connector scope expansion was
   performed. The tested ORCA tree was activated on FORGE as immutable release
-  `/opt/orca/releases/66633e60564dca32ce158d70b98c163e10df2f6f`; release
-  `/opt/orca/releases/e3bca4dd2eb1125bed122fb66d1144396d6e94a1` remains the
+  `/opt/orca/releases/cab7a6ec79948bc1383c0a27ce327602fc52a937`; release
+  `/opt/orca/releases/66633e60564dca32ce158d70b98c163e10df2f6f` remains the
   `/var/lib/orca/previous-release` rollback target.
 
 ## 2026-09-30 LOCAL IMPLEMENTATION DELTA
