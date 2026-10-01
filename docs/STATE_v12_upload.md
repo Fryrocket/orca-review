@@ -35,13 +35,20 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   given a dedicated restricted relay key, and FORGE accepted its owner-enrolled
   signed heartbeat. Owner authorization on 2026-10-01 made TEMPER a full FORGE
   ecosystem member and authorized the tested ORCA core integration. Immutable
-  release `a5eb12efc83559c0a226b34f60321154fb361713` is live on FORGE with
+  release `e3bca4dd2eb1125bed122fb66d1144396d6e94a1` is live on FORGE with
   health and integrity valid and rollback preserved to
-  `daily-briefing-officer-20261001-candidate`. TEMPER now appears in the FORGE
+  `a5eb12efc83559c0a226b34f60321154fb361713`. TEMPER now appears in the FORGE
   fabric with its edge-worker, sensor, MQTT, telemetry, storage and Hailo
-  capabilities. The exact release passed 1,026 tests. Autonomous workload
-  routing remains paused: membership is live, while execution must still pass
-  MQTT authentication, approved-model, recovery and soak gates.
+  capabilities. The exact release passed 1,037 tests. Four packaged Hailo-8
+  vision models now pass direct accelerator execution: YOLOv6n at about 140.9
+  FPS, YOLOv8s at 148.22 FPS, YOLOv5n segmentation at 61.32 FPS and YOLOv8s
+  pose at 228.5 FPS. These are hardware-only measurements, not end-to-end
+  camera latency. TEMPER's read-only Hailo/USB-camera inventory timer is live,
+  refreshes every minute, reports the device and compatible H8 artifacts, and
+  correctly reports no external camera connected yet. ORCA exposes the
+  governed edge catalog and recommends TEMPER for vision, sensor and future
+  audio workloads. Autonomous execution remains paused until the signed job
+  broker and per-workflow acceptance gates pass.
 
 ## CRUCIBLE AND GPU STATUS
 
@@ -74,10 +81,11 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
 - The active registry now records CRUCIBLE as installed ROCm compute hardware,
   BILLOWS by device name, and the verified host addresses. Large GPU inference
   stays blocked because no accepted model-serving capability is registered.
-- No push, merge, provider write, spending, credential change, or connector
-  scope expansion was performed. The tested ORCA tree was activated on FORGE
-  as immutable release `/opt/orca/releases/botcrew-20260930-418406f`; the prior
-  release remains the `/var/lib/orca/previous-release` rollback target.
+- No push, merge, spending, credential change, or connector scope expansion was
+  performed. The tested ORCA tree was activated on FORGE as immutable release
+  `/opt/orca/releases/e3bca4dd2eb1125bed122fb66d1144396d6e94a1`; release
+  `/opt/orca/releases/a5eb12efc83559c0a226b34f60321154fb361713` remains the
+  `/var/lib/orca/previous-release` rollback target.
 
 ## 2026-09-30 LOCAL IMPLEMENTATION DELTA
 
@@ -108,7 +116,8 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
 - Active default model routes now reflect the accepted architecture: governed
   Codex on KILN is primary for coding and documentation, local Qwen is the
   fallback and primary large reasoner, QUENCH independently reviews, and SMITH
-  stays retired. TEMPER has a declared but inactive Hailo edge-inference path.
+  stays retired. TEMPER has a live read-only Hailo capability catalog and
+  automatic camera discovery; execution remains broker- and acceptance-gated.
 - A planned ORCA Executive Orchestrator is now documented as the cross-business
   priority and delegation layer. It may maintain the operating picture,
   decompose authorized goals, assign bounded work, coordinate dependencies,
@@ -159,8 +168,13 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   Discovery, MAC/address binding, SSH fingerprint, Pi 5, memory, 1 TB NVMe,
   PCIe, Hailo-8, hostname, restricted KILN relay and signed-heartbeat gates are
   verified. ORCA reports TEMPER healthy and authenticated with evidence
-  integrity valid. Its Hailo-8 hardware is live but model execution is gated:
-  no reviewed `.hef` model is installed and the configured HEF path is empty.
+  integrity valid. Its Hailo-8 hardware is live and four packaged H8 `.hef`
+  artifacts pass direct accelerator execution. Their ORCA model catalog is
+  live, but camera/file inference remains gated until the signed bounded job
+  broker, post-processing, provenance hashing and workflow acceptance pass.
+  The read-only camera inventory service is active with zero restarts and
+  excludes the Pi's internal codec devices; it currently reports that the USB
+  camera is not physically connected.
   Credentialed listener 41883 now enforces an `armband/#` topic ACL. Authenticated
   round-trip, forbidden-topic denial and anonymous-denial probes passed, and the
   local logger was moved to 41883 with an automatic rollback copy retained.
