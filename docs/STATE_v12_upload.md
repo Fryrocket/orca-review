@@ -598,5 +598,13 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   needed, and successful second-session probes of signed heartbeat, tunnels,
   ORCA, models, storage, backup, MQTT and monitoring. This is deliberate
   lockout prevention, not an omitted control.
+- Security work is tracked in Linear **FOR-29** and the matching Notion To Do
+  page. The Forge infrastructure, ORCA additive-expansion, TEMPER, and EMBER
+  Notion pages carry their scoped findings and next gates. Google Drive's
+  existing `STATE_v12_upload.md` was updated in place, and the standalone
+  baseline was added to the canonical Forge folder. Local Git checkpoint:
+  `b7ebd4d`. The GitHub review branch was not updated because the destination's
+  privacy and access posture has not yet been verified for internal network and
+  security-posture documentation; no alternate export was attempted.
 
 END STATE.md — AS OF 2026-10-01
