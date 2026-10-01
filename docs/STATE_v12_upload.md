@@ -615,5 +615,12 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   service's non-zero one-shot result is the expected fail-visible condition,
   not a crash loop. Focused checks passed **11/11** and the complete ORCA source
   suite passed **1,105/1,105**.
+- The existing `orca-continuity-checkpoint` heartbeat now includes the five-node
+  autonomous-security posture and FOR-29. It remains active every six hours,
+  stays quiet while state is healthy and unchanged, and may perform only
+  bounded read-only checks, disposable simulations, evidence verification, and
+  non-destructive recovery checks. Firewall activation, SSH/credential/trust
+  changes, major updates, reboots, deletion and consequential external actions
+  retain their separate verified activation gates.
 
 END STATE.md — AS OF 2026-10-01
