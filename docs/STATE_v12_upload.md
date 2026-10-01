@@ -35,11 +35,11 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   given a dedicated restricted relay key, and FORGE accepted its owner-enrolled
   signed heartbeat. Owner authorization on 2026-10-01 made TEMPER a full FORGE
   ecosystem member and authorized the tested ORCA core integration. Immutable
-  release `66398a66c260ec455a83f5b5dcdda257bdff9c5b` is live on FORGE with
+  release `35a3f35ac6cdf28727ec92a7d93e3f1c968b2dfd` is live on FORGE with
   health and integrity valid and rollback preserved to
-  `cab7a6ec79948bc1383c0a27ce327602fc52a937`. TEMPER now appears in the FORGE
+  `66398a66c260ec455a83f5b5dcdda257bdff9c5b`. TEMPER now appears in the FORGE
   fabric with its edge-worker, sensor, MQTT, telemetry, storage and Hailo
-  capabilities. The exact release passed 1,047 tests. Four packaged Hailo-8
+  capabilities. The exact release passed 1,050 tests. Four packaged Hailo-8
   vision models now pass direct accelerator execution: YOLOv6n at about 140.9
   FPS, YOLOv8s at 148.22 FPS, YOLOv5n segmentation at 61.32 FPS and YOLOv8s
   pose at 228.5 FPS. These are hardware-only measurements, not end-to-end
@@ -67,6 +67,15 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   recommends TEMPER for vision, sensor and future audio workloads. Signed
   bounded camera and approved-file inference are accepted; autonomous
   execution, custom models and business workflow activation remain gated.
+  ORCA now also exposes a read-only `temper.plan_inference_workflow` tool. It
+  maps a registered Inventory, Engineering, Canvas, Product Builder, Operations,
+  Business, BGM or Studio workflow to compatible pinned models, required
+  evidence and explicit prohibitions without enqueuing a job. Inventory visual
+  counting remains paused until the operator declares the exact label scope;
+  PCB, receiving, listing, safety, sensor and audio work remains blocked until
+  an appropriate custom Hailo-8 model is validated. A six-check disposable
+  workflow simulation passed with zero frames captured, jobs queued or external
+  actions.
 
 ## CRUCIBLE AND GPU STATUS
 
@@ -101,8 +110,8 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   stays blocked because no accepted model-serving capability is registered.
 - No push, merge, spending, credential change, or connector scope expansion was
   performed. The tested ORCA tree was activated on FORGE as immutable release
-  `/opt/orca/releases/66398a66c260ec455a83f5b5dcdda257bdff9c5b`; release
-  `/opt/orca/releases/cab7a6ec79948bc1383c0a27ce327602fc52a937` remains the
+  `/opt/orca/releases/35a3f35ac6cdf28727ec92a7d93e3f1c968b2dfd`; release
+  `/opt/orca/releases/66398a66c260ec455a83f5b5dcdda257bdff9c5b` remains the
   `/var/lib/orca/previous-release` rollback target.
 
 ## 2026-09-30 LOCAL IMPLEMENTATION DELTA
