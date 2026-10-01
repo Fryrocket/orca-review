@@ -140,3 +140,9 @@ def test_inventory_count_ui_supports_scanning_preview_and_batch_approval():
     for scanner_feature in ("barcode-scanner-toggle", "barcode-scanner-mode",
                             "acceptBarcodeScan", "findInventoryBarcode"):
         assert scanner_feature in html + script
+    for vision_feature in (
+        "TEMPER vision label sets", "inventory-vision-labels",
+        "inventory-vision-from-stock", "inventory-vision-form",
+        "/api/temper/inventory-dataset/plan", "parseInventoryVisionLabels",
+    ):
+        assert vision_feature in html + script

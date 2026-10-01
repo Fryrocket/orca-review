@@ -124,6 +124,22 @@
           <p id="inventory-count-status" class="muted" role="status">Start scanning or entering inventory observations.</p>
           <div id="inventory-count-preview-result" class="inventory-count-preview"></div>
         </article>
+        <article class="panel inventory-vision-panel">
+          <div class="panel-head"><div><h2>TEMPER vision label sets</h2><p>Define exact SKU-bound labels, generate a balanced camera-session checklist, and preserve the dataset manifest for validation and Hailo-8 conversion. Planning never opens the camera, trains, deploys, or changes stock.</p></div><span class="truth">GOVERNED DATASET</span></div>
+          <form id="inventory-vision-form" class="inventory-vision-form">
+            <label>Dataset name<input id="inventory-vision-name" required maxlength="80" value="QuasarVolt inventory vision"></label>
+            <label>Version<input id="inventory-vision-version" required maxlength="32" value="1.0.0"></label>
+            <label>Images per label<input id="inventory-vision-target" required type="number" min="50" max="2000" value="120"></label>
+            <label>Capture session<input id="inventory-vision-session" required maxlength="64" value="TEMPER-CAPTURE-001"></label>
+            <label>Camera profile<input id="inventory-vision-camera" required maxlength="120" value="TEMPER USB camera 1280x720 fixed bench"></label>
+            <label>Source / provenance<input id="inventory-vision-source" required maxlength="240" value="Owner-captured QuasarVolt inventory images"></label>
+            <label>License / ownership<input id="inventory-vision-license" required maxlength="80" value="QuasarVolt-owned"></label>
+            <label class="inventory-vision-wide">Labels · one per line: LABEL ID | SKU | NAME | BARCODE<textarea id="inventory-vision-labels" required rows="7" maxlength="12000" placeholder="CAP-100UF | CAP-100 | 100 uF capacitor | QVCAP100"></textarea></label>
+            <div class="inventory-vision-actions"><button id="inventory-vision-from-stock" type="button">Use current inventory</button><button class="primary-action" type="submit">Build dataset and capture plan</button></div>
+          </form>
+          <p id="inventory-vision-status" class="muted" role="status">No label set is planned in this browser session.</p>
+          <div id="inventory-vision-result" class="inventory-vision-result"></div>
+        </article>
         <div class="inventory-control-grid">
           <article class="panel"><div class="panel-head"><div><h2>Action queue</h2><p>Stockouts, reorder signals, reservation conflicts, duplicates, and missing evidence.</p></div><span class="truth">ANALYSIS ONLY</span></div><div id="inventory-alerts" class="inventory-alerts"><p>Loading inventory controls…</p></div></article>
           <article class="panel"><div class="panel-head"><div><h2>Location health</h2><p>Quantity and attention by storage area.</p></div><span class="truth">LIVE READ</span></div><div id="inventory-locations" class="inventory-summary-list"><p>Loading locations…</p></div></article>

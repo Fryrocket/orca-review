@@ -4,7 +4,12 @@ from collections.abc import Callable
 
 from .inventory import InventoryReadError, analyze_inventory_snapshot
 from .edge_inference import edge_inference_blueprint, plan_edge_workflow
-from .vision_dataset import plan_inventory_vision_dataset
+from .vision_dataset import (
+    plan_hailo_conversion,
+    plan_inventory_capture_session,
+    plan_inventory_vision_dataset,
+    validate_inventory_dataset,
+)
 
 
 WORKSPACES = (
@@ -192,6 +197,24 @@ class StudioReadTools:
             license_name=license_name,
             target_images_per_label=target_images_per_label)
 
+    def temper_plan_inventory_capture(self, *, manifest: dict, session_id: str,
+                                      camera_profile: str,
+                                      operator: str = "Fry") -> dict:
+        return plan_inventory_capture_session(
+            manifest=manifest, session_id=session_id,
+            camera_profile=camera_profile, operator=operator)
+
+    def temper_validate_inventory_dataset(self, *, manifest: dict,
+                                          assets: list[dict]) -> dict:
+        return validate_inventory_dataset(manifest=manifest, assets=assets)
+
+    def temper_plan_hailo_conversion(self, *, manifest: dict, validation: dict,
+                                     training_metrics: dict,
+                                     toolchain: dict) -> dict:
+        return plan_hailo_conversion(
+            manifest=manifest, validation=validation,
+            training_metrics=training_metrics, toolchain=toolchain)
+
     def handlers(self) -> dict:
         return {
             "studio.capabilities": self.capabilities,
@@ -200,4 +223,7 @@ class StudioReadTools:
             "temper.inference_capabilities": self.temper_inference_capabilities,
             "temper.plan_inference_workflow": self.temper_plan_inference_workflow,
             "temper.plan_inventory_dataset": self.temper_plan_inventory_dataset,
+            "temper.plan_inventory_capture": self.temper_plan_inventory_capture,
+            "temper.validate_inventory_dataset": self.temper_validate_inventory_dataset,
+            "temper.plan_hailo_conversion": self.temper_plan_hailo_conversion,
         }

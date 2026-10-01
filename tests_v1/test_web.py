@@ -443,6 +443,38 @@ def test_inference_endpoint_is_fry_authenticated_and_schema_bounded():
         server.server_close()
 
 
+def test_inventory_vision_planning_endpoint_is_authenticated_and_non_executing():
+    token = "t" * 32
+    server = OrcaHTTPServer(
+        ("127.0.0.1", 0), ControlPlane(), operator_token=token)
+    Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        payload = {
+            "name": "Bench vision", "version": "1.0",
+            "labels": [{"id": "CAP-100", "sku": "CAP-100",
+                        "name": "100 uF capacitor", "barcode": "CAP100"}],
+            "source": "Owner-captured test fixtures", "license_name": "Owner-controlled",
+            "target_images_per_label": 50, "session_id": "TEST-CAPTURE-1",
+            "camera_profile": "TEMPER USB test camera",
+        }
+        url = f"http://127.0.0.1:{server.server_port}/api/temper/inventory-dataset/plan"
+        request = Request(
+            url, data=json.dumps(payload).encode(), method="POST",
+            headers={"Content-Type": "application/json",
+                     "X-ORCA-Operator-Token": token})
+        with urlopen(request) as response:
+            planned = json.load(response)
+        assert planned["read_only"] is True
+        assert planned["external_actions"] == 0
+        assert planned["manifest"]["may_train"] is False
+        assert planned["capture_plan"]["frames_planned"] == 50
+        assert planned["capture_plan"]["frames_captured"] == 0
+        assert planned["capture_plan"]["may_open_camera"] is False
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
 def test_auto_chat_is_authenticated_and_preserves_history():
     history = [{"role": "user", "content": "My project is Cedar."}]
     class Gateway:

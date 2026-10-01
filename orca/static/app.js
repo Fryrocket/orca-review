@@ -1010,6 +1010,60 @@ document.addEventListener('keydown', event => {
     event.preventDefault(); barcodeScannerBuffer += event.key;
   }
 });
+function inventoryVisionIdentifier(value, fallback) {
+  const normalized = String(value || fallback || '').trim().toUpperCase()
+    .replace(/[^A-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64);
+  return normalized || 'ITEM';
+}
+function parseInventoryVisionLabels() {
+  const lines = $('#inventory-vision-labels').value.split(/\r?\n/)
+    .map(line => line.trim()).filter(Boolean);
+  if (!lines.length || lines.length > 50) throw Error('Enter between 1 and 50 label rows.');
+  return lines.map((line, index) => {
+    const values = line.split('|').map(value => value.trim());
+    if (values.length < 3 || values.length > 4 || values.slice(0, 3).some(value => !value)) {
+      throw Error(`Label row ${index + 1} must be LABEL ID | SKU | NAME | BARCODE.`);
+    }
+    return {id: values[0], sku: values[1], name: values[2], barcode: values[3] || values[1]};
+  });
+}
+$('#inventory-vision-from-stock').addEventListener('click', () => {
+  const rows = (inventory.items || []).slice(0, 50).map((item, index) => {
+    const sku = String(item.sku || item.part_number || item.barcode || `ITEM-${index + 1}`);
+    const id = inventoryVisionIdentifier(item.vision_label || sku, `ITEM-${index + 1}`);
+    const name = String(item.name || item.description || sku).replace(/[|\r\n]/g, ' ').slice(0, 80);
+    const barcode = String(item.barcode || (item.barcode_aliases || [])[0] || sku).replace(/[|\r\n]/g, '').slice(0, 128);
+    return `${id} | ${sku} | ${name} | ${barcode}`;
+  });
+  $('#inventory-vision-labels').value = rows.join('\n');
+  $('#inventory-vision-status').textContent = rows.length
+    ? `${rows.length} inventory labels loaded for review; nothing has been captured or saved.`
+    : 'No canonical inventory items are available to build a label set.';
+});
+$('#inventory-vision-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const status = $('#inventory-vision-status'), result = $('#inventory-vision-result');
+  try {
+    const payload = {
+      name: $('#inventory-vision-name').value.trim(),
+      version: $('#inventory-vision-version').value.trim(),
+      labels: parseInventoryVisionLabels(),
+      source: $('#inventory-vision-source').value.trim(),
+      license_name: $('#inventory-vision-license').value.trim(),
+      target_images_per_label: Number($('#inventory-vision-target').value),
+      session_id: $('#inventory-vision-session').value.trim(),
+      camera_profile: $('#inventory-vision-camera').value.trim()
+    };
+    status.textContent = 'Building the deterministic manifest and capture checklist…';
+    const planned = await postMutation('/api/temper/inventory-dataset/plan', payload, controlAuth());
+    const manifest = planned.manifest, capture = planned.capture_plan;
+    result.innerHTML = `<div class="inventory-count-metrics"><span>${manifest.labels.length} labels</span><span>${capture.frames_planned.toLocaleString()} planned frames</span><span>${manifest.split.train}/${manifest.split.validation}/${manifest.split.test} per-label split</span><span>0 captured</span></div><div class="inventory-vision-hash"><strong>Manifest</strong><code>${esc(manifest.manifest_sha256)}</code></div><div class="inventory-vision-scenarios">${capture.quotas.map(row => `<span>${esc(row.scenario.replaceAll('_', ' '))}: ${row.per_label}/label</span>`).join('')}</div><p><strong>Next gate:</strong> ${esc(capture.next_gate)}</p>`;
+    status.textContent = 'Plan ready. Camera, training, conversion, deployment, and stock writes remain blocked.';
+  } catch (error) {
+    result.innerHTML = '';
+    status.textContent = `Dataset plan failed: ${error.message}`;
+  }
+});
 $('#inventory-count-row-form').addEventListener('submit', event => {
   event.preventDefault();
   const sku = $('#inventory-count-sku').value.trim(), serial = $('#inventory-count-serial').value.trim();

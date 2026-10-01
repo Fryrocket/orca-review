@@ -501,7 +501,7 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     "nonce": heartbeat.nonce,
                     "status": "accepted",
                 }, HTTPStatus.OK)
-            if path in {"/api/inference", "/api/chat", "/api/memory", "/api/science", "/api/engineering", "/api/project/plan", "/api/cad/pcb-draft"}:
+            if path in {"/api/inference", "/api/chat", "/api/memory", "/api/science", "/api/engineering", "/api/project/plan", "/api/cad/pcb-draft", "/api/temper/inventory-dataset/plan"}:
                 try:
                     authenticated_identity = self._authenticate_mutation()
                 except IdentityAuthenticationError as exc:
@@ -515,6 +515,27 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     raise IdentityAuthorizationError(
                         "only Fry may initiate local model inference")
                 data = self._body()
+                if path == "/api/temper/inventory-dataset/plan":
+                    expected = {"name", "version", "labels", "source", "license_name",
+                                "target_images_per_label", "session_id", "camera_profile"}
+                    if set(data) != expected:
+                        raise ValueError("inventory dataset planning request has an invalid schema")
+                    from .vision_dataset import (
+                        plan_inventory_capture_session,
+                        plan_inventory_vision_dataset,
+                    )
+                    manifest = plan_inventory_vision_dataset(
+                        name=data["name"], version=data["version"], labels=data["labels"],
+                        source=data["source"], license_name=data["license_name"],
+                        target_images_per_label=data["target_images_per_label"])
+                    capture = plan_inventory_capture_session(
+                        manifest=manifest, session_id=data["session_id"],
+                        camera_profile=data["camera_profile"])
+                    return self._json({
+                        "status": "planned", "read_only": True,
+                        "manifest": manifest, "capture_plan": capture,
+                        "external_actions": 0,
+                    })
                 if path == "/api/cad/pcb-draft":
                     if set(data) != {"prompt"}:
                         raise ValueError("PCB draft creation requires one prompt")

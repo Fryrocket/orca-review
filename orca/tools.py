@@ -48,6 +48,18 @@ TOOL_CATALOG = {
         "temper.plan_inventory_dataset", "edge",
         "Plan a governed TEMPER inventory-vision dataset without capturing, training, or deploying",
         None, PermissionLevel.R0),
+    "temper.plan_inventory_capture": ToolCapability(
+        "temper.plan_inventory_capture", "edge",
+        "Plan a bounded inventory image-capture session without opening a camera",
+        None, PermissionLevel.R0),
+    "temper.validate_inventory_dataset": ToolCapability(
+        "temper.validate_inventory_dataset", "edge",
+        "Check bounded inventory dataset metadata for balance, duplicates, leakage and provenance",
+        None, PermissionLevel.R0),
+    "temper.plan_hailo_conversion": ToolCapability(
+        "temper.plan_hailo_conversion", "edge",
+        "Plan a Hailo-8 conversion and model-registry candidate without executing or deploying",
+        None, PermissionLevel.R0),
 }
 
 
@@ -62,6 +74,8 @@ BOT_TOOL_MANIFESTS = {
         "temper.inference_capabilities",
         "temper.plan_inference_workflow",
         "temper.plan_inventory_dataset",
+        "temper.plan_inventory_capture", "temper.validate_inventory_dataset",
+        "temper.plan_hailo_conversion",
     }),
     "smith": frozenset({
         "math.scientific", "engineering.calculate", "engineering.catalog",
@@ -73,6 +87,8 @@ BOT_TOOL_MANIFESTS = {
         "temper.inference_capabilities",
         "temper.plan_inference_workflow",
         "temper.plan_inventory_dataset",
+        "temper.plan_inventory_capture", "temper.validate_inventory_dataset",
+        "temper.plan_hailo_conversion",
     }),
     "quench": frozenset({
         "math.scientific", "engineering.calculate", "engineering.catalog",
@@ -83,6 +99,8 @@ BOT_TOOL_MANIFESTS = {
         "temper.inference_capabilities",
         "temper.plan_inference_workflow",
         "temper.plan_inventory_dataset",
+        "temper.plan_inventory_capture", "temper.validate_inventory_dataset",
+        "temper.plan_hailo_conversion",
     }),
     "security_gate": frozenset(),
 }
@@ -125,6 +143,19 @@ TOOL_ARGUMENT_SCHEMAS = {
         "labels": "1-50 exact inventory label rows with id, name, sku and optional barcode/description",
         "source": "Bounded provenance description", "license_name": "Dataset license or ownership basis",
         "target_images_per_label": "Optional integer 50-2000; default 120"},
+    "temper.plan_inventory_capture": {
+        "manifest": "Exact inventory-vision manifest returned by temper.plan_inventory_dataset",
+        "session_id": "Stable capture session identifier",
+        "camera_profile": "Declared camera and capture profile",
+        "operator": "Optional capture operator; default Fry"},
+    "temper.validate_inventory_dataset": {
+        "manifest": "Exact inventory-vision manifest",
+        "assets": "Bounded asset metadata rows with hashes, split, provenance, reviewers and privacy flag"},
+    "temper.plan_hailo_conversion": {
+        "manifest": "Exact inventory-vision manifest",
+        "validation": "Accepted validation result for that manifest",
+        "training_metrics": "precision, recall, count_error_rate and source_model_sha256",
+        "toolchain": "hailo_dataflow_compiler, hailort and target=hailo8"},
 }
 
 
