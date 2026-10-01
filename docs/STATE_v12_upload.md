@@ -765,5 +765,22 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   separated. No direct third-party OpenAI Finances API is claimed, and money
   movement, bill payment, trading, account changes, tax filing, credential
   storage and autonomous budget approval remain prohibited.
+- The next decision-quality expansion is locked into planning under Linear
+  FOR-32 and the matching Notion checklist. Its fifteen removable control rooms
+  and engines are: Data Trust Center, Commitments Ledger, Assumption Register,
+  Change Impact Analyzer, Operating Digital Twin, Unit Economics Center,
+  Supplier Risk Map, Contract and Subscription Optimizer, Asset and Maintenance
+  Registry, Privacy and Retention Center, Automation Cost Governor, Founder
+  Capacity Planner, Opportunity Portfolio, Business Continuity Console, and
+  Owner Control Panel.
+- These additions reuse the existing ORCA bot crew and feed Action Center,
+  Business Memory Graph, Decision Journal, Performance Optimizer and Executive
+  Morning Brief; they do not create fifteen overlapping autonomous bots. Every
+  module requires an exact schema, evidence and freshness rules, synthetic or
+  redacted acceptance, negative authority checks, complete regression,
+  independent review, a removable feature switch and rollback proof. Current
+  state is **planning only**: none of the fifteen is connected, deployed or
+  live, and sequencing follows the current Solo Operator release gate unless an
+  isolated design or test is independently safe.
 
 END STATE.md — AS OF 2026-10-01
