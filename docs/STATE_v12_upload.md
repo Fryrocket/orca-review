@@ -143,6 +143,21 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   prohibits deploying a new ORCA core release. The live FORGE release remains
   healthy and unchanged.
 
+- TEMPER visual-inventory dataset planning is implemented and verified in the
+  local ORCA candidate. The new read-only planner produces deterministic,
+  SHA-256-identified manifests tied to exact inventory SKUs and barcodes,
+  bounded 70/15/15 train-validation-test targets, camera/background/lighting
+  coverage, hard negatives, two-pass label review, near-duplicate split
+  isolation, provenance and ownership requirements, and explicit precision,
+  recall and count-error gates. People, identity and sensitive-trait labels are
+  rejected. Unknown items must abstain for review, and the canonical inventory
+  ledger remains authoritative. Planning cannot capture images, train a model,
+  deploy a model or change stock. The expanded TEMPER simulation passed seven
+  checks with zero captures, dataset writes, training, jobs or external action;
+  the complete ORCA regression passed 1,075 tests. This capability is
+  **implemented, tested and staged, but not live** under the active no-core-
+  release continuity safeguard.
+
 ## CRUCIBLE AND GPU STATUS
 
 - CRUCIBLE is installed on FORGE and identifies as **AMD Radeon AI PRO R9700**,

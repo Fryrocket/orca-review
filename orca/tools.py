@@ -44,6 +44,10 @@ TOOL_CATALOG = {
         "temper.plan_inference_workflow", "edge",
         "Plan one governed TEMPER Hailo workflow without executing it",
         None, PermissionLevel.R0),
+    "temper.plan_inventory_dataset": ToolCapability(
+        "temper.plan_inventory_dataset", "edge",
+        "Plan a governed TEMPER inventory-vision dataset without capturing, training, or deploying",
+        None, PermissionLevel.R0),
 }
 
 
@@ -57,6 +61,7 @@ BOT_TOOL_MANIFESTS = {
         "studio.capabilities", "inventory.search",
         "temper.inference_capabilities",
         "temper.plan_inference_workflow",
+        "temper.plan_inventory_dataset",
     }),
     "smith": frozenset({
         "math.scientific", "engineering.calculate", "engineering.catalog",
@@ -67,6 +72,7 @@ BOT_TOOL_MANIFESTS = {
         "studio.capabilities", "inventory.search",
         "temper.inference_capabilities",
         "temper.plan_inference_workflow",
+        "temper.plan_inventory_dataset",
     }),
     "quench": frozenset({
         "math.scientific", "engineering.calculate", "engineering.catalog",
@@ -76,6 +82,7 @@ BOT_TOOL_MANIFESTS = {
         "studio.capabilities", "inventory.search",
         "temper.inference_capabilities",
         "temper.plan_inference_workflow",
+        "temper.plan_inventory_dataset",
     }),
     "security_gate": frozenset(),
 }
@@ -113,6 +120,11 @@ TOOL_ARGUMENT_SCHEMAS = {
         "workflow_id": "Registered TEMPER workflow ID",
         "input_kind": "Optional: camera, image, or video",
         "labels": "Optional bounded list of declared labels for generic detection"},
+    "temper.plan_inventory_dataset": {
+        "name": "Dataset name", "version": "Dataset version",
+        "labels": "1-50 exact inventory label rows with id, name, sku and optional barcode/description",
+        "source": "Bounded provenance description", "license_name": "Dataset license or ownership basis",
+        "target_images_per_label": "Optional integer 50-2000; default 120"},
 }
 
 

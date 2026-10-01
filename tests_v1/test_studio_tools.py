@@ -62,7 +62,8 @@ def test_node_observe_filters_and_new_chat_tools_are_manifested_read_only():
     tools = StudioReadTools(control_snapshot=snapshot)
     assert [node["id"] for node in tools.node_observe(node_id="kiln")["nodes"]] == ["kiln"]
     required = {"studio.capabilities", "inventory.search", "node.observe",
-                "temper.inference_capabilities", "temper.plan_inference_workflow"}
+                "temper.inference_capabilities", "temper.plan_inference_workflow",
+                "temper.plan_inventory_dataset"}
     assert required <= BOT_TOOL_MANIFESTS["orca"]
     assert all(not TOOL_CATALOG[name].mutates for name in required)
 
@@ -87,3 +88,16 @@ def test_temper_workflow_planner_never_executes_and_keeps_custom_models_blocked(
     blocked = tools.temper_plan_inference_workflow(
         workflow_id="receiving_and_packaging_check", input_kind="image")
     assert blocked["state"] == "blocked_custom_model_required"
+
+
+def test_temper_inventory_dataset_planner_is_read_only_and_inventory_bound():
+    tools = StudioReadTools(control_snapshot=snapshot)
+    plan = tools.temper_plan_inventory_dataset(
+        name="Bench parts", version="1", source="Owner-captured bench images",
+        license_name="Owner-controlled",
+        labels=[{"id": "CAP-100UF", "name": "100 uF capacitor", "sku": "CAP-100"}])
+    assert plan["state"] == "capture_plan_ready"
+    assert plan["labels"][0]["sku"] == "CAP-100"
+    assert plan["may_capture"] is False
+    assert plan["may_train"] is False
+    assert plan["may_deploy"] is False

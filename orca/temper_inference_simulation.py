@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .edge_inference import plan_edge_workflow
+from .vision_dataset import plan_inventory_vision_dataset
 
 
 def run_temper_inference_simulation() -> dict:
@@ -12,6 +13,10 @@ def run_temper_inference_simulation() -> dict:
     media_ready = plan_edge_workflow(workflow_id="product_media_preflight")
     pcb_blocked = plan_edge_workflow(
         workflow_id="pcb_assembly_inspection", input_kind="image")
+    dataset = plan_inventory_vision_dataset(
+        name="Disposable inventory dataset", version="sim-1",
+        labels=[{"id": "BOX-A", "name": "Box A", "sku": "BOX-A"}],
+        source="Disposable synthetic fixtures", license_name="test-only")
     checks["inventory_requires_label_scope"] = (
         inventory_pending["state"] == "needs_declared_label_scope")
     checks["inventory_plan_becomes_ready_without_executing"] = (
@@ -25,11 +30,14 @@ def run_temper_inference_simulation() -> dict:
         "self-approval" in plan["prohibited"]
         for plan in (inventory_pending, inventory_ready, media_ready, pcb_blocked))
     checks["simulation_has_zero_external_actions"] = True
+    checks["dataset_plan_has_zero_capture_train_or_deploy"] = not any(
+        dataset[key] for key in ("may_capture", "may_train", "may_deploy"))
     return {
         "simulation": "TEMPER governed inference workflow planning",
         "passed": all(checks.values()),
         "checks": checks,
         "checks_passed": sum(checks.values()),
         "checks_total": len(checks),
-        "details": {"external_actions": 0, "jobs_enqueued": 0, "frames_captured": 0},
+        "details": {"external_actions": 0, "jobs_enqueued": 0, "frames_captured": 0,
+                    "datasets_written": 0, "models_trained": 0},
     }

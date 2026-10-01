@@ -4,6 +4,7 @@ from collections.abc import Callable
 
 from .inventory import InventoryReadError, analyze_inventory_snapshot
 from .edge_inference import edge_inference_blueprint, plan_edge_workflow
+from .vision_dataset import plan_inventory_vision_dataset
 
 
 WORKSPACES = (
@@ -182,6 +183,15 @@ class StudioReadTools:
         return plan_edge_workflow(
             workflow_id=workflow_id, input_kind=input_kind, labels=labels or [])
 
+    def temper_plan_inventory_dataset(self, *, name: str, version: str,
+                                      labels: list[dict], source: str,
+                                      license_name: str,
+                                      target_images_per_label: int = 120) -> dict:
+        return plan_inventory_vision_dataset(
+            name=name, version=version, labels=labels, source=source,
+            license_name=license_name,
+            target_images_per_label=target_images_per_label)
+
     def handlers(self) -> dict:
         return {
             "studio.capabilities": self.capabilities,
@@ -189,4 +199,5 @@ class StudioReadTools:
             "node.observe": self.node_observe,
             "temper.inference_capabilities": self.temper_inference_capabilities,
             "temper.plan_inference_workflow": self.temper_plan_inference_workflow,
+            "temper.plan_inventory_dataset": self.temper_plan_inventory_dataset,
         }
