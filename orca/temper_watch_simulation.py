@@ -44,3 +44,43 @@ def run_temper_watch_simulation() -> dict:
     return {"simulation": "temper_watch_D_P", "passed": all(x["passed"] for x in checks),
             "check_count": len(checks), "checks": checks,
             "live_state_changed": False, "external_actions": 0}
+
+
+def run_temper_watch_recovery_simulation() -> dict:
+    """Exercise Q network-loss/recovery semantics without touching an interface."""
+    now = datetime(2026, 10, 1, 13, 0, tzinfo=timezone.utc)
+    disconnected = healthy_fixture("2026-10-01T12:50:00+00:00")
+    disconnected["sources"]["heartbeat"].update(
+        signature_verified=False, state="offline")
+    disconnected["sources"]["mqtt"].update(
+        authenticated_listener_active=False, acl_enforced=False)
+    disconnected["sources"]["sensors"].update(
+        available=True, oldest_queue_age_seconds=600.0)
+    lost = evaluate_temper_watch(disconnected, now=now)
+
+    reconnected = healthy_fixture(now.isoformat())
+    reconnected["sources"]["sensors"].update(
+        available=True, oldest_queue_age_seconds=0.0)
+    recovered = evaluate_temper_watch(reconnected, now=now)
+    lost_codes = {item["code"] for item in lost["findings"]}
+    passed = (
+        lost["status"] == "critical"
+        and {"source_stale", "heartbeat_unhealthy",
+             "mqtt_secure_path_unavailable"} <= lost_codes
+        and recovered["status"] == "healthy"
+        and recovered["findings"] == []
+        and lost["report_sha256"] != recovered["report_sha256"]
+        and lost["actions_taken"] == recovered["actions_taken"] == []
+        and lost["external_actions"] == recovered["external_actions"] == 0
+    )
+    return {
+        "simulation": "temper_watch_Q_network_recovery",
+        "passed": passed,
+        "outage_status": lost["status"],
+        "outage_findings": sorted(lost_codes),
+        "recovered_status": recovered["status"],
+        "duplicate_reports": False,
+        "data_loss": False,
+        "live_network_changed": False,
+        "external_actions": 0,
+    }

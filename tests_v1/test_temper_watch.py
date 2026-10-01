@@ -5,7 +5,8 @@ import pytest
 
 from orca.temper_watch import (ACCEPTED_MODELS, PROHIBITED,
                                evaluate_temper_watch, healthy_fixture)
-from orca.temper_watch_simulation import run_temper_watch_simulation
+from orca.temper_watch_simulation import (run_temper_watch_recovery_simulation,
+                                          run_temper_watch_simulation)
 
 
 NOW = datetime(2026, 10, 1, 12, 0, tzinfo=timezone.utc)
@@ -87,4 +88,17 @@ def test_runtime_unit_is_least_privilege_and_network_blocked():
     assert "ProtectSystem=strict" in unit
     assert "RestrictAddressFamilies=AF_UNIX" in unit
     assert "MemoryMax=128M" in unit and "CPUQuota=25%" in unit
+    assert "Restart=on-failure" in unit and "RestartSec=5s" in unit
+    assert "StartLimitBurst=3" in unit
     assert "sudo" not in unit and "ExecStartPre" not in unit
+
+
+def test_Q_disposable_network_loss_and_recovery_is_truthful_and_read_only():
+    result = run_temper_watch_recovery_simulation()
+    assert result["passed"] is True
+    assert result["outage_status"] == "critical"
+    assert result["recovered_status"] == "healthy"
+    assert result["duplicate_reports"] is False
+    assert result["data_loss"] is False
+    assert result["live_network_changed"] is False
+    assert result["external_actions"] == 0

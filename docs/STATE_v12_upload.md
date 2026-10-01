@@ -99,6 +99,18 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   the temporary anonymous MQTT transition listener remains active and no
   accepted sensor stream/offline queue exists yet. Network/service recovery is
   next at Q-R.
+  Safe unattended recovery work then added a disposable Q sequence: stale
+  heartbeat, unavailable credentialed MQTT and buffered sensor data produced a
+  critical exception-only report; fresh reconnection returned healthy with a
+  distinct evidence hash, no duplicate report, no data loss, no live network
+  change and zero external actions. The production monitor now has bounded
+  `Restart=on-failure` behavior (five-second delay, three attempts per five
+  minutes). A controlled TEMPER-Watch-only timer interruption reached inactive,
+  restored active, generated fresh evidence and retained zero restarts; ORCA,
+  MQTT, Hailo and TEMPER networking were not interrupted. The expanded full
+  regression passed 1,061 tests. Q remains open for a real bounded interface
+  loss/reconnect test, and R remains open for a true failure-triggered automatic
+  restart; neither should risk unattended loss of remote control.
   Supervised reboot and iPhone credentialed-MQTT cutover require Fry at the
   hardware/phone. Custom-model foundations and PCB inspection require governed
   datasets and representative labelled images. TEMPER-only and five-node soaks,

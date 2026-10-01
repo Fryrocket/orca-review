@@ -1,6 +1,8 @@
 [Unit]
 Description=ORCA TEMPER Watch read-only edge health evaluation
 After=local-fs.target orca-temper-hailo-inventory.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
 
 [Service]
 Type=oneshot
@@ -24,6 +26,8 @@ MemoryMax=128M
 CPUQuota=25%
 UMask=0027
 TimeoutStartSec=20
+Restart=on-failure
+RestartSec=5s
 
 [Install]
 WantedBy=multi-user.target
