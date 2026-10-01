@@ -606,5 +606,14 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   `b7ebd4d`. The GitHub review branch was not updated because the destination's
   privacy and access posture has not yet been verified for internal network and
   security-posture documentation; no alternate export was attempted.
+- KILN's live read-only Security Watch was corrected so an inactive firewall
+  can no longer produce a false healthy report. Its prior script is preserved
+  at `/usr/local/lib/orca/orca_security_watch.py.pre-autonomous-security-20261001`.
+  The timer remains active with zero restarts; the current report is
+  intentionally `degraded`, records `firewall_inactive`, identifies the
+  wildcard listeners, reads no secret content, and applies no changes. The
+  service's non-zero one-shot result is the expected fail-visible condition,
+  not a crash loop. Focused checks passed **11/11** and the complete ORCA source
+  suite passed **1,105/1,105**.
 
 END STATE.md — AS OF 2026-10-01

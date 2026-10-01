@@ -9,8 +9,10 @@ import time
 from pathlib import Path
 
 
-# Accepted Kiln baseline, verified against owning services during deployment.
-DEFAULT_ALLOWED_PUBLIC_PORTS = {22, 80, 2222, 3000, 6379, 8788, 9000, 9001, 11435}
+# Ports that may be reachable through an active, source-scoped KILN firewall.
+# A wildcard listener is never accepted when the firewall is inactive. Redis
+# is intentionally absent: it must remain loopback/container-only.
+DEFAULT_ALLOWED_PUBLIC_PORTS = {22, 80, 2222, 3000, 8788, 9000, 9001}
 REQUIRED_DIRECTIVES = {
     "NoNewPrivileges=true",
     "ProtectSystem=strict",
@@ -64,16 +66,38 @@ def inspect_units(unit_paths):
     return results
 
 
-def evaluate(listeners, units, allowed_public_ports=None, now=None):
+def read_ufw_enabled(path="/etc/ufw/ufw.conf"):
+    try:
+        lines = Path(path).read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return False
+    values = {}
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, value = stripped.split("=", 1)
+        values[key.strip().upper()] = value.strip().lower()
+    return values.get("ENABLED") == "yes"
+
+
+def evaluate(listeners, units, allowed_public_ports=None, now=None,
+             firewall_active=None):
     now = int(time.time() if now is None else now)
     allowed = set(DEFAULT_ALLOWED_PUBLIC_PORTS if allowed_public_ports is None else allowed_public_ports)
     findings = []
     public = []
+    if firewall_active is False:
+        findings.append({
+            "severity": "critical",
+            "kind": "firewall_inactive",
+            "remediation": "activate the reviewed source-scoped policy with timed rollback",
+        })
     for listener in listeners:
         if listener.get("address") not in {"0.0.0.0", "::"}:
             continue
         port = listener.get("port")
-        accepted = port in allowed
+        accepted = port in allowed and firewall_active is not False
         public.append({"port": port, "accepted": accepted})
         if not accepted:
             findings.append({"severity": "warning", "kind": "unexpected_public_listener", "port": port})
@@ -93,6 +117,7 @@ def evaluate(listeners, units, allowed_public_ports=None, now=None):
         "state": state,
         "observed_epoch": now,
         "authority": "advisory_metadata_observer",
+        "firewall_active": firewall_active,
         "public_listeners": sorted(public, key=lambda item: int(item["port"] or -1)),
         "unit_count": len(units),
         "findings": findings,
@@ -115,13 +140,17 @@ def main():
     parser.add_argument("--output", default="/var/lib/orca-security-watch/status.json")
     parser.add_argument("--unit", action="append", default=[])
     parser.add_argument("--allow-public-port", type=int, action="append", default=[])
+    parser.add_argument("--ufw-config", default="/etc/ufw/ufw.conf")
     args = parser.parse_args()
     units = args.unit or [
         "/etc/systemd/system/orca-evidence-auditor.service",
         "/etc/systemd/system/orca-kiln-node.service",
     ]
     allowed = set(args.allow_public_port) or DEFAULT_ALLOWED_PUBLIC_PORTS
-    report = evaluate(read_listeners(), inspect_units(units), allowed)
+    report = evaluate(
+        read_listeners(), inspect_units(units), allowed,
+        firewall_active=read_ufw_enabled(args.ufw_config),
+    )
     write_report(report, args.output)
     print(json.dumps(report, sort_keys=True))
     return 0 if report["state"] == "healthy" else 1

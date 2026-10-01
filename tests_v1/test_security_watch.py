@@ -3,7 +3,7 @@ from pathlib import Path
 
 repository = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(repository / "deploy" / "kiln"))
-from orca_security_watch import evaluate, inspect_units
+from orca_security_watch import evaluate, inspect_units, read_ufw_enabled
 
 
 def test_expected_exposure_is_healthy_and_advisory_only(tmp_path):
@@ -33,3 +33,23 @@ def test_world_writable_unit_is_critical(tmp_path):
     report = evaluate([], inspect_units([unit]), set(), now=1000)
     assert report["state"] == "degraded"
     assert any(item["severity"] == "critical" for item in report["findings"])
+
+
+def test_inactive_firewall_cannot_report_wildcard_listener_healthy():
+    report = evaluate(
+        [{"address": "0.0.0.0", "port": 3000}], [], {3000}, now=1000,
+        firewall_active=False,
+    )
+    assert report["state"] == "degraded"
+    assert report["firewall_active"] is False
+    assert report["public_listeners"] == [{"port": 3000, "accepted": False}]
+    assert any(item["kind"] == "firewall_inactive" for item in report["findings"])
+
+
+def test_ufw_config_read_is_fail_closed(tmp_path):
+    config = tmp_path / "ufw.conf"
+    config.write_text("# fixture\nENABLED=yes\n", encoding="utf-8")
+    assert read_ufw_enabled(config) is True
+    config.write_text("ENABLED=no\n", encoding="utf-8")
+    assert read_ufw_enabled(config) is False
+    assert read_ufw_enabled(tmp_path / "missing") is False
