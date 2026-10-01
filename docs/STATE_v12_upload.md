@@ -782,5 +782,35 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   state is **planning only**: none of the fifteen is connected, deployed or
   live, and sequencing follows the current Solo Operator release gate unless an
   isolated design or test is independently safe.
+- The cross-system work inventory was reconciled on 2026-10-01. Linear is the
+  execution system of record and now contains 28 non-tutorial Forge issues:
+  **3 done, 11 in progress, and 14 backlog**. Notion's To Do database now has a
+  matching row for every one of those 28 issues. The seven checked Notion
+  tutorial/example rows remain historical UI help and are excluded from Forge
+  project counts. Missing Notion records were added for FOR-12, FOR-15, FOR-17,
+  and FOR-30.
+- Linear FOR-25 was corrected from Backlog to **In Progress** because the live
+  eight-hour test is active on KILN as
+  `orca-soak-8h-20261001.service`. At the reconciliation check, the unit was
+  active/running with zero restarts and evidence was accumulating under
+  `/var/lib/orca-soak/20261001-8h`. The two-, four-, six-, and eight-hour
+  checkpoints, generator stop, post-soak normalization, and final report remain
+  open. The 49-frame and 73-frame video jobs remain prohibited for this run.
+- The Notion **To Do List** parent page now contains the owner-facing master
+  roadmap, ordered into running gates, runtime/evidence work, owner-present
+  hardware acceptance, app/media/evaluation work, business/product expansion,
+  long-term engineering, and completed history. Each real task remains linked
+  to Linear; no due dates were invented.
+- Source-control reconciliation found the local branch
+  `agent/orca-rebuild-v1` clean at `de5c271`, matching the corresponding
+  GitHub branch. GitHub `main` and Gitea `main` both point to the older
+  `a3f524b` review commit. The Gitea repository is a public, read-only review
+  mirror for the current account and does not contain the working branch.
+  Nothing was pushed or permissions changed.
+- Google Drive's canonical operating folder retains
+  `STATE_v12_upload.md` as the current state record. Superseded
+  `STATE_v11_upload.md` was moved, without deletion, into the existing Drive
+  `archive` folder. Other operating, recovery, security, hardware, acceptance,
+  and rollout documents remain active.
 
 END STATE.md — AS OF 2026-10-01
