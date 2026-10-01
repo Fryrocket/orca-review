@@ -802,8 +802,10 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   long-term engineering, and completed history. Each real task remains linked
   to Linear; no due dates were invented.
 - Source-control reconciliation found the local branch
-  `agent/orca-rebuild-v1` clean at `de5c271`, matching the corresponding
-  GitHub branch. GitHub `main` and Gitea `main` both point to the older
+  `agent/orca-rebuild-v1` clean and matching the corresponding GitHub branch;
+  `de5c271` is the latest functional-candidate checkpoint before the
+  documentation-only reconciliation commit. GitHub `main` and Gitea `main`
+  both point to the older
   `a3f524b` review commit. The Gitea repository is a public, read-only review
   mirror for the current account and does not contain the working branch.
   Nothing was pushed or permissions changed.
