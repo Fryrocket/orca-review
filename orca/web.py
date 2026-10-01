@@ -504,7 +504,7 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     "nonce": heartbeat.nonce,
                     "status": "accepted",
                 }, HTTPStatus.OK)
-            if path in {"/api/inference", "/api/chat", "/api/memory", "/api/science", "/api/engineering", "/api/project/plan", "/api/cad/pcb-draft", "/api/temper/inventory-dataset/plan", "/api/business/muse/handoff"}:
+            if path in {"/api/inference", "/api/chat", "/api/memory", "/api/science", "/api/engineering", "/api/project/plan", "/api/cad/pcb-draft", "/api/temper/inventory-dataset/plan", "/api/business/muse/handoff", "/api/business/muse/email-handoff"}:
                 try:
                     authenticated_identity = self._authenticate_mutation()
                 except IdentityAuthenticationError as exc:
@@ -523,6 +523,12 @@ class OrcaHandler(BaseHTTPRequestHandler):
                         raise ValueError("Muse handoff request has an invalid schema")
                     from .muse import build_handoff
                     return self._json(build_handoff(
+                        workflow_id=data["workflow_id"], objective=data["objective"]))
+                if path == "/api/business/muse/email-handoff":
+                    if set(data) != {"workflow_id", "objective"}:
+                        raise ValueError("Muse email handoff request has an invalid schema")
+                    from .muse import build_email_handoff
+                    return self._json(build_email_handoff(
                         workflow_id=data["workflow_id"], objective=data["objective"]))
                 if path == "/api/temper/inventory-dataset/plan":
                     expected = {"name", "version", "labels", "source", "license_name",

@@ -647,12 +647,16 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   through an authenticated ORCA Business handoff that creates a deterministic
   research-only prompt, fixed official URL, handoff ID, cited candidate-pack
   return contract, and explicit zero-purchase, zero-message, zero-publication
-  and zero-credential boundary. ORCA does not claim an undocumented personal
+  and zero-credential boundary. A separate email handoff may read, classify,
+  group, minimally summarize and draft replies from owner-connected authorized
+  mail, but cannot send, reply, forward, delete, archive, move, label, mark spam,
+  unsubscribe, open attachments, click links, change account settings or expose
+  credentials. Email and attachments are always untrusted input. ORCA does not claim an undocumented personal
   Muse API. Meta's separate OpenAI-compatible Muse Spark Model API is recorded
   as an optional staged provider and remains disabled until owner-controlled
   credentials, cost approval and outbound-data acceptance exist. Focused Muse,
-  Business and web tests passed **56/56**; the complete source regression passed
-  **1,124/1,124**. Deployment and live validation remain gated behind successful
+  Business and web tests passed **57/57**; the complete source regression passed
+  **1,125/1,125**. Deployment and live validation remain gated behind successful
   soak completion and continuity-record reconciliation.
 - The existing `orca-continuity-checkpoint` heartbeat now includes the five-node
   autonomous-security posture and FOR-29. It remains active every six hours,

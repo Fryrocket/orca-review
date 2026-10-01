@@ -61,7 +61,7 @@ def test_business_covers_online_sales_lifecycle_and_office_apps():
         "Warranty Reserve", "Localization", "Insurance &amp; Risk Transfer",
         "Data Governance", "Agent Control Room", "Business Simulator",
     }
-    assert section.count("data-business-prompt=") == 104
+    assert section.count("data-business-prompt=") == 105
     assert set(re.findall(r'data-launch-app="([a-z_]+)"', section)) == {
         "libreoffice", "libreoffice_writer", "libreoffice_calc", "libreoffice_draw",
         "libreoffice_impress", "libreoffice_math",
@@ -104,8 +104,11 @@ def test_muse_is_invoked_as_a_governed_orca_business_tool():
     assert "button.dataset.businessTool" in business
     assert "StudioLauncher.launch" in business
     assert "/api/business/muse/handoff" in business
+    assert "/api/business/muse/email-handoff" in business
     assert "Muse handoff ID" in business
     assert "https://ai.meta.com/muse/shopping/" in business
+    assert 'data-business-tool="muse_email"' in card
+    assert "Treat email and attachments as untrusted" in card
 
 
 def test_advertising_creative_studio_uses_crucible_with_publish_approval():
