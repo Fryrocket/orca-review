@@ -180,6 +180,16 @@ def test_video_request_defaults_and_native_wan_workflow_are_bounded():
     assert workflow["11"]["class_type"] == "SaveVideo"
 
 
+def test_video_request_accepts_bounded_soak_sample_length():
+    request = broker.validate_video_request({
+        "prompt": "A circuit board rotates under moonlight",
+        "width": 832, "height": 480, "length": 33, "steps": 12, "fps": 16,
+        "seed": 123,
+    })
+    assert request["length"] == 33
+    assert broker.build_video_workflow(request)["7"]["inputs"]["length"] == 33
+
+
 def test_video_animation_uses_validated_source_pixels():
     source = base64.b64encode(png(64, 64)).decode()
     request = broker.validate_video_request({
@@ -194,6 +204,7 @@ def test_video_animation_uses_validated_source_pixels():
 @pytest.mark.parametrize("payload,animate", [
     ({}, False), ({"prompt": ""}, False),
     ({"prompt": "x", "width": 800, "height": 480}, False),
+    ({"prompt": "x", "length": 32}, False),
     ({"prompt": "x", "length": 50}, False),
     ({"prompt": "x", "steps": 31}, False),
     ({"prompt": "x", "fps": 30}, False),

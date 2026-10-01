@@ -240,8 +240,8 @@ def validate_video_request(value: object, *, animate: bool = False) -> dict[str,
             }):
         raise ValueError("dimensions must use an approved short-video aspect ratio")
     length = value.get("length", 73)
-    if type(length) is not int or length not in {49, 73, 121}:
-        raise ValueError("video length must be 49, 73, or 121 frames")
+    if type(length) is not int or length not in {33, 49, 73, 121}:
+        raise ValueError("video length must be 33, 49, 73, or 121 frames")
     steps = value.get("steps", 20)
     if type(steps) is not int or not 12 <= steps <= 30:
         raise ValueError("video steps must be an integer from 12 to 30")
