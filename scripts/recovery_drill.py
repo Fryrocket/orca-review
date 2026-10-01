@@ -55,7 +55,12 @@ def seed_database(path: Path) -> dict:
 
 
 def copy_workspace(source: Path, target: Path) -> None:
-    for name in ("orca", "tests_v1", "docs", "scripts"):
+    # Keep the recovery fixture aligned with the actual tested release surface.
+    # The v1 suite imports governed bot workers from deploy/* and validates the
+    # KILN desktop launchers, so omitting those trees creates a false recovery
+    # failure (or worse, a falsely incomplete restore).
+    for name in ("orca", "tests_v1", "docs", "scripts", "deploy", "desktop",
+                 "benchmarks"):
         shutil.copytree(source / name, target / name,
                         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
     for name in ("pyproject.toml", "README.md"):

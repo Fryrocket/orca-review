@@ -529,5 +529,23 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   all execution gates closed. FORGE and the KILN gateway are healthy with valid
   integrity; ORCA has zero restarts. Physical capture, training, HEF conversion,
   registry approval and deployment remain separate future gates.
+- The unattended-safe acceptance layer is implemented and locally accepted.
+  It runs the TEMPER Watch D-P fault matrix, a disposable network-loss and
+  recovery sequence, the inventory dataset-to-Hailo-8 planning path, bot
+  negative-authority validation, and fake opaque-reference credential-broker
+  checks without changing live state. Its first run passed 5/5, performed zero
+  external actions, and produced a six-event redacted hash chain with head
+  `90a45bca7809361d2cd7407b43843c412e82e6e3f94b213a0cad3788aa1c0fc4`.
+  The shared run-evidence writer detects tampering and redacts credential-like
+  fields. Sensitive broker requests still require authenticated owner approval;
+  the test never accessed a real keychain or secret. The recovery drill was
+  corrected to restore `deploy`, `desktop`, and frozen benchmark assets as part
+  of the modern ORCA release surface. A fresh isolated reconstruction then
+  passed all 854 restored v1 checks, package installation, state recovery,
+  signed-node expiry, emergency-stop exercise, and evidence verification. The
+  complete source suite passed 1097/1097. Real SKU selection and image capture,
+  physical scanner/headset checks, live interface loss, restart/reboot or power
+  loss, iPhone MQTT cutover, model conversion, registry approval, and deployment
+  remain explicitly outside unattended acceptance.
 
 END STATE.md — AS OF 2026-10-01
