@@ -101,7 +101,11 @@ purchase, or contact outsiders.
   TEMPER Watch, which reports healthy with zero exceptions. HailoRT, the signed
   node, dashboard, telemetry and Pironman services remained active at about
   49°C.
-- The complete ORCA source suite passed **1,114/1,114** after the changes. All
+- Sequential reboot drills passed on TEMPER, EMBER, FORGE and KILN. EMBER's
+  first reboot exposed a tunnel process stuck before Tailscale readiness; the
+  source-managed unit now uses bounded connection attempts and automatic retry,
+  and a second reboot proved automatic recovery without manual intervention.
+- The complete ORCA source suite passed **1,116/1,116** after the changes. All
   four Linux nodes showed no failed units at final verification. ORCA health and
   integrity were valid, and all five signed node heartbeats were healthy.
 
@@ -109,9 +113,10 @@ purchase, or contact outsiders.
 
 - Turn on macOS stealth mode and narrow ANVIL's ORCA gateway after verifying the
   intended remote access route with an owner-present administrator approval.
-- Review and explicitly clear any sticky ORCA node pause that was set by an
-  earlier safety event; healthy heartbeats alone intentionally do not auto-resume
-  execution.
-- Perform supervised reboot, physical power-loss, UPS and recovery drills.
+- The standing owner policy is now to keep every healthy node active. The live
+  pause list is empty; future safety pauses require fresh authenticated healthy
+  evidence before the node is explicitly resumed.
+- Perform the remaining physical power-loss and UPS-on-battery drills. ANVIL's
+  own reboot remains owner-present because it hosts the controlling session.
 - Repeat the external 128-test acceptance lab, node-specific recovery tests,
   and the final multi-node soak after activation.

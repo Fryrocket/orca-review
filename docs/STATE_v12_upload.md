@@ -621,14 +621,25 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   attestation now lives in persistent systemd-managed state under `/var/lib`,
   the watcher consumes that path, focused checks pass, and a subsequent live
   watcher run again reports `healthy` with zero findings.
-- Final source regression passed **1,115/1,115**. ORCA `/api/health` returned
+- Owner direction now establishes the normal operating policy: every node with
+  a fresh authenticated healthy heartbeat should be active. ANVIL, FORGE,
+  KILN, EMBER and TEMPER were explicitly resumed through ORCA's revision-checked
+  control path; the live pause list is empty. Safety pauses still engage during
+  a real outage and are cleared only after fresh healthy evidence.
+- Sequential reboot/recovery drills passed on TEMPER, EMBER, FORGE and KILN.
+  TEMPER recovered HailoRT, Pironman, telemetry and all scheduled workers.
+  FORGE recovered ORCA, integrity, Gitea, its database and both in-review jobs.
+  KILN recovered its gateway, heartbeat, containers, Docker firewall,
+  persistent attestation and Security Watch. EMBER's first drill exposed a
+  boot-time Tailscale tunnel race; its tunnel now uses bounded connection
+  attempts and automatic retry. A second reboot proved automatic tunnel,
+  signed-heartbeat, UPS, backup, recovery and monitoring recovery.
+- Final source regression passed **1,116/1,116**. ORCA `/api/health` returned
   healthy with valid integrity. ANVIL, FORGE, KILN, EMBER and TEMPER all report
   fresh signed healthy heartbeats, and the Linux nodes show no failed units.
   ANVIL's application firewall and FileVault are on; stealth mode remains the
   only host-firewall setting requiring owner-present macOS authorization.
-  Existing sticky pause flags on ANVIL, FORGE and TEMPER were preserved: ORCA
-  intentionally requires an explicit authenticated resume decision after a
-  prior safety pause, even when current heartbeats are healthy.
+  The live ORCA pause list is empty and all five nodes are healthy and active.
 - The existing `orca-continuity-checkpoint` heartbeat now includes the five-node
   autonomous-security posture and FOR-29. It remains active every six hours,
   stays quiet while state is healthy and unchanged, and may perform only

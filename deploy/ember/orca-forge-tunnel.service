@@ -1,0 +1,24 @@
+[Unit]
+Description=Loopback-only tunnel from EMBER through KILN to FORGE ORCA
+After=network-online.target tailscaled.service
+Wants=network-online.target tailscaled.service
+
+[Service]
+Type=simple
+User=fryrocket
+Group=fryrocket
+Environment=HOME=/home/fryrocket
+ExecStart=/usr/bin/ssh -NT -L 127.0.0.1:18787:127.0.0.1:18787 -o BatchMode=yes -o ExitOnForwardFailure=yes -o ConnectTimeout=8 -o ConnectionAttempts=1 -o ServerAliveInterval=30 -o ServerAliveCountMax=3 kiln
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target
