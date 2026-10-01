@@ -8,8 +8,7 @@ from typing import Iterable, Mapping
 
 
 MANAGEMENT_NETWORKS = (
-    ipaddress.ip_network("192.168.4.0/24"),
-    ipaddress.ip_network("192.168.7.0/24"),
+    ipaddress.ip_network("192.168.4.0/22"),
     ipaddress.ip_network("100.64.0.0/10"),
 )
 
@@ -153,7 +152,8 @@ def _scope(address: str) -> str:
         parsed = ipaddress.ip_address(address.split("%", 1)[0])
     except ValueError:
         return "unknown"
-    if parsed.version == 4 and parsed in ipaddress.ip_network("192.168.7.0/24"):
+    if parsed.version == 4 and parsed in ipaddress.ip_network("192.168.4.0/22") \
+            and str(parsed).startswith("192.168.7."):
         return "private_link"
     if parsed.version == 4 and parsed in ipaddress.ip_network("100.64.0.0/10"):
         return "tailscale"

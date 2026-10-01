@@ -3,7 +3,12 @@ from pathlib import Path
 
 repository = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(repository / "deploy" / "kiln"))
-from orca_security_watch import evaluate, inspect_units, read_ufw_enabled
+from orca_security_watch import (
+    evaluate,
+    inspect_units,
+    read_protected_public_ports,
+    read_ufw_enabled,
+)
 
 
 def test_expected_exposure_is_healthy_and_advisory_only(tmp_path):
@@ -26,6 +31,25 @@ def test_unexpected_public_listener_degrades():
     assert report["findings"][0]["kind"] == "unexpected_public_listener"
 
 
+def test_protected_docker_listener_is_accepted_when_firewall_active():
+    report = evaluate(
+        [{"address": "0.0.0.0", "port": 6379}], [],
+        firewall_active=True, protected_public_ports={6379}, now=1,
+    )
+    assert report["state"] == "healthy"
+    assert report["public_listeners"] == [
+        {"port": 6379, "accepted": True, "protected": True},
+    ]
+
+
+def test_read_protected_public_ports_requires_valid_attestation(tmp_path):
+    attestation = tmp_path / "ports.json"
+    attestation.write_text(
+        '{"firewall":"ORCA-DOCKER-FILTER","protected_public_ports":[6379],"schema_version":1}'
+    )
+    assert read_protected_public_ports(attestation) == {6379}
+
+
 def test_world_writable_unit_is_critical(tmp_path):
     unit = tmp_path / "bad.service"
     unit.write_text("NoNewPrivileges=true\n", encoding="utf-8")
@@ -42,7 +66,9 @@ def test_inactive_firewall_cannot_report_wildcard_listener_healthy():
     )
     assert report["state"] == "degraded"
     assert report["firewall_active"] is False
-    assert report["public_listeners"] == [{"port": 3000, "accepted": False}]
+    assert report["public_listeners"] == [
+        {"port": 3000, "accepted": False, "protected": False},
+    ]
     assert any(item["kind"] == "firewall_inactive" for item in report["findings"])
 
 

@@ -88,9 +88,18 @@ def test_runtime_unit_is_least_privilege_and_network_blocked():
     assert "ProtectSystem=strict" in unit
     assert "RestrictAddressFamilies=AF_UNIX" in unit
     assert "MemoryMax=128M" in unit and "CPUQuota=25%" in unit
-    assert "Restart=on-failure" in unit and "RestartSec=5s" in unit
-    assert "StartLimitBurst=3" in unit
+    assert "Restart=" not in unit
+    assert "StartLimitBurst=" not in unit
     assert "sudo" not in unit and "ExecStartPre" not in unit
+
+
+def test_temper_network_online_waits_for_reachable_network_not_all_profiles():
+    from pathlib import Path
+    dropin = (Path(__file__).parents[1] /
+              "deploy/temper/10-orca-wait-online.conf").read_text()
+    assert "ExecStart=" in dropin
+    assert "ExecStart=/usr/bin/nm-online -q -t 60" in dropin
+    assert "-s" not in dropin
 
 
 def test_Q_disposable_network_loss_and_recovery_is_truthful_and_read_only():

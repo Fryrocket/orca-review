@@ -81,10 +81,22 @@ def read_ufw_enabled(path="/etc/ufw/ufw.conf"):
     return values.get("ENABLED") == "yes"
 
 
+def read_protected_public_ports(path="/run/orca-kiln-docker-firewall/protected-ports.json"):
+    try:
+        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return set()
+    if payload.get("schema_version") != 1 or payload.get("firewall") != "ORCA-DOCKER-FILTER":
+        return set()
+    return {int(port) for port in payload.get("protected_public_ports", [])
+            if isinstance(port, int) and 0 < port < 65536}
+
+
 def evaluate(listeners, units, allowed_public_ports=None, now=None,
-             firewall_active=None):
+             firewall_active=None, protected_public_ports=None):
     now = int(time.time() if now is None else now)
     allowed = set(DEFAULT_ALLOWED_PUBLIC_PORTS if allowed_public_ports is None else allowed_public_ports)
+    protected = set(protected_public_ports or ())
     findings = []
     public = []
     if firewall_active is False:
@@ -97,8 +109,8 @@ def evaluate(listeners, units, allowed_public_ports=None, now=None,
         if listener.get("address") not in {"0.0.0.0", "::"}:
             continue
         port = listener.get("port")
-        accepted = port in allowed and firewall_active is not False
-        public.append({"port": port, "accepted": accepted})
+        accepted = (port in allowed or port in protected) and firewall_active is not False
+        public.append({"port": port, "accepted": accepted, "protected": port in protected})
         if not accepted:
             findings.append({"severity": "warning", "kind": "unexpected_public_listener", "port": port})
     for unit in units:
@@ -150,6 +162,7 @@ def main():
     report = evaluate(
         read_listeners(), inspect_units(units), allowed,
         firewall_active=read_ufw_enabled(args.ufw_config),
+        protected_public_ports=read_protected_public_ports(),
     )
     write_report(report, args.output)
     print(json.dumps(report, sort_keys=True))

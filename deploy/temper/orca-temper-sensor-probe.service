@@ -1,14 +1,15 @@
 [Unit]
-Description=ORCA TEMPER Watch read-only edge health evaluation
-After=local-fs.target orca-temper-hailo-inventory.service
+Description=ORCA TEMPER privacy-preserving camera liveness probe
+After=local-fs.target
 
 [Service]
 Type=oneshot
 User=fryrocket
 Group=fryrocket
-StateDirectory=orca-temper
+SupplementaryGroups=video
+StateDirectory=temper-sensors
 StateDirectoryMode=0750
-ExecStart=/usr/bin/python3 /usr/local/lib/orca/temper_watch_runtime.py --state-root /var/lib/orca-temper
+ExecStart=/usr/bin/python3 /usr/local/lib/orca/temper_sensor_probe.py
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
@@ -20,8 +21,8 @@ RestrictSUIDSGID=yes
 RestrictAddressFamilies=AF_UNIX
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
-MemoryMax=128M
-CPUQuota=25%
+MemoryMax=96M
+CPUQuota=20%
 UMask=0027
 TimeoutStartSec=20
 

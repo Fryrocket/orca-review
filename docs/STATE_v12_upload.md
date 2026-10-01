@@ -578,26 +578,28 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   owner-gated firewall, trust, credential, reboot, deletion, money, legal,
   publishing and external-contact actions. Focused security checks passed
   **18/18** and the complete source suite passed **1,103/1,103**.
-- The 2026-10-01 live read-only security inventory found no immediate resource
-  or thermal emergency, but activation is correctly blocked by real posture
-  gaps. KILN and FORGE have inactive UFW. EMBER and TEMPER have no UFW policy.
-  FORGE and TEMPER still allow SSH passwords and root key login. Accepted
-  unattended security updates run on KILN, FORGE and EMBER but not TEMPER. No
-  accepted login-abuse throttle is active on the Linux nodes. KILN exposes
-  Docker-published Gitea, Redis and MinIO ports plus Studio gateway beyond the
-  intended narrow scopes. TEMPER exposes anonymous MQTT 1883 and development
-  services on 34001, 8501 and 8086; its credentialed MQTT 41883 is also broadly
-  bound. EMBER's NUT service listens on all LAN interfaces. ANVIL has its
-  application firewall and FileVault enabled, but stealth mode is off and its
-  ORCA gateway is broadly bound. ORCA, Qwen, CRUCIBLE, Codex bridge and most
-  media endpoints remain loopback- or Tailscale-bound. No firewall, SSH,
-  credential, route, account or service policy was changed during discovery.
-- Firewall activation remains **staged, not live** until each node proves two
-  independent key-based management paths, a local recovery path, saved current
-  rules, a timed automatic rollback, Docker `DOCKER-USER` restrictions where
-  needed, and successful second-session probes of signed heartbeat, tunnels,
-  ORCA, models, storage, backup, MQTT and monitoring. This is deliberate
-  lockout prevention, not an omitted control.
+- Autonomous-security activation is now **live and verified** on all four Linux
+  nodes. Each node used saved configuration, a five-minute automatic rollback,
+  source-scoped UFW rules, a fresh independent key-based SSH session and
+  service-specific probes before rollback cancellation. KILN, FORGE, EMBER and
+  TEMPER now run fail2ban and security-only unattended updates with automatic
+  reboot disabled. FORGE and TEMPER are key-only with root SSH disabled; KILN
+  and EMBER retained their already-correct key-only policy.
+- KILN's persistent Docker `DOCKER-USER` chain blocks Redis from the LAN and
+  restricts Gitea and MinIO to the management LAN or Tailscale. Its protected
+  port attestation lets unprivileged Security Watch distinguish a blocked
+  container socket from a real exposure; the live report is healthy with zero
+  findings and the required services have zero restarts. FORGE ORCA and Gitea,
+  EMBER backup/UPS/relay paths, and every required KILN route remained healthy.
+- TEMPER retired anonymous MQTT 1883 after proving the authenticated 41883
+  client reconnected. Its prior Watch unit had an invalid start-limit policy
+  for a frequent successful oneshot; the unit is corrected and no longer enters
+  `start-limit-hit`. Network readiness now waits for actual connectivity rather
+  than every profile. A bounded unprivileged camera probe reads one frame to
+  `/dev/null`, stores only health metadata, retains no imagery and feeds TEMPER
+  Watch. The current Watch report is healthy with zero exceptions; HailoRT,
+  Pironman, telemetry, dashboard, broker and signed heartbeats remain healthy at
+  about 49°C.
 - Security work is tracked in Linear **FOR-29** and the matching Notion To Do
   page. The Forge infrastructure, ORCA additive-expansion, TEMPER, and EMBER
   Notion pages carry their scoped findings and next gates. Google Drive's
@@ -609,12 +611,17 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
 - KILN's live read-only Security Watch was corrected so an inactive firewall
   can no longer produce a false healthy report. Its prior script is preserved
   at `/usr/local/lib/orca/orca_security_watch.py.pre-autonomous-security-20261001`.
-  The timer remains active with zero restarts; the current report is
-  intentionally `degraded`, records `firewall_inactive`, identifies the
-  wildcard listeners, reads no secret content, and applies no changes. The
-  service's non-zero one-shot result is the expected fail-visible condition,
-  not a crash loop. Focused checks passed **11/11** and the complete ORCA source
-  suite passed **1,105/1,105**.
+  The timer remains active with zero restarts; after firewall activation and the
+  Docker protected-port attestation, the current report is `healthy`, has zero
+  findings, reads no secret content, and applies no changes.
+- Final source regression passed **1,113/1,113**. ORCA `/api/health` returned
+  healthy with valid integrity. ANVIL, FORGE, KILN, EMBER and TEMPER all report
+  fresh signed healthy heartbeats, and the Linux nodes show no failed units.
+  ANVIL's application firewall and FileVault are on; stealth mode remains the
+  only host-firewall setting requiring owner-present macOS authorization.
+  Existing sticky pause flags on ANVIL, FORGE and TEMPER were preserved: ORCA
+  intentionally requires an explicit authenticated resume decision after a
+  prior safety pause, even when current heartbeats are healthy.
 - The existing `orca-continuity-checkpoint` heartbeat now includes the five-node
   autonomous-security posture and FOR-29. It remains active every six hours,
   stays quiet while state is healthy and unchanged, and may perform only
