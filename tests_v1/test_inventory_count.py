@@ -137,3 +137,6 @@ def test_inventory_count_ui_supports_scanning_preview_and_batch_approval():
         assert label in section
     assert "/api/inventory/counts/preview" in script
     assert "inventoryCountRows" in script
+    for scanner_feature in ("barcode-scanner-toggle", "barcode-scanner-mode",
+                            "acceptBarcodeScan", "findInventoryBarcode"):
+        assert scanner_feature in html + script

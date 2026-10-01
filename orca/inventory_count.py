@@ -7,6 +7,7 @@ import re
 from typing import Any
 
 from .security import redact_text
+from .barcodes import normalize_barcode
 
 
 MAX_COUNT_ROWS = 100
@@ -36,7 +37,10 @@ def validate_count_observations(observations: object) -> list[dict[str, Any]]:
     for raw in observations:
         if not isinstance(raw, dict) or set(raw) - allowed:
             raise ValueError("inventory count observation has an invalid schema")
-        sku = raw.get("sku") or raw.get("barcode")
+        barcode = _safe_optional(raw.get("barcode"), "barcode", 128)
+        if barcode:
+            barcode = normalize_barcode(barcode)["value"]
+        sku = raw.get("sku") or barcode
         location = raw.get("location")
         if (not isinstance(sku, str) or not _SAFE_ID.fullmatch(sku.strip())
                 or not isinstance(location, str)
@@ -49,7 +53,6 @@ def validate_count_observations(observations: object) -> list[dict[str, Any]]:
         condition = raw.get("condition", "good")
         if condition not in CONDITIONS:
             raise ValueError("inventory count condition is invalid")
-        barcode = _safe_optional(raw.get("barcode"), "barcode", 128)
         lot = _safe_optional(raw.get("lot"), "lot", 128)
         serial = _safe_optional(raw.get("serial"), "serial", 128)
         unit = _safe_optional(raw.get("unit"), "unit", 24) or "ea"

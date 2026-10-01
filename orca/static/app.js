@@ -106,6 +106,7 @@ async function archiveMessages(requestID, messages) {
 let inventory = { items: [], locations: [], categories: [], units: [] };
 let inventoryAnalysis = null;
 let inventoryCountRows = [];
+let barcodeScannerEnabled = false, barcodeScannerBuffer = '', barcodeScannerLastKey = 0;
 let inventorySystem = null;
 let studioAuth = { identity: 'fry', token: '' };
 let state = {
@@ -955,6 +956,60 @@ document.addEventListener('click', async event => {
 function renderInventoryCountRows() {
   $('#inventory-count-rows').innerHTML = inventoryCountRows.map((row, index) => `<tr><td>${esc(row.sku)}</td><td>${esc(row.location)}</td><td>${Number(row.counted_quantity).toLocaleString()} ${esc(row.unit)}</td><td>${esc([row.lot, row.serial].filter(Boolean).join(' / ') || '—')}</td><td>${esc(row.condition)}</td><td><button type="button" data-remove-count="${index}">Remove</button></td></tr>`).join('') || '<tr><td colspan="6">No observations entered.</td></tr>';
 }
+function findInventoryBarcode(value) {
+  const needle = String(value).toLowerCase();
+  return (inventory.items || []).find(item => {
+    const values = [item.sku, item.barcode, ...(item.barcode_aliases || [])];
+    return values.some(candidate => String(candidate || '').toLowerCase() === needle);
+  });
+}
+function acceptBarcodeScan(raw) {
+  const value = String(raw || '').trim().replace(/^\](?:C0|C1|E0|E4|Q3)/, '');
+  const status = $('#barcode-scanner-status'), mode = $('#barcode-scanner-mode').value;
+  if (!value || value.length > 128 || !/^[A-Za-z0-9][A-Za-z0-9_.:/+ -]*$/.test(value)) {
+    status.textContent = 'Rejected scanner input: unsupported or oversized barcode.'; return;
+  }
+  const item = findInventoryBarcode(value), sku = item?.sku || value;
+  if (mode === 'lookup') {
+    $('#inventory-search').value = value; renderInventory();
+    status.textContent = item ? `Found ${item.name || sku} (${sku}).` : `Unknown barcode ${value}; no record was changed.`;
+    return;
+  }
+  if (mode === 'receive' || mode === 'transfer') {
+    $('#inventory-operation').value = mode; syncInventoryWorkflowFields();
+    $('#inventory-workflow-sku').value = sku;
+    $('#inventory-workflow-quantity').value = Number($('#inventory-workflow-quantity').value || 0) + 1;
+    status.textContent = `${item ? sku : 'Unknown item ' + value} staged in the ${mode} form; approval is still required.`;
+    return;
+  }
+  const location = $('#inventory-count-location').value.trim();
+  if (!location) { status.textContent = 'Set the count location before scanning.'; return; }
+  const existing = inventoryCountRows.find(row => row.sku === sku && row.location === location && !row.serial && !row.lot);
+  if (existing) existing.counted_quantity += 1;
+  else inventoryCountRows.push({sku, barcode: value, location, counted_quantity: 1,
+    unit: 'ea', lot: '', serial: '', condition: $('#inventory-count-condition').value, notes: ''});
+  renderInventoryCountRows();
+  status.textContent = `${item ? sku : 'Unknown item ' + value} counted at ${location}; staged locally for variance review.`;
+}
+$('#barcode-scanner-toggle').addEventListener('click', () => {
+  barcodeScannerEnabled = !barcodeScannerEnabled; barcodeScannerBuffer = '';
+  $('#barcode-scanner-toggle').setAttribute('aria-pressed', String(barcodeScannerEnabled));
+  $('#barcode-scanner-toggle').textContent = barcodeScannerEnabled ? 'Disable rapid scanner' : 'Enable rapid scanner';
+  $('#barcode-scanner-status').textContent = barcodeScannerEnabled ? 'Rapid scanner capture is active in Inventory.' : 'Scanner capture is off.';
+});
+document.addEventListener('keydown', event => {
+  if (!barcodeScannerEnabled || activeView !== 'inventory' || event.ctrlKey || event.metaKey || event.altKey) return;
+  const now = performance.now();
+  if (now - barcodeScannerLastKey > 120) barcodeScannerBuffer = '';
+  barcodeScannerLastKey = now;
+  if (event.key === 'Enter') {
+    if (barcodeScannerBuffer) { event.preventDefault(); acceptBarcodeScan(barcodeScannerBuffer); barcodeScannerBuffer = ''; }
+    return;
+  }
+  if (event.key.length === 1 && barcodeScannerBuffer.length < 128) {
+    event.preventDefault(); barcodeScannerBuffer += event.key;
+  }
+});
 $('#inventory-count-row-form').addEventListener('submit', event => {
   event.preventDefault();
   const sku = $('#inventory-count-sku').value.trim(), serial = $('#inventory-count-serial').value.trim();

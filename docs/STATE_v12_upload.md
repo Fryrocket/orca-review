@@ -131,6 +131,18 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   superseded `cc-bridge` records moved into the dated archive while current
   handoffs, IDs, active business folders and personal folders remained intact.
 
+- Inventory barcode scanning is implemented and verified in the local ORCA
+  candidate. It supports common USB and Bluetooth HID scanners, rapid scan
+  capture, SKU and alias lookup, counted-quantity aggregation, and governed
+  receiving and transfer handoffs. UPC-A, EAN-8, EAN-13 and GTIN-14 check
+  digits are validated; common AIM prefixes are normalized; unknown or invalid
+  codes fail visibly and never change stock. Count adjustments, receiving and
+  transfers still require ORCA's existing review and approval paths. The full
+  regression suite passed 1,068 tests. This capability is **implemented,
+  tested and staged, but not live**: the active continuity safeguard currently
+  prohibits deploying a new ORCA core release. The live FORGE release remains
+  healthy and unchanged.
+
 ## CRUCIBLE AND GPU STATUS
 
 - CRUCIBLE is installed on FORGE and identifies as **AMD Radeon AI PRO R9700**,

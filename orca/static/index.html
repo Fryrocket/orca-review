@@ -103,6 +103,11 @@
         </article>
         <article class="panel inventory-count-panel">
           <div class="panel-head"><div><h2>Physical inventory count</h2><p>Use a barcode scanner as a keyboard or enter parts manually. Build a count sheet, review every variance, then submit the entire session through one approval gate.</p></div><span class="truth">SCANNER READY</span></div>
+          <div class="inventory-count-submit barcode-scanner-controls">
+            <label>Scanner mode<select id="barcode-scanner-mode"><option value="count">Count inventory</option><option value="lookup">Look up item</option><option value="receive">Stage receiving</option><option value="transfer">Stage transfer</option></select></label>
+            <button id="barcode-scanner-toggle" type="button" aria-pressed="false">Enable rapid scanner</button>
+            <span id="barcode-scanner-status" class="muted" role="status">Scanner capture is off. USB and Bluetooth HID scanners are supported.</span>
+          </div>
           <form id="inventory-count-row-form" class="inventory-count-row-form">
             <label>SKU or barcode<input id="inventory-count-sku" required maxlength="128" autocomplete="off" placeholder="Scan or enter identifier"></label>
             <label>Location<input id="inventory-count-location" required maxlength="128" placeholder="BIN-A"></label>
