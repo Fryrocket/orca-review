@@ -514,5 +514,20 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   playback, Ubuntu maintenance, QuasarVolt external readiness, the Pi 5 Hi-Fi
   Guardian HAT, the post-TEMPER eight-hour five-node soak, and the final
   operator/developer manual.
+- TEMPER inventory-vision foundations are live in ORCA release
+  `/opt/orca/releases/a52aac436cbbe7274144d2e3c47c56d3dbf80dc2`, with
+  `/opt/orca/releases/a915527981434785efc1ca8ad847e8fc08feace7`
+  preserved as rollback. Inventory now includes an SKU/barcode-bound label-set
+  manager and deterministic capture-session planner. The read-only tool layer
+  adds capture planning, dataset validation for balance, exact duplicates,
+  cross-split perceptual-hash leakage, provenance, privacy and two-pass review,
+  plus Hailo-8 conversion and model-registry planning. The expanded disposable
+  dataset-to-deployment simulation passed 13/13 with zero captured frames,
+  writes, training jobs, conversions or deployments. Focused checks passed
+  47/47 and the complete suite passed 1080/1080. A live planner request returned
+  the expected 35/8/7 split, eight capture scenarios, deterministic hashes and
+  all execution gates closed. FORGE and the KILN gateway are healthy with valid
+  integrity; ORCA has zero restarts. Physical capture, training, HEF conversion,
+  registry approval and deployment remain separate future gates.
 
 END STATE.md — AS OF 2026-10-01
