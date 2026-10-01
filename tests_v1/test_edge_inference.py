@@ -15,9 +15,9 @@ def test_edge_workflows_cover_orca_areas_without_granting_authority():
     assert {"inventory", "engineering", "canvas", "product-builder", "operations", "business", "bgm", "studio"} <= areas
     snapshot = edge_inference_blueprint(camera_connected=True)
     assert snapshot["camera"]["state"] == "accepted_available"
-    assert snapshot["runtime"]["job_broker"] == "live_camera_accepted"
-    assert snapshot["runtime"]["model_invocation"] == "signed_bounded_camera_jobs"
-    assert snapshot["runtime"]["camera_and_file_inputs"] == "camera_accepted_file_gated"
+    assert snapshot["runtime"]["job_broker"] == "live_camera_and_file_accepted"
+    assert snapshot["runtime"]["model_invocation"] == "signed_bounded_camera_and_file_jobs"
+    assert snapshot["runtime"]["camera_and_file_inputs"] == "accepted"
     assert snapshot["runtime"]["automatic_execution"] is False
     assert "may not publish" in snapshot["governance"]["authority"]
 

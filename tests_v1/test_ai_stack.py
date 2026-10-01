@@ -61,9 +61,9 @@ def test_temper_edge_camera_is_live_but_autonomous_invocation_stays_gated():
     temper = AI_SERVICES["temper_edge"]
     assert temper.node_id == "temper"
     assert temper.backend == "HailoRT"
-    assert temper.deployment_state == "broker_live_camera_accepted_file_gated"
+    assert temper.deployment_state == "broker_live_camera_and_file_accepted_custom_gated"
     assert temper.runtime_enabled is False
-    assert "signed USB-camera broker accepted" in temper.model
+    assert "approved-file pipelines accepted" in temper.model
     assert AI_LADDERS["edge_inference"] == (
         "temper_edge", "forge_qwen", "kiln_quench", "fry")
 

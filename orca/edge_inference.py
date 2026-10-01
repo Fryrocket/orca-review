@@ -151,10 +151,10 @@ def edge_inference_blueprint(*, camera_connected: bool = True) -> dict:
         "governance": EDGE_GOVERNANCE,
         "runtime": {
             "hardware": "verified",
-            "job_broker": "live_camera_accepted",
-            "model_invocation": "signed_bounded_camera_jobs",
-            "camera_and_file_inputs": "camera_accepted_file_gated",
+            "job_broker": "live_camera_and_file_accepted",
+            "model_invocation": "signed_bounded_camera_and_file_jobs",
+            "camera_and_file_inputs": "accepted",
             "automatic_execution": False,
-            "reason": "signed broker, four pinned models and the physical camera pipeline are accepted; file inputs and autonomous workflows remain gated",
+            "reason": "signed broker, four pinned models, physical camera and approved-file pipelines are accepted; custom models and autonomous workflows remain gated",
         },
     }

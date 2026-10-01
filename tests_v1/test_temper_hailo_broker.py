@@ -76,6 +76,15 @@ def test_camera_pipeline_uses_accepted_mjpeg_profile(tmp_path):
     assert "filesink" not in command
 
 
+def test_still_image_pipeline_freezes_one_bounded_frame(tmp_path):
+    job = make_job(max_frames=1)["job"]
+    command = BROKER.build_pipeline(
+        job, {"kind": "file", "path": "/approved/fixture.jpg"}, tmp_path / "meta.json")
+    assert "imagefreeze" in command
+    assert "num-buffers=1" in command
+    assert not any(part.startswith("eos-after=") for part in command)
+
+
 def test_camera_enqueue_is_signed_and_bounded(tmp_path):
     root = tmp_path / "state"
     key = b"k" * 32
@@ -89,6 +98,23 @@ def test_camera_enqueue_is_signed_and_bounded(tmp_path):
     job = BROKER.validate_envelope(envelope, key)
     assert job["input"] == {"kind": "camera", "path": "/dev/video0"}
     assert job["max_frames"] == 10
+
+
+def test_file_enqueue_is_signed_and_bounded(tmp_path):
+    root = tmp_path / "state"
+    key = b"k" * 32
+    root.mkdir()
+    (root / "hailo-job.key").write_text(key.hex())
+    path = BROKER.enqueue_file(
+        job_id="file-1", model_id="yolov6n_h8",
+        path="/var/lib/orca-temper/jobs/incoming/fixture.jpg", frames=1,
+        queue=root / "jobs/queue", key_file=root / "hailo-job.key",
+        nonce_file=root / "hailo-job-nonce")
+    envelope = json.loads(path.read_text())
+    job = BROKER.validate_envelope(envelope, key)
+    assert job["input"] == {
+        "kind": "file", "path": "/var/lib/orca-temper/jobs/incoming/fixture.jpg"}
+    assert job["max_frames"] == 1
 
 
 def test_queue_rejects_replayed_nonce_without_running_pipeline(tmp_path, monkeypatch):

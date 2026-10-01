@@ -173,8 +173,11 @@ def build_pipeline(job: dict, source: dict, metadata_path: Path) -> list[str]:
                     "videoconvert", "!", "videoscale", "!", "videorate", "!"]
     else:
         command += ["filesrc", f"location={source['path']}", "!", "decodebin", "!",
-                    "queue", "!", "videoconvert", "!", "videoscale", "!", "videorate", "!",
-                    "identity", f"eos-after={frames}", "!"]
+                    "queue", "!", "videoconvert", "!", "videoscale", "!"]
+        if Path(source["path"]).suffix.casefold() in {".jpg", ".jpeg", ".png", ".webp"}:
+            command += ["imagefreeze", f"num-buffers={frames}", "!"]
+        else:
+            command += ["videorate", "!", "identity", f"eos-after={frames}", "!"]
     command += [
         "video/x-raw,format=RGB,width=640,height=640,framerate=5/1", "!",
         "hailonet", f"hef-path={model['hef']}", "batch-size=1", "scheduling-algorithm=0", "!",
@@ -349,12 +352,36 @@ def enqueue_camera(*, job_id: str, model_id: str, device: str, frames: int,
     return path
 
 
+def enqueue_file(*, job_id: str, model_id: str, path: str, frames: int,
+                 queue: Path, key_file: Path, nonce_file: Path) -> Path:
+    if (not JOB_ID.fullmatch(job_id) or model_id not in MODELS
+            or not isinstance(path, str) or not path
+            or type(frames) is not int or not 1 <= frames <= MAX_FRAMES):
+        raise RejectedJob("file request is invalid")
+    if (queue / f"{job_id}.json").exists():
+        raise RejectedJob("file job id already exists")
+    now = datetime.now(timezone.utc)
+    job = {
+        "schema": 1, "job_id": job_id, "nonce": _read_nonce(nonce_file) + 1,
+        "created_at": now.isoformat(),
+        "expires_at": (now + timedelta(minutes=5)).isoformat(),
+        "model_id": model_id, "input": {"kind": "file", "path": path},
+        "max_frames": frames,
+    }
+    queue.mkdir(parents=True, exist_ok=True, mode=0o750)
+    output = queue / f"{job_id}.json"
+    _atomic_json(output, {"job": job, "signature": sign_job(job, load_key(key_file))})
+    return output
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--state-root", type=Path, default=Path("/var/lib/orca-temper"))
     parser.add_argument("--enqueue-probe")
     parser.add_argument("--enqueue-camera")
+    parser.add_argument("--enqueue-file")
     parser.add_argument("--device", default="/dev/video0")
+    parser.add_argument("--input-path")
     parser.add_argument("--frames", type=int, default=10)
     parser.add_argument("--model", default="yolov6n_h8", choices=sorted(MODELS))
     args = parser.parse_args()
@@ -371,13 +398,23 @@ def main() -> int:
             job_id=args.enqueue_camera, model_id=args.model, device=args.device,
             frames=args.frames, queue=queue, key_file=key, nonce_file=nonce))
         return 0
+    if args.enqueue_file:
+        if not args.input_path:
+            raise RejectedJob("file input path is required")
+        print(enqueue_file(
+            job_id=args.enqueue_file, model_id=args.model, path=args.input_path,
+            frames=args.frames, queue=queue, key_file=key, nonce_file=nonce))
+        return 0
     result = process_next(
         queue=queue, incoming=root / "jobs/incoming", results=root / "jobs/results",
         rejected=root / "jobs/rejected", key_file=key, nonce_file=nonce,
         lock_file=root / "hailo-job.lock",
     )
     print(json.dumps(result, sort_keys=True))
-    return 0 if result["status"] in {"idle", "busy", "completed"} else 1
+    # A recorded rejection is a successful fail-closed security disposition,
+    # not a broker service crash.  Keep the timer healthy while preserving the
+    # typed rejection evidence for operators.
+    return 0 if result["status"] in {"idle", "busy", "completed", "rejected"} else 1
 
 
 if __name__ == "__main__":
