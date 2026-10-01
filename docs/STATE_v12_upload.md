@@ -556,5 +556,47 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   physical scanner/headset checks, live interface loss, restart/reboot or power
   loss, iPhone MQTT cutover, model conversion, registry approval, and deployment
   remain explicitly outside unattended acceptance.
+- The private ORCA External Test Lab is live at
+  `https://orca-external-test-lab.fryrocket621688.chatgpt.site/`. The expanded
+  browser acceptance run passed **128/128** tests across 14 categories with no
+  failures or skips. The verified result includes navigation, responsive UI,
+  accessibility, form and approval boundaries, browser storage, error states,
+  download behavior, recovery behavior, evidence integrity, and disposable
+  business-path simulations. The repaired download produced a real browser
+  download event for the session-scoped JSON fixture. Evidence SHA-256:
+  `1227c1528671677f533b104185b9cf151f4411aaa2f4514c05224f984d8d0242`.
+  Site source commit: `aa4bf9b0c3b21e560b75fecd6b15ddc668486c13`;
+  deployed version:
+  `appgprj_6abeabc02fd48191b71132c8bdd1d9bd~appgver_91b64e2f98048191a4874a6b62b81d0f`.
+- Autonomous-security phase one is implemented locally and documented in
+  `docs/AUTONOMOUS_SECURITY_BASELINE_2026-10-01.md`. A new deterministic
+  `orca.autonomous_security` policy covers ANVIL, FORGE, KILN, EMBER, and
+  TEMPER; classifies listener scope, firewall state, SSH policy, unattended
+  updates and login-abuse throttling; produces redacted evidence fingerprints;
+  and generates rollback-first, non-executing firewall plans. It explicitly
+  separates unattended containment and bounded stateless-service recovery from
+  owner-gated firewall, trust, credential, reboot, deletion, money, legal,
+  publishing and external-contact actions. Focused security checks passed
+  **18/18** and the complete source suite passed **1,103/1,103**.
+- The 2026-10-01 live read-only security inventory found no immediate resource
+  or thermal emergency, but activation is correctly blocked by real posture
+  gaps. KILN and FORGE have inactive UFW. EMBER and TEMPER have no UFW policy.
+  FORGE and TEMPER still allow SSH passwords and root key login. Accepted
+  unattended security updates run on KILN, FORGE and EMBER but not TEMPER. No
+  accepted login-abuse throttle is active on the Linux nodes. KILN exposes
+  Docker-published Gitea, Redis and MinIO ports plus Studio gateway beyond the
+  intended narrow scopes. TEMPER exposes anonymous MQTT 1883 and development
+  services on 34001, 8501 and 8086; its credentialed MQTT 41883 is also broadly
+  bound. EMBER's NUT service listens on all LAN interfaces. ANVIL has its
+  application firewall and FileVault enabled, but stealth mode is off and its
+  ORCA gateway is broadly bound. ORCA, Qwen, CRUCIBLE, Codex bridge and most
+  media endpoints remain loopback- or Tailscale-bound. No firewall, SSH,
+  credential, route, account or service policy was changed during discovery.
+- Firewall activation remains **staged, not live** until each node proves two
+  independent key-based management paths, a local recovery path, saved current
+  rules, a timed automatic rollback, Docker `DOCKER-USER` restrictions where
+  needed, and successful second-session probes of signed heartbeat, tunnels,
+  ORCA, models, storage, backup, MQTT and monitoring. This is deliberate
+  lockout prevention, not an omitted control.
 
 END STATE.md — AS OF 2026-10-01
