@@ -25,7 +25,8 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   7,025 seconds estimated runtime; no NUT errors appeared in the last 30 minutes.
 - TEMPER is positively discovered on the LAN. Its Raspberry Pi Ethernet MAC is
   `88:a2:9e:35:fc:25` at `192.168.4.27`; Wi-Fi is
-  `88:a2:9e:35:fc:26` at `192.168.4.25`. The stable ED25519 SSH fingerprint is
+  `88:a2:9e:35:fc:26` at `192.168.4.25`. Fry designated `192.168.4.25` as the
+  primary management address; `.27` remains the wired fallback. The stable ED25519 SSH fingerprint is
   `SHA256:rFC82HnEi91Uxz9R8LRddN2w4gHF/95+aUNKJhDk+6o`. Read-only key access
   from ANVIL verified a Raspberry Pi 5 Model B Rev 1.1, 16 GB RAM, Debian 13,
   1 TB Crucial T500 NVMe, ASMedia two-port PCIe switch and a responding Hailo-8
