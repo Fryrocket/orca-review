@@ -71,7 +71,7 @@ def test_temper_inference_tool_is_bounded_read_only_and_filters_workflows():
     tools = StudioReadTools(control_snapshot=snapshot)
     camera = tools.temper_inference_capabilities(input_type="camera")
     assert camera["node_id"] == "temper"
-    assert camera["camera"]["state"] == "awaiting_physical_connection"
+    assert camera["camera"]["state"] == "accepted_available"
     assert any(model["id"] == "yolov6n_h8" for model in camera["models"])
     assert any(workflow["id"] == "inventory_visual_count" for workflow in camera["workflows"])
     assert camera["runtime"]["automatic_execution"] is False

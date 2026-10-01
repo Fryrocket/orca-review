@@ -45,16 +45,23 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   pose at 228.5 FPS. These are hardware-only measurements, not end-to-end
   camera latency. TEMPER's read-only Hailo/USB-camera inventory timer is live,
   refreshes every minute, reports the device and compatible H8 artifacts, and
-  correctly reports no external camera connected yet. The local-only signed
+  now identifies the connected UVC HDMI/USB capture camera as the single usable
+  `/dev/video0` stream while excluding its `/dev/video1` metadata companion.
+  The accepted input profile is MJPEG 1280x720 at 30 FPS, resized to 640x640 at
+  5 FPS for bounded inference. The local-only signed
   job broker is active with a single accelerator queue, HMAC authentication,
   monotonic nonce replay protection, pinned models and input roots, 150-frame
   and 90-second limits, hashed artifacts and metadata-only evidence. One signed
   synthetic job through each model passed; a tampered signature was rejected
   without advancing the nonce, and the broker recovered to healthy with zero
-  restarts. ORCA exposes the governed edge catalog and recommends TEMPER for
-  vision, sensor and future audio workloads. Autonomous execution and real
-  camera/file inputs remain paused until their per-workflow acceptance gates
-  pass.
+  restarts. On 2026-10-01 a no-save ten-frame capture probe passed, followed by
+  signed ten-frame jobs through YOLOv6n, YOLOv8s, YOLOv5n segmentation and
+  YOLOv8s pose. All four completed in 1.158-1.252 seconds, wrote metadata only,
+  performed no external action, and left both services at zero restarts. Peak
+  observed CPU temperature was 51.0 C. ORCA exposes the governed edge catalog
+  and recommends TEMPER for vision, sensor and future audio workloads. Signed
+  bounded camera inference is accepted; autonomous execution, file input,
+  custom models and business workflow activation remain individually gated.
 
 ## CRUCIBLE AND GPU STATUS
 
@@ -176,12 +183,13 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   verified. ORCA reports TEMPER healthy and authenticated with evidence
   integrity valid. Its Hailo-8 hardware is live and four packaged H8 `.hef`
   artifacts pass direct accelerator execution. Their ORCA model catalog is
-  live. The signed bounded job broker and all four synthetic post-processing
-  paths are accepted; camera/file inference remains gated until physical input,
-  provenance and per-workflow acceptance pass.
-  The read-only camera inventory service is active with zero restarts and
-  excludes the Pi's internal codec devices; it currently reports that the USB
-  camera is not physically connected.
+  live. The signed bounded job broker, all four synthetic post-processing paths,
+  the physical camera profile and signed camera jobs through all four models are
+  accepted. File input, custom models and autonomous workflows remain gated by
+  provenance and per-workflow acceptance.
+  The read-only camera inventory service is active with zero restarts, excludes
+  the Pi's internal codec devices and the camera's UVC metadata companion, and
+  reports one connected USB camera at `/dev/video0`.
   Credentialed listener 41883 now enforces an `armband/#` topic ACL. Authenticated
   round-trip, forbidden-topic denial and anonymous-denial probes passed, and the
   local logger was moved to 41883 with an automatic rollback copy retained.

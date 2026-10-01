@@ -128,7 +128,7 @@ EDGE_GOVERNANCE = {
 }
 
 
-def edge_inference_blueprint(*, camera_connected: bool = False) -> dict:
+def edge_inference_blueprint(*, camera_connected: bool = True) -> dict:
     """Describe TEMPER's accepted edge scope without starting remote execution."""
     return {
         "node_id": "temper",
@@ -140,20 +140,21 @@ def edge_inference_blueprint(*, camera_connected: bool = False) -> dict:
             "scope": "accelerator throughput, not end-to-end camera or post-processing latency",
         },
         "camera": {
-            "type": "USB UVC camera",
+            "type": "USB UVC HDMI capture camera",
             "connected": camera_connected,
             "discovery": "automatic uvcvideo/V4L2 discovery; internal Pi codec devices excluded",
-            "state": "available" if camera_connected else "awaiting_physical_connection",
+            "accepted_profile": "MJPEG 1280x720 at 30 FPS; bounded inference at 640x640 and 5 FPS",
+            "state": "accepted_available" if camera_connected else "accepted_not_connected",
         },
         "models": [asdict(model) for model in H8_MODELS],
         "workflows": [asdict(workflow) for workflow in EDGE_WORKFLOWS],
         "governance": EDGE_GOVERNANCE,
         "runtime": {
             "hardware": "verified",
-            "job_broker": "live_synthetic_accepted",
-            "model_invocation": "synthetic_probe_only",
-            "camera_and_file_inputs": "gated_pending_acceptance",
+            "job_broker": "live_camera_accepted",
+            "model_invocation": "signed_bounded_camera_jobs",
+            "camera_and_file_inputs": "camera_accepted_file_gated",
             "automatic_execution": False,
-            "reason": "signed broker and four pinned models are accepted; physical camera and real-file pipelines are not yet accepted",
+            "reason": "signed broker, four pinned models and the physical camera pipeline are accepted; file inputs and autonomous workflows remain gated",
         },
     }

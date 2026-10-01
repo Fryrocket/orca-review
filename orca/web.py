@@ -370,7 +370,7 @@ class OrcaHandler(BaseHTTPRequestHandler):
             return self._json(engineering_catalog())
         if path == "/api/edge-inference":
             from .edge_inference import edge_inference_blueprint
-            return self._json(edge_inference_blueprint(camera_connected=False))
+            return self._json(edge_inference_blueprint(camera_connected=True))
         if path == "/api/state":
             try:
                 snapshot = self.server.control_plane.snapshot()

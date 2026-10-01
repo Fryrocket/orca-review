@@ -25,6 +25,22 @@ def test_camera_discovery_excludes_internal_video_nodes(tmp_path):
     ]
 
 
+def test_camera_discovery_excludes_uvc_metadata_companion(tmp_path):
+    capture = tmp_path / "devices/pci/usb1/1-1/video4linux/video0"
+    metadata = tmp_path / "devices/pci/usb1/1-1/video4linux/video1"
+    for target, index in ((capture, "0"), (metadata, "1")):
+        target.mkdir(parents=True)
+        (target / "name").write_text("HDMI USB Camera")
+        (target / "index").write_text(index)
+    classes = tmp_path / "class/video4linux"
+    classes.mkdir(parents=True)
+    (classes / "video0").symlink_to(capture, target_is_directory=True)
+    (classes / "video1").symlink_to(metadata, target_is_directory=True)
+    assert MODULE.discover_uvc_cameras(classes) == [
+        {"device": "/dev/video0", "name": "HDMI USB Camera", "driver": "usb"}
+    ]
+
+
 def test_model_inventory_accepts_h8_but_not_h8l(tmp_path):
     (tmp_path / "detector_h8.hef").write_bytes(b"h8")
     (tmp_path / "detector_h8l.hef").write_bytes(b"h8l")

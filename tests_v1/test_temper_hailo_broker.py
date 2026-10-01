@@ -66,6 +66,31 @@ def test_pipeline_uses_only_allowlisted_model_and_metadata_output(tmp_path):
     assert not any("sh" == part or "bash" == part for part in command)
 
 
+def test_camera_pipeline_uses_accepted_mjpeg_profile(tmp_path):
+    job = make_job(max_frames=10)["job"]
+    command = BROKER.build_pipeline(
+        job, {"kind": "camera", "path": "/dev/video0"}, tmp_path / "meta.json")
+    assert "image/jpeg,width=1280,height=720,framerate=30/1" in command
+    assert "jpegdec" in command
+    assert "num-buffers=10" in command
+    assert "filesink" not in command
+
+
+def test_camera_enqueue_is_signed_and_bounded(tmp_path):
+    root = tmp_path / "state"
+    key = b"k" * 32
+    root.mkdir()
+    (root / "hailo-job.key").write_text(key.hex())
+    path = BROKER.enqueue_camera(
+        job_id="camera-1", model_id="yolov8s_h8", device="/dev/video0", frames=10,
+        queue=root / "jobs/queue", key_file=root / "hailo-job.key",
+        nonce_file=root / "hailo-job-nonce")
+    envelope = json.loads(path.read_text())
+    job = BROKER.validate_envelope(envelope, key)
+    assert job["input"] == {"kind": "camera", "path": "/dev/video0"}
+    assert job["max_frames"] == 10
+
+
 def test_queue_rejects_replayed_nonce_without_running_pipeline(tmp_path, monkeypatch):
     root = tmp_path / "state"
     queue = root / "jobs/queue"

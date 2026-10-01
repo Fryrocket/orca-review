@@ -86,9 +86,9 @@ AI_SERVICES = {
     "temper_edge": AIServiceProfile(
         "temper_edge", "temper",
         "FORGE edge vision, preprocessing, sensor quality, anomaly detection, local audio and offline queueing; execution remains job-gated",
-        "Four packaged Hailo-8 vision HEFs and signed synthetic broker accepted; real inputs and custom models remain gated",
+        "Four packaged Hailo-8 vision HEFs and signed USB-camera broker accepted; file inputs and custom models remain gated",
         "HailoRT", "Hailo-8 (26 TOPS INT8)",
-        8_192, 1, 6, deployment_state="broker_live_real_inputs_gated",
+        8_192, 1, 6, deployment_state="broker_live_camera_accepted_file_gated",
     ),
     "forge_crucible": AIServiceProfile(
         "forge_crucible", "forge",

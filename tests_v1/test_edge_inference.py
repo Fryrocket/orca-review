@@ -14,15 +14,15 @@ def test_edge_workflows_cover_orca_areas_without_granting_authority():
     areas = {workflow.area for workflow in EDGE_WORKFLOWS}
     assert {"inventory", "engineering", "canvas", "product-builder", "operations", "business", "bgm", "studio"} <= areas
     snapshot = edge_inference_blueprint(camera_connected=True)
-    assert snapshot["camera"]["state"] == "available"
-    assert snapshot["runtime"]["job_broker"] == "live_synthetic_accepted"
-    assert snapshot["runtime"]["model_invocation"] == "synthetic_probe_only"
-    assert snapshot["runtime"]["camera_and_file_inputs"] == "gated_pending_acceptance"
+    assert snapshot["camera"]["state"] == "accepted_available"
+    assert snapshot["runtime"]["job_broker"] == "live_camera_accepted"
+    assert snapshot["runtime"]["model_invocation"] == "signed_bounded_camera_jobs"
+    assert snapshot["runtime"]["camera_and_file_inputs"] == "camera_accepted_file_gated"
     assert snapshot["runtime"]["automatic_execution"] is False
     assert "may not publish" in snapshot["governance"]["authority"]
 
 
 def test_camera_disconnected_is_truthfully_reported():
-    snapshot = edge_inference_blueprint()
+    snapshot = edge_inference_blueprint(camera_connected=False)
     assert snapshot["camera"]["connected"] is False
-    assert snapshot["camera"]["state"] == "awaiting_physical_connection"
+    assert snapshot["camera"]["state"] == "accepted_not_connected"

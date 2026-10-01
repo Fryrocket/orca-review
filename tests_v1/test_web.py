@@ -212,7 +212,7 @@ def test_inventory_endpoint_is_read_only_and_fails_closed():
         server.server_close()
 
 
-def test_edge_inference_endpoint_reports_camera_and_execution_gates():
+def test_edge_inference_endpoint_reports_accepted_camera_and_execution_gates():
     server = OrcaHTTPServer(("127.0.0.1", 0), ControlPlane())
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -221,7 +221,7 @@ def test_edge_inference_endpoint_reports_camera_and_execution_gates():
                 f"http://127.0.0.1:{server.server_port}/api/edge-inference") as response:
             result = json.load(response)
         assert result["node_id"] == "temper"
-        assert result["camera"]["state"] == "awaiting_physical_connection"
+        assert result["camera"]["state"] == "accepted_available"
         assert result["runtime"]["automatic_execution"] is False
         assert all(model["state"] == "runtime_benchmarked" for model in result["models"])
     finally:

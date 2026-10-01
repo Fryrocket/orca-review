@@ -169,6 +169,7 @@ def build_pipeline(job: dict, source: dict, metadata_path: Path) -> list[str]:
         command += ["videotestsrc", f"num-buffers={frames}", "pattern=smpte", "!"]
     elif source["kind"] == "camera":
         command += ["v4l2src", f"device={source['path']}", f"num-buffers={frames}", "!",
+                    "image/jpeg,width=1280,height=720,framerate=30/1", "!", "jpegdec", "!",
                     "videoconvert", "!", "videoscale", "!", "videorate", "!"]
     else:
         command += ["filesrc", f"location={source['path']}", "!", "decodebin", "!",
@@ -326,10 +327,35 @@ def enqueue_probe(*, job_id: str, model_id: str, queue: Path,
     return path
 
 
+def enqueue_camera(*, job_id: str, model_id: str, device: str, frames: int,
+                   queue: Path, key_file: Path, nonce_file: Path) -> Path:
+    if (not JOB_ID.fullmatch(job_id) or model_id not in MODELS
+            or not re.fullmatch(r"/dev/video\d+", device)
+            or type(frames) is not int or not 1 <= frames <= MAX_FRAMES):
+        raise RejectedJob("camera request is invalid")
+    if (queue / f"{job_id}.json").exists():
+        raise RejectedJob("camera job id already exists")
+    now = datetime.now(timezone.utc)
+    job = {
+        "schema": 1, "job_id": job_id, "nonce": _read_nonce(nonce_file) + 1,
+        "created_at": now.isoformat(),
+        "expires_at": (now + timedelta(minutes=5)).isoformat(),
+        "model_id": model_id, "input": {"kind": "camera", "path": device},
+        "max_frames": frames,
+    }
+    queue.mkdir(parents=True, exist_ok=True, mode=0o750)
+    path = queue / f"{job_id}.json"
+    _atomic_json(path, {"job": job, "signature": sign_job(job, load_key(key_file))})
+    return path
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--state-root", type=Path, default=Path("/var/lib/orca-temper"))
     parser.add_argument("--enqueue-probe")
+    parser.add_argument("--enqueue-camera")
+    parser.add_argument("--device", default="/dev/video0")
+    parser.add_argument("--frames", type=int, default=10)
     parser.add_argument("--model", default="yolov6n_h8", choices=sorted(MODELS))
     args = parser.parse_args()
     root = args.state_root
@@ -339,6 +365,11 @@ def main() -> int:
     if args.enqueue_probe:
         print(enqueue_probe(job_id=args.enqueue_probe, model_id=args.model, queue=queue,
                             key_file=key, nonce_file=nonce))
+        return 0
+    if args.enqueue_camera:
+        print(enqueue_camera(
+            job_id=args.enqueue_camera, model_id=args.model, device=args.device,
+            frames=args.frames, queue=queue, key_file=key, nonce_file=nonce))
         return 0
     result = process_next(
         queue=queue, incoming=root / "jobs/incoming", results=root / "jobs/results",

@@ -158,7 +158,7 @@ class StudioReadTools:
     def temper_inference_capabilities(self, *, input_type: str = "all") -> dict:
         if input_type not in {"all", "camera", "image", "video", "sensor", "audio"}:
             raise ValueError("edge inference input type is invalid")
-        result = edge_inference_blueprint(camera_connected=False)
+        result = edge_inference_blueprint(camera_connected=True)
         if input_type != "all":
             aliases = {"camera": "usb_camera", "sensor": "signal_quality", "audio": "automatic_speech_recognition"}
             target = aliases.get(input_type, input_type)

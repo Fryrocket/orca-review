@@ -28,6 +28,15 @@ def discover_uvc_cameras(root: Path = Path("/sys/class/video4linux")) -> list[di
         # or the standard UVC driver qualifies as the external camera.
         if driver != "uvcvideo" and "/usb" not in str(resolved):
             continue
+        # A single UVC interface may publish both a frame-capture node and a
+        # metadata-only companion node.  The companion has a non-zero stream
+        # index and must not be advertised as a second camera.
+        try:
+            stream_index = (entry / "index").read_text().strip()
+        except (FileNotFoundError, OSError):
+            stream_index = ""
+        if stream_index and stream_index != "0":
+            continue
         cameras.append({
             "device": f"/dev/{entry.name}",
             "name": name,
