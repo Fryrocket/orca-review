@@ -78,15 +78,27 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   actions.
 
 - TEMPER Watch is registered in ORCA and visible in Bot Monitor but remains
-  inactive. Its former discovery/hardware blocker is resolved. The authoritative
+  inactive pending its recovery and soak gates. Its former discovery/hardware
+  blocker is resolved. The authoritative
   A-to-Z completion checklist now lives on the existing TEMPER Notion page.
   Gates A-C are complete: the read-only authority contract, TEMPER identity and
   hardware baseline, and bounded Hailo/camera/file inference acceptance. The
-  next safe software-only phase is D-P: declare monitor inputs; define signed
-  evidence, freshness and hardware thresholds; observe Hailo artifacts,
-  inference, MQTT, sensors and queues; build the least-privilege local runtime
-  and Bot Monitor surface; route exception-only reports; and pass negative-
-  permission and disposable fault tests. Network/service recovery follows.
+  D-P software phase completed on 2026-10-01. TEMPER now runs a read-only,
+  network-blocked `orca-temper-watch.timer` every minute under the unprivileged
+  `fryrocket` account with strict filesystem, kernel, memory and CPU limits.
+  Its versioned evidence contract maps signed heartbeat, Pi/NVMe resources,
+  Hailo inventory and artifact hashes, the one-job inference broker, MQTT, and
+  sensor/offline-queue state. Freshness, thermal, memory, swap, disk, queue and
+  failure thresholds are explicit. Drift, replay, malformed data, stale input,
+  missing secure MQTT, throttling and resource exhaustion fail visibly without
+  self-repair. Negative-permission and thirteen-step disposable fault
+  simulations passed; the full ORCA regression passed 1,060 tests. The first
+  live report completed with zero restarts and zero external actions. CPU,
+  NVMe, memory, swap, disk, camera, four Hailo model hashes, secure MQTT and the
+  bounded broker were healthy. It truthfully reported two expected warnings:
+  the temporary anonymous MQTT transition listener remains active and no
+  accepted sensor stream/offline queue exists yet. Network/service recovery is
+  next at Q-R.
   Supervised reboot and iPhone credentialed-MQTT cutover require Fry at the
   hardware/phone. Custom-model foundations and PCB inspection require governed
   datasets and representative labelled images. TEMPER-only and five-node soaks,
@@ -94,6 +106,18 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   reconciliation remain the final gates. TEMPER Watch may observe and stage an
   alert only; it may not use a remote shell, restart services, change models,
   publish MQTT, perform physical action, approve work or deploy.
+
+- Google Drive received a recoverable organization pass on 2026-10-01. A dated
+  `_ARCHIVE/ORCA-FORGE Archive — 2026-10-01` container now holds historical and
+  explicitly superseded project records; nothing was deleted or trashed. The
+  duplicate lowercase `forge` container was retired after its stable Connectors
+  folder moved into the canonical `Forge` folder. Loose PCB procurement,
+  optimization, inventory and ORCA test-video artifacts moved into their
+  existing QuasarVolt or Bench Inventory destinations. Active FORGE build and
+  emergency guides moved into canonical `Forge`; historical Forge ZIP/TAR
+  bundles and duplicate decision notes moved into the dated archive. Twenty-one explicitly
+  superseded `cc-bridge` records moved into the dated archive while current
+  handoffs, IDs, active business folders and personal folders remained intact.
 
 ## CRUCIBLE AND GPU STATUS
 

@@ -1,0 +1,29 @@
+[Unit]
+Description=ORCA TEMPER Watch read-only edge health evaluation
+After=local-fs.target orca-temper-hailo-inventory.service
+
+[Service]
+Type=oneshot
+User=fryrocket
+Group=fryrocket
+StateDirectory=orca-temper
+StateDirectoryMode=0750
+ExecStart=/usr/bin/python3 /usr/local/lib/orca/temper_watch_runtime.py --state-root /var/lib/orca-temper
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+MemoryMax=128M
+CPUQuota=25%
+UMask=0027
+TimeoutStartSec=20
+
+[Install]
+WantedBy=multi-user.target
