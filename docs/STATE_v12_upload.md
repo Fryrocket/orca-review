@@ -161,9 +161,16 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   verified. ORCA reports TEMPER healthy and authenticated with evidence
   integrity valid. Its Hailo-8 hardware is live but model execution is gated:
   no reviewed `.hef` model is installed and the configured HEF path is empty.
-  MQTT listener 1883 still accepts anonymous LAN clients; credentialed listener
-  41883 is available for a controlled migration. MQTT, model, recovery, fault
-  and soak gates follow.
+  Credentialed listener 41883 now enforces an `armband/#` topic ACL. Authenticated
+  round-trip, forbidden-topic denial and anonymous-denial probes passed, and the
+  local logger was moved to 41883 with an automatic rollback copy retained.
+  Listener 1883 still accepts anonymous LAN clients only as a compatibility
+  bridge for the installed iPhone build. The iOS source now requires Keychain
+  credentials on LAN in local commit `d9aa741`, with 50/50 Swift tests and both
+  MQTT contract checks passing; it is not installed on the phone yet. The
+  firmware already supports authenticated MQTT. Install and verify the iOS
+  build before closing anonymous 1883. Model, recovery, fault and soak gates
+  follow.
 - EMBER was audited live on 2026-09-30. The signed heartbeat, FORGE loopback
   tunnel, NUT UPS driver/server/monitor, read-only OLED, wake guard, Tailscale,
   and FORGE-VIS backup services were active. The local encrypted Restic backup
@@ -249,8 +256,11 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
 - TEMPER is positively discovered, renamed, authenticated, publishing a healthy
   signed heartbeat and deployed as a FORGE fabric member in release
   `a5eb12efc83559c0a226b34f60321154fb361713`. It remains safely paused from
-  autonomous jobs until MQTT ACL, approved Hailo model, offline queue, recovery,
-  fault and dedicated soak acceptance are established.
+  autonomous jobs until the iOS credentialed-LAN build is installed, anonymous
+  1883 is closed, an approved Hailo model exists, and offline queue, recovery,
+  fault and dedicated soak acceptance are established. The credentialed 41883
+  listener and TEMPER's local logger have passed their ACL and connectivity
+  cutover tests.
 - The Notion To Do database has been cleaned of its starter tutorial rows. Its
   only genuine standalone task remains the comprehensive ORCA/Forge operator
   and developer manual after stable operation.
