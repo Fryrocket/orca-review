@@ -35,20 +35,26 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   given a dedicated restricted relay key, and FORGE accepted its owner-enrolled
   signed heartbeat. Owner authorization on 2026-10-01 made TEMPER a full FORGE
   ecosystem member and authorized the tested ORCA core integration. Immutable
-  release `e3bca4dd2eb1125bed122fb66d1144396d6e94a1` is live on FORGE with
+  release `66633e60564dca32ce158d70b98c163e10df2f6f` is live on FORGE with
   health and integrity valid and rollback preserved to
-  `a5eb12efc83559c0a226b34f60321154fb361713`. TEMPER now appears in the FORGE
+  `e3bca4dd2eb1125bed122fb66d1144396d6e94a1`. TEMPER now appears in the FORGE
   fabric with its edge-worker, sensor, MQTT, telemetry, storage and Hailo
-  capabilities. The exact release passed 1,037 tests. Four packaged Hailo-8
+  capabilities. The exact release passed 1,042 tests. Four packaged Hailo-8
   vision models now pass direct accelerator execution: YOLOv6n at about 140.9
   FPS, YOLOv8s at 148.22 FPS, YOLOv5n segmentation at 61.32 FPS and YOLOv8s
   pose at 228.5 FPS. These are hardware-only measurements, not end-to-end
   camera latency. TEMPER's read-only Hailo/USB-camera inventory timer is live,
   refreshes every minute, reports the device and compatible H8 artifacts, and
-  correctly reports no external camera connected yet. ORCA exposes the
-  governed edge catalog and recommends TEMPER for vision, sensor and future
-  audio workloads. Autonomous execution remains paused until the signed job
-  broker and per-workflow acceptance gates pass.
+  correctly reports no external camera connected yet. The local-only signed
+  job broker is active with a single accelerator queue, HMAC authentication,
+  monotonic nonce replay protection, pinned models and input roots, 150-frame
+  and 90-second limits, hashed artifacts and metadata-only evidence. One signed
+  synthetic job through each model passed; a tampered signature was rejected
+  without advancing the nonce, and the broker recovered to healthy with zero
+  restarts. ORCA exposes the governed edge catalog and recommends TEMPER for
+  vision, sensor and future audio workloads. Autonomous execution and real
+  camera/file inputs remain paused until their per-workflow acceptance gates
+  pass.
 
 ## CRUCIBLE AND GPU STATUS
 
@@ -83,8 +89,8 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   stays blocked because no accepted model-serving capability is registered.
 - No push, merge, spending, credential change, or connector scope expansion was
   performed. The tested ORCA tree was activated on FORGE as immutable release
-  `/opt/orca/releases/e3bca4dd2eb1125bed122fb66d1144396d6e94a1`; release
-  `/opt/orca/releases/a5eb12efc83559c0a226b34f60321154fb361713` remains the
+  `/opt/orca/releases/66633e60564dca32ce158d70b98c163e10df2f6f`; release
+  `/opt/orca/releases/e3bca4dd2eb1125bed122fb66d1144396d6e94a1` remains the
   `/var/lib/orca/previous-release` rollback target.
 
 ## 2026-09-30 LOCAL IMPLEMENTATION DELTA
@@ -170,8 +176,9 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   verified. ORCA reports TEMPER healthy and authenticated with evidence
   integrity valid. Its Hailo-8 hardware is live and four packaged H8 `.hef`
   artifacts pass direct accelerator execution. Their ORCA model catalog is
-  live, but camera/file inference remains gated until the signed bounded job
-  broker, post-processing, provenance hashing and workflow acceptance pass.
+  live. The signed bounded job broker and all four synthetic post-processing
+  paths are accepted; camera/file inference remains gated until physical input,
+  provenance and per-workflow acceptance pass.
   The read-only camera inventory service is active with zero restarts and
   excludes the Pi's internal codec devices; it currently reports that the USB
   camera is not physically connected.
