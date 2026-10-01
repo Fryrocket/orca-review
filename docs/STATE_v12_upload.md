@@ -830,5 +830,29 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   length. The stopped run and both successful image artifacts remain preserved
   under `/var/lib/orca-soak/20261001-8h`. No outside security audit begins
   until this soak gate is repaired, rerun, completed, and reconciled.
+- The 33-frame repair is now implemented, tested, independently reviewed, and
+  live on the actual FORGE/CRUCIBLE broker path. The source candidate passed
+  **44/44** focused broker/soak-policy checks and the complete ORCA regression
+  passed **1,144/1,144**. QUENCH returned PASS with live-validation conditions.
+  The active broker is a minimal patch of the prior deployed file: it adds only
+  33 to the existing 49/73/121 allowlist. Its SHA-256 is
+  `fb3237fa6d42990b504a96ad3501c0372e97b5c0271e6f51a0ee6907a4502d0d`;
+  exact rollback file
+  `/opt/orca-studio/releases/orca_image_broker-rollback-94fe5479.py`
+  is retained with SHA-256
+  `94fe54795c45719f093d22384e06eb0918e61f5ad376197215852d2b090352cc`.
+  The broker restarted cleanly with zero restart loops.
+- Live acceptance produced a valid 33-frame, 832x480, 16-fps MP4 through KILN
+  and CRUCIBLE. The artifact is
+  `/var/lib/orca-soak/33f-probe.mp4`, 109,606 bytes, SHA-256
+  `3d25cd5d9bbb77589a781f83bd44bc9b8e8c8bda18ea10b41d03e3c545d858de`.
+  No 49- or 73-frame job was run.
+- A fresh repaired eight-hour run is active as
+  `orca-soak-8h-20261001b.service`, started 2026-10-01 18:48:29 CDT, with new
+  evidence under `/var/lib/orca-soak/20261001-8h-rerun`. Initial verification
+  recorded 64 checks, zero failures, zero service restarts, valid ORCA
+  integrity/evidence chain, all five node identities present, and empty node
+  and lane pause lists. The continuity automation now supervises this repaired
+  unit and preserves the stopped-run evidence separately.
 
 END STATE.md — AS OF 2026-10-01
