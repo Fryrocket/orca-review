@@ -56,7 +56,8 @@ class OrcaHTTPServer(ThreadingHTTPServer):
                  identity_tokens: Mapping[str, str] | IdentityTokenAuthenticator | None = None,
                  runtime_gateway: ModelRuntimeGateway | None = None,
                  inventory_provider: InventoryProvider | None = None,
-                 trusted_network_no_auth: bool = False, chat_memory=None, bot_profiles=None):
+                 trusted_network_no_auth: bool = False, chat_memory=None, bot_profiles=None,
+                 inbox_store=None):
         if not _is_loopback_bind(address[0]):
             raise ValueError(
                 "non-loopback ORCA binding is disabled pending reviewed transport security")
@@ -75,6 +76,7 @@ class OrcaHTTPServer(ThreadingHTTPServer):
         self.chat_memory = chat_memory
         self.bot_profiles = bot_profiles
         self.inventory_provider = inventory_provider
+        self.inbox_store = inbox_store
         self.trusted_network_no_auth = trusted_network_no_auth
         self.allowed_hosts = frozenset({address[0], "127.0.0.1", "localhost", "::1"})
         super().__init__(address, OrcaHandler)
@@ -360,6 +362,21 @@ class OrcaHandler(BaseHTTPRequestHandler):
         if not self._host_allowed():
             return self._json({"error": "host header is not allowlisted"}, HTTPStatus.MISDIRECTED_REQUEST)
         path = urlparse(self.path).path
+        if path == "/api/inbox":
+            try:
+                identity = self._authenticate_mutation()
+            except IdentityAuthenticationError as exc:
+                return self._json({"error": str(exc)}, HTTPStatus.UNAUTHORIZED)
+            except RuntimeError:
+                return self._json({"error": "Inbox authentication is unavailable"},
+                                  HTTPStatus.SERVICE_UNAVAILABLE)
+            if identity != "fry":
+                return self._json({"error": "Only Fry may read the Inbox"},
+                                  HTTPStatus.FORBIDDEN)
+            if self.server.inbox_store is None:
+                return self._json({"error": "Inbox storage is unavailable"},
+                                  HTTPStatus.SERVICE_UNAVAILABLE)
+            return self._json(self.server.inbox_store.snapshot())
         if path == "/api/config":
             return self._json({
                 "authentication_required": not self.server.trusted_network_no_auth,
@@ -459,6 +476,16 @@ class OrcaHandler(BaseHTTPRequestHandler):
             return self._json({"error": "host header is not allowlisted"}, HTTPStatus.MISDIRECTED_REQUEST)
         path = urlparse(self.path).path
         try:
+            if path == "/api/inbox/import":
+                try:
+                    identity = self._authenticate_mutation()
+                except IdentityAuthenticationError as exc:
+                    return self._json({"error": str(exc)}, HTTPStatus.UNAUTHORIZED)
+                if identity != "fry":
+                    raise IdentityAuthorizationError("Only Fry may import Inbox summaries")
+                if self.server.inbox_store is None:
+                    raise ValueError("Inbox storage is unavailable")
+                return self._json(self.server.inbox_store.import_packet(self._body()))
             if path in {"/api/custom-bots/list", "/api/custom-bots/save", "/api/custom-bots/test"}:
                 try:
                     identity = self._authenticate_mutation()
@@ -675,7 +702,8 @@ def serve(control_plane: ControlPlane | None = None, *, host: str = "127.0.0.1",
           identity_tokens: Mapping[str, str] | IdentityTokenAuthenticator | None = None,
           runtime_gateway: ModelRuntimeGateway | None = None,
           inventory_provider: InventoryProvider | None = None,
-          trusted_network_no_auth: bool = False, chat_memory=None, bot_profiles=None) -> None:
+          trusted_network_no_auth: bool = False, chat_memory=None, bot_profiles=None,
+          inbox_store=None) -> None:
     server = OrcaHTTPServer(
         (host, port), control_plane or ControlPlane(), operator_token,
         identity_tokens=identity_tokens, runtime_gateway=runtime_gateway,
@@ -683,6 +711,7 @@ def serve(control_plane: ControlPlane | None = None, *, host: str = "127.0.0.1",
         trusted_network_no_auth=trusted_network_no_auth,
         chat_memory=chat_memory,
         bot_profiles=bot_profiles,
+        inbox_store=inbox_store,
     )
     print(f"ORCA operator console: http://{host}:{server.server_port}")
     server.serve_forever()

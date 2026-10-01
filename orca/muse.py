@@ -133,6 +133,7 @@ def build_email_handoff(*, workflow_id: object, objective: object) -> dict[str, 
     return_schema = {
         "message_reference": "provider reference, never a password or token",
         "sender_display": "sender name or organization",
+        "subject": "message subject",
         "received_at": "ISO-8601 timestamp",
         "project_or_customer": "known association or unassigned",
         "category": "order, invoice, lead, support, compliance, vendor, spam, or other",

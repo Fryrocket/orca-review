@@ -14,6 +14,7 @@ from orca.control_plane import ControlPlane
 from orca.fleet import Heartbeat, sign_heartbeat
 from orca.web import OrcaHTTPServer, STATIC_ROOT
 from orca.inventory import InventoryReadError
+from orca.inbox import InboxStore
 
 
 REQUEST_IDS = count(1)
@@ -470,6 +471,58 @@ def test_inventory_vision_planning_endpoint_is_authenticated_and_non_executing()
         assert planned["capture_plan"]["frames_planned"] == 50
         assert planned["capture_plan"]["frames_captured"] == 0
         assert planned["capture_plan"]["may_open_camera"] is False
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_inbox_import_and_read_require_owner_auth_and_store_summaries_only():
+    token = "t" * 32
+    store = InboxStore(":memory:")
+    server = OrcaHTTPServer(
+        ("127.0.0.1", 0), ControlPlane(), operator_token=token,
+        inbox_store=store,
+    )
+    Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{server.server_port}/api/inbox"
+        with pytest.raises(HTTPError) as unauthenticated:
+            urlopen(url)
+        assert unauthenticated.value.code == 401
+        payload = {
+            "request_id": "inbox-request-0001",
+            "handoff_id": "muse-email-test123",
+            "messages": [{
+                "message_reference": "mail-001",
+                "sender_display": "Example Vendor",
+                "subject": "Invoice question",
+                "received_at": "2026-10-01T12:00:00Z",
+                "project_or_customer": "QuasarVolt",
+                "category": "invoice",
+                "priority": "normal",
+                "summary": "The vendor asked which purchase order applies.",
+                "follow_up": "Confirm the purchase order after review.",
+                "deadline": None,
+                "draft_reply": "Draft response for owner review.",
+                "uncertainty": "The purchase order is not in the summary.",
+            }],
+        }
+        request = Request(
+            url + "/import", data=json.dumps(payload).encode(), method="POST",
+            headers={"Content-Type": "application/json",
+                     "X-ORCA-Operator-Token": token},
+        )
+        with urlopen(request) as response:
+            result = json.load(response)
+        assert result["imported"] == 1
+        request = Request(url, headers={"X-ORCA-Operator-Token": token})
+        with urlopen(request) as response:
+            snapshot = json.load(response)
+        assert snapshot["count"] == 1
+        assert snapshot["messages"][0]["subject"] == "Invoice question"
+        assert snapshot["raw_bodies_stored"] is False
+        assert snapshot["attachments_stored"] is False
+        assert snapshot["mailbox_mutations"] == 0
     finally:
         server.shutdown()
         server.server_close()

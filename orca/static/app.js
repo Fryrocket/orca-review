@@ -261,6 +261,7 @@ function show(id) {
     canvas: ['VISUAL LAB', 'Canvas'], inventory: ['BENCH CATALOG', 'Inventory'],
     engineering: ['ENGINEERING DESK', 'Engineering'], operations: ['CONTROL PLANE', 'Operations'],
     'bot-monitor': ['AGENT OBSERVABILITY', 'Bot Monitor'],
+    inbox: ['PRIVATE COMMUNICATIONS', 'Inbox'],
     business: ['QUASARVOLT SUPPLY', 'Business'],
     'product-builder': ['DESIGN AUTOMATION', 'Product Builder']
   };
@@ -268,6 +269,7 @@ function show(id) {
   $('#workspace-kicker').textContent = kicker;
   $('#workspace-title').textContent = title;
   if (id === 'inventory') loadInventory();
+  if (id === 'inbox') globalThis.ORCAInbox?.load();
 }
 function showOps(id) {
   show('operations');

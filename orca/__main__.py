@@ -17,6 +17,7 @@ from .read_tools import WorkspaceReadTools
 from .connector_tools import GoogleDriveReadTools, PublicWebReadTools, RcloneDriveReadTools
 from .tools import ReadOnlyToolBroker
 from .studio_tools import StudioReadTools
+from .inbox import InboxStore
 from .web import serve
 
 
@@ -82,6 +83,7 @@ def main() -> None:
           inventory_provider=inventory_provider,
           chat_memory=ChatMemory(Path(args.database).with_name("orca-chat-memory.db")),
           bot_profiles=BotProfiles(Path(args.database).with_name("orca-bot-profiles.db")),
+          inbox_store=InboxStore(Path(args.database).with_name("orca-inbox.db")),
           trusted_network_no_auth=args.trusted_network_no_auth)
 
 

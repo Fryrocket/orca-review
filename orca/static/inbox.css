@@ -1,0 +1,14 @@
+.inbox-actions, .inbox-filters { display: flex; gap: 8px; }
+.inbox-layout { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(300px, .8fr); gap: 14px; }
+.inbox-filters { margin: 12px 0; }
+.inbox-filters input { flex: 1; }
+.inbox-list { display: grid; gap: 9px; }
+.inbox-message { border: 1px solid var(--line); border-radius: 12px; padding: 13px; background: #0a1814; }
+.inbox-message header { display: flex; justify-content: space-between; gap: 12px; }
+.inbox-message h3 { margin: 4px 0; font-size: 14px; }
+.inbox-message p { margin: 7px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.inbox-meta { color: var(--mint); font: 800 9px ui-monospace, monospace; text-transform: uppercase; }
+.inbox-draft { border-left: 2px solid #4b886f; padding-left: 10px; }
+.inbox-import textarea { width: 100%; resize: vertical; }
+.inbox-import button { width: 100%; margin-top: 9px; }
+@media (max-width: 900px) { .inbox-layout { grid-template-columns: 1fr; } .inbox-filters { flex-direction: column; } }

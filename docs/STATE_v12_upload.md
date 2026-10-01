@@ -658,6 +658,19 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   Business and web tests passed **57/57**; the complete source regression passed
   **1,125/1,125**. Deployment and live validation remain gated behind successful
   soak completion and continuity-record reconciliation.
+- A dedicated first-class ORCA **Inbox** workspace is now a tested local
+  candidate and is not yet deployed. The sidebar surface provides owner-only
+  authenticated reading of privacy-minimized email summaries, sender, subject,
+  project/customer association, category, priority, deadlines, follow-ups,
+  uncertainty and reply drafts, with search and filters. Returned Muse packages
+  are schema-bounded, secret-scanned, idempotent and conflict-protected before
+  import into an owner-mode `0600` SQLite store. ORCA stores no raw message
+  bodies or attachments and performs no sends, deletes, moves, labels, link
+  clicks or mailbox changes. Focused Inbox, Muse, Business and web checks pass
+  **62/62** and the complete source regression passes **1,130/1,130**. A real
+  mailbox remains unconnected; until an accepted connector exists, summaries
+  enter only through the governed Muse return package. Deployment and live
+  acceptance remain behind the active soak gate.
 - The existing `orca-continuity-checkpoint` heartbeat now includes the five-node
   autonomous-security posture and FOR-29. It remains active every six hours,
   stays quiet while state is healthy and unchanged, and may perform only

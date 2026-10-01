@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="/product-builder.css">
   <link rel="stylesheet" href="/product-development.css">
   <link rel="stylesheet" href="/business.css">
+  <link rel="stylesheet" href="/inbox.css">
 </head>
 <body>
   <div class="app-shell">
@@ -25,6 +26,7 @@
         <button data-view="engineering"><span>⌁</span> Engineering</button>
         <button data-view="operations"><span>◎</span> Operations</button>
         <button data-view="bot-monitor"><span>◉</span> Bot Monitor</button>
+        <button data-view="inbox"><span>✉</span> Inbox</button>
         <button data-view="business"><span>◆</span> QuasarVolt</button>
         <button data-view="product-builder"><span>⬡</span> Product Builder</button>
       </nav>
@@ -506,6 +508,15 @@
         <article class="panel"><div class="panel-head"><div><h2>Positions and live activity</h2><p>“Event-driven” means a bot runs only when assigned work. Continuous watchers report their configured heartbeat separately.</p></div><span class="truth">READ ONLY</span></div><div id="bot-monitor-grid" class="grid three"><p>Loading bot state…</p></div></article>
         <div class="grid two"><article class="panel"><div class="panel-head"><h2>Recent bot activity</h2><span class="truth">EVIDENCE</span></div><div id="bot-monitor-activity" class="stack"><p>No activity loaded.</p></div></article><article class="panel"><div class="panel-head"><h2>Reporting</h2><span class="truth">OWNER BRIEFING</span></div><p>Reports summarize assignments, completions, errors, approvals, model routes, tool use, activity frequency, stale bots, and decisions that need you. Creating a schedule remains approval-controlled.</p><p id="bot-monitor-report-status" class="muted" role="status">No report staged.</p></article></div>
       </section>
+
+      <section id="inbox" class="view">
+        <div class="section-intro"><div><p class="eyebrow">PRIVATE COMMUNICATIONS</p><h2>Inbox</h2><p>Read privacy-minimized email summaries, see follow-ups and deadlines, and review reply drafts. Raw bodies and attachments are not stored in ORCA.</p></div><div class="inbox-actions"><button id="inbox-refresh" type="button">Refresh</button><button id="inbox-open-muse" class="primary-action" type="button">Open Muse Email</button></div></div>
+        <div class="metric-grid"><article><span>Messages</span><strong id="inbox-total">0</strong></article><article><span>Needs follow-up</span><strong id="inbox-followups">0</strong></article><article><span>High / urgent</span><strong id="inbox-priority">0</strong></article><article><span>Mailbox actions</span><strong>0</strong><small>read-only</small></article></div>
+        <div class="inbox-layout">
+          <article class="panel inbox-list-panel"><div class="panel-head"><div><h2>Mail summaries</h2><p id="inbox-connection">Waiting for a governed Muse email package.</p></div><span class="truth">READ ONLY</span></div><div class="inbox-filters"><input id="inbox-search" type="search" placeholder="Search sender, subject, project or summary"><select id="inbox-category"><option value="">All categories</option><option>order</option><option>invoice</option><option>lead</option><option>support</option><option>compliance</option><option>vendor</option><option>spam</option><option>other</option></select><select id="inbox-priority-filter"><option value="">All priorities</option><option>urgent</option><option>high</option><option>normal</option><option>low</option></select></div><div id="inbox-list" class="inbox-list"><p>No imported summaries yet.</p></div></article>
+          <aside class="panel inbox-import"><div class="panel-head"><div><h2>Return from Muse</h2><p>Paste the JSON package produced by the governed email handoff.</p></div><span class="truth warn">OWNER IMPORT</span></div><textarea id="inbox-import-json" rows="14" maxlength="500000" placeholder='{"handoff_id":"muse-email-…","messages":[…]}'></textarea><button id="inbox-import" type="button">Validate and import summaries</button><p id="inbox-status" class="muted" role="status">Sending, deleting, moving, labels, links and attachments remain blocked.</p></aside>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -515,5 +526,6 @@
   <script src="/operations-studio.js"></script>
   <script src="/product-builder.js"></script>
   <script src="/business.js"></script>
+  <script src="/inbox.js"></script>
 </body>
 </html>
