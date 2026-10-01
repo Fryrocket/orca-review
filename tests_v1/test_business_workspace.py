@@ -103,6 +103,9 @@ def test_muse_is_invoked_as_a_governed_orca_business_tool():
     assert "claim direct Muse API access" in card
     assert "button.dataset.businessTool" in business
     assert "StudioLauncher.launch" in business
+    assert "/api/business/muse/handoff" in business
+    assert "Muse handoff ID" in business
+    assert "https://ai.meta.com/muse/shopping/" in business
 
 
 def test_advertising_creative_studio_uses_crucible_with_publish_approval():
@@ -344,6 +347,6 @@ def test_advanced_operations_are_connected_agentic_control_rooms():
 def test_muse_uses_a_fixed_official_site_and_the_governed_browser_launcher():
     business = Path("orca/static/business.js").read_text()
     launcher = Path("orca/static/launcher.js").read_text()
-    assert "https://ai.meta.com/muse/" in business
+    assert "https://ai.meta.com/muse/shopping/" in business
     assert "StudioLauncher.launch({kind: 'app', target: 'browser', url})" in business
-    assert "muse: 'https://ai.meta.com/muse/'" in launcher
+    assert "muse: 'https://ai.meta.com/muse/shopping/'" in launcher

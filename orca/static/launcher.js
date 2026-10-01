@@ -46,7 +46,7 @@ const StudioLauncher = (() => {
     documenso: 'https://docs.documenso.com/', metabase: 'https://www.metabase.com/docs/latest/',
     notion: 'https://www.notion.so/',
     linear: 'https://linear.app/', 'google photos': 'https://photos.google.com/',
-    muse: 'https://ai.meta.com/muse/', 'meta muse': 'https://ai.meta.com/muse/',
+    muse: 'https://ai.meta.com/muse/shopping/', 'meta muse': 'https://ai.meta.com/muse/shopping/',
     'chatgpt finances': 'https://chatgpt.com/', finances: 'https://chatgpt.com/',
     shopify: 'https://accounts.shopify.com/store-login',
     'amazon seller': 'https://sellercentral.amazon.com/', 'seller central': 'https://sellercentral.amazon.com/',

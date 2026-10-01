@@ -42,9 +42,27 @@ document.querySelectorAll('[data-business-prompt]').forEach((button, index) => {
     const status = document.querySelector('#business-app-status');
     const tool = button.dataset.businessTool;
     if (tool && businessSites[tool]) {
-      if (status) status.textContent = `Workflow staged. Opening ${tool === 'muse' ? 'Meta Muse' : 'the research tool'} for ORCA…`;
-      const result = await StudioLauncher.launch({kind: 'app', target: 'browser', url: businessSites[tool]});
-      if (status) status.textContent = `${result.message} Return the sourced findings to this staged workflow, then press Enter; ORCA will score, verify, and record them.`;
+      if (status) status.textContent = `Workflow staged. Preparing a governed ${tool === 'muse' ? 'Meta Muse' : 'research'} handoff…`;
+      let handoff = null;
+      if (tool === 'muse') {
+        try {
+          const response = await fetch('/api/business/muse/handoff', {method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-ORCA-Identity': studioAuth.identity,
+              'X-ORCA-Identity-Token': studioAuth.token},
+            body: JSON.stringify({workflow_id: workflow.id, objective: prompt})});
+          const body = await response.json();
+          if (!response.ok) throw Error(body.error || 'Muse handoff could not be prepared.');
+          handoff = body;
+          input.value = `${agenticBusinessContract}\n\n${prompt}\n\nMuse handoff ID: ${body.handoff_id}. Paste Muse's cited candidate pack below when it returns. ORCA must cross-check important facts before scoring or recording them.`;
+          try { await navigator.clipboard.writeText(body.muse_prompt); }
+          catch { /* The prompt remains available through the staged ORCA job. */ }
+        } catch (error) {
+          if (status) status.textContent = error.message;
+          return;
+        }
+      }
+      const result = await StudioLauncher.launch({kind: 'app', target: 'browser', url: handoff?.official_url || businessSites[tool]});
+      if (status) status.textContent = `${result.message} ${handoff ? 'The research-only prompt was copied when browser permissions allowed. ' : ''}Return the cited findings to this staged workflow, then press Enter; ORCA will cross-check, score, and record them.`;
     } else if (status) status.textContent = 'Workflow staged. Add details, then press Enter to create a tracked ORCA job and run it.';
   });
 });
@@ -55,7 +73,7 @@ const businessSites = Object.freeze({
   paperless: 'https://docs.paperless-ngx.com/',
   documenso: 'https://docs.documenso.com/',
   metabase: 'https://www.metabase.com/docs/latest/',
-  muse: 'https://ai.meta.com/muse/',
+  muse: 'https://ai.meta.com/muse/shopping/',
   shopify: 'https://accounts.shopify.com/store-login',
   amazon_seller: 'https://sellercentral.amazon.com/',
   ebay_seller: 'https://www.ebay.com/sh/ovw',

@@ -642,6 +642,18 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   ANVIL's application firewall and FileVault are on; stealth mode remains the
   only host-firewall setting requiring owner-present macOS authorization.
   The live ORCA pause list is empty and all five nodes are healthy and active.
+- Meta Muse integration is now a tested local candidate and is **not deployed
+  live during the active eight-hour soak**. Personal Muse shopping is handled
+  through an authenticated ORCA Business handoff that creates a deterministic
+  research-only prompt, fixed official URL, handoff ID, cited candidate-pack
+  return contract, and explicit zero-purchase, zero-message, zero-publication
+  and zero-credential boundary. ORCA does not claim an undocumented personal
+  Muse API. Meta's separate OpenAI-compatible Muse Spark Model API is recorded
+  as an optional staged provider and remains disabled until owner-controlled
+  credentials, cost approval and outbound-data acceptance exist. Focused Muse,
+  Business and web tests passed **56/56**; the complete source regression passed
+  **1,124/1,124**. Deployment and live validation remain gated behind successful
+  soak completion and continuity-record reconciliation.
 - The existing `orca-continuity-checkpoint` heartbeat now includes the five-node
   autonomous-security posture and FOR-29. It remains active every six hours,
   stays quiet while state is healthy and unchanged, and may perform only

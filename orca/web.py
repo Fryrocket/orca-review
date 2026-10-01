@@ -390,6 +390,9 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     {"error": "business ledger integrity check failed"},
                     HTTPStatus.SERVICE_UNAVAILABLE,
                 )
+        if path == "/api/business/muse":
+            from .muse import integration_status
+            return self._json(integration_status())
         if path == "/api/health":
             try:
                 self.server.control_plane.assert_fresh()
@@ -501,7 +504,7 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     "nonce": heartbeat.nonce,
                     "status": "accepted",
                 }, HTTPStatus.OK)
-            if path in {"/api/inference", "/api/chat", "/api/memory", "/api/science", "/api/engineering", "/api/project/plan", "/api/cad/pcb-draft", "/api/temper/inventory-dataset/plan"}:
+            if path in {"/api/inference", "/api/chat", "/api/memory", "/api/science", "/api/engineering", "/api/project/plan", "/api/cad/pcb-draft", "/api/temper/inventory-dataset/plan", "/api/business/muse/handoff"}:
                 try:
                     authenticated_identity = self._authenticate_mutation()
                 except IdentityAuthenticationError as exc:
@@ -515,6 +518,12 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     raise IdentityAuthorizationError(
                         "only Fry may initiate local model inference")
                 data = self._body()
+                if path == "/api/business/muse/handoff":
+                    if set(data) != {"workflow_id", "objective"}:
+                        raise ValueError("Muse handoff request has an invalid schema")
+                    from .muse import build_handoff
+                    return self._json(build_handoff(
+                        workflow_id=data["workflow_id"], objective=data["objective"]))
                 if path == "/api/temper/inventory-dataset/plan":
                     expected = {"name", "version", "labels", "source", "license_name",
                                 "target_images_per_label", "session_id", "camera_profile"}
