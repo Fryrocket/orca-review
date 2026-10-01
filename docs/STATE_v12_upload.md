@@ -34,7 +34,10 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   root storage was 4% used. On 2026-10-01 it was renamed to `temper`, KILN was
   given a dedicated restricted relay key, and FORGE accepted its owner-enrolled
   signed heartbeat. The heartbeat is healthy and authenticated; workload
-  routing remains paused pending the remaining BGM acceptance gates.
+  routing remains paused pending the remaining BGM acceptance gates. Local
+  commit `8aa1af5` corrects ORCA's displayed address and storage inventory and
+  passed 1,026 tests, but it is staged only; no FORGE core release was deployed
+  because TEMPER enrollment approval did not authorize a core restart.
 
 ## CRUCIBLE AND GPU STATUS
 
