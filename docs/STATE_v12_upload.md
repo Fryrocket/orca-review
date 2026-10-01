@@ -529,7 +529,11 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   all execution gates closed. FORGE and the KILN gateway are healthy with valid
   integrity; ORCA has zero restarts. Physical capture, training, HEF conversion,
   registry approval and deployment remain separate future gates.
-- The unattended-safe acceptance layer is implemented and locally accepted.
+- The unattended-safe acceptance layer is live in ORCA release
+  `/opt/orca/releases/7b5020a137a0bfef08f73b2c5e63aea94b0d02b3`, with
+  `/opt/orca/releases/a52aac436cbbe7274144d2e3c47c56d3dbf80dc2`
+  preserved as rollback. FORGE is healthy with valid integrity and zero ORCA
+  restarts; KILN's gateway and FORGE tunnel are active.
   It runs the TEMPER Watch D-P fault matrix, a disposable network-loss and
   recovery sequence, the inventory dataset-to-Hailo-8 planning path, bot
   negative-authority validation, and fake opaque-reference credential-broker
