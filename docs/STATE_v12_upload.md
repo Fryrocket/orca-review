@@ -31,8 +31,10 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   from ANVIL verified a Raspberry Pi 5 Model B Rev 1.1, 16 GB RAM, Debian 13,
   1 TB Crucial T500 NVMe, ASMedia two-port PCIe switch and a responding Hailo-8
   running firmware 4.23.0. CPU temperature was 45.2 C with no throttling and
-  root storage was 4% used. Its current hostname is still `fryrocket`; KILN has
-  no authorized node key and ORCA has no signed TEMPER heartbeat yet.
+  root storage was 4% used. On 2026-10-01 it was renamed to `temper`, KILN was
+  given a dedicated restricted relay key, and FORGE accepted its owner-enrolled
+  signed heartbeat. The heartbeat is healthy and authenticated; workload
+  routing remains paused pending the remaining BGM acceptance gates.
 
 ## CRUCIBLE AND GPU STATUS
 
@@ -144,14 +146,13 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
 - KILN live verification on 2026-09-30 found `/usr/bin/google-chrome-stable`,
   version `154.0.8037.57`. The dedicated-profile path was not asserted by that
   command and remains subject to the launcher/profile acceptance test.
-- TEMPER remains BGM-lane, `planned_unproven`, and cannot be activated until
-  physical hardware, PCIe topology, identity, network/MQTT ACLs, telemetry,
+- TEMPER remains BGM-lane and paused from workloads until
+  network/MQTT ACLs, telemetry depth,
   model provenance, recovery, fault, and dedicated soak acceptance pass.
-  Discovery, MAC/address binding, SSH fingerprint, Pi 5, memory, NVMe, PCIe and
-  Hailo-8 gates are verified. Next: with explicit credential/permission
-  approval, create a dedicated KILN-to-TEMPER key restricted to KILN's LAN
-  address, rename the host to `temper`, verify `temper.local`, then enroll its
-  signed ORCA heartbeat. MQTT, telemetry, recovery, fault and soak gates follow.
+  Discovery, MAC/address binding, SSH fingerprint, Pi 5, memory, 1 TB NVMe,
+  PCIe, Hailo-8, hostname, restricted KILN relay and signed-heartbeat gates are
+  verified. ORCA reports TEMPER healthy and authenticated with evidence
+  integrity valid. MQTT, telemetry-depth, recovery, fault and soak gates follow.
 - EMBER was audited live on 2026-09-30. The signed heartbeat, FORGE loopback
   tunnel, NUT UPS driver/server/monitor, read-only OLED, wake guard, Tailscale,
   and FORGE-VIS backup services were active. The local encrypted Restic backup
@@ -234,9 +235,9 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
 - EMBER's remaining hardening gates are the supervised physical power-loss and
   reboot drill plus exception-only stale-backup alert acceptance. These require
   owner availability and were not attempted remotely.
-- TEMPER remains physically reported but unproven until its verified address,
-  MAC binding, hostname/mDNS, SSH fingerprint, signed heartbeat and hardware
-  acceptance are established.
+- TEMPER is positively discovered, renamed, authenticated and publishing a
+  healthy signed heartbeat. It remains safely paused until MQTT ACL, offline
+  queue, recovery, fault and dedicated soak acceptance are established.
 - The Notion To Do database has been cleaned of its starter tutorial rows. Its
   only genuine standalone task remains the comprehensive ORCA/Forge operator
   and developer manual after stable operation.

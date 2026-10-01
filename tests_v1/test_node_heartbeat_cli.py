@@ -17,7 +17,10 @@ class FakeResponse:
         return False
 
 
-@pytest.mark.parametrize("payload", [{"status": "healthy"}, {"data": [{"id": "model"}]}])
+@pytest.mark.parametrize(
+    "payload",
+    [{"status": "healthy"}, {"status": "pass"}, {"data": [{"id": "model"}]}],
+)
 def test_health_check_accepts_control_plane_or_model_inventory(monkeypatch, payload):
     monkeypatch.setattr(node_agent, "urlopen", lambda *args, **kwargs: FakeResponse(payload))
     node_agent.check_endpoint("http://127.0.0.1/health")

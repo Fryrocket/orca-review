@@ -32,7 +32,7 @@ def check_endpoint(url: str) -> None:
         payload = json.load(response)
     if not isinstance(payload, dict):
         raise RuntimeError("health endpoint returned an invalid response")
-    if payload.get("status") == "healthy" or payload.get("data"):
+    if payload.get("status") in {"healthy", "pass"} or payload.get("data"):
         return
     raise RuntimeError("health endpoint did not report available capacity")
 
