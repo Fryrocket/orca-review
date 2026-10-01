@@ -77,6 +77,24 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   workflow simulation passed with zero frames captured, jobs queued or external
   actions.
 
+- TEMPER Watch is registered in ORCA and visible in Bot Monitor but remains
+  inactive. Its former discovery/hardware blocker is resolved. The authoritative
+  A-to-Z completion checklist now lives on the existing TEMPER Notion page.
+  Gates A-C are complete: the read-only authority contract, TEMPER identity and
+  hardware baseline, and bounded Hailo/camera/file inference acceptance. The
+  next safe software-only phase is D-P: declare monitor inputs; define signed
+  evidence, freshness and hardware thresholds; observe Hailo artifacts,
+  inference, MQTT, sensors and queues; build the least-privilege local runtime
+  and Bot Monitor surface; route exception-only reports; and pass negative-
+  permission and disposable fault tests. Network/service recovery follows.
+  Supervised reboot and iPhone credentialed-MQTT cutover require Fry at the
+  hardware/phone. Custom-model foundations and PCB inspection require governed
+  datasets and representative labelled images. TEMPER-only and five-node soaks,
+  independent review, owner approval, rollback-safe activation and record
+  reconciliation remain the final gates. TEMPER Watch may observe and stage an
+  alert only; it may not use a remote shell, restart services, change models,
+  publish MQTT, perform physical action, approve work or deploy.
+
 ## CRUCIBLE AND GPU STATUS
 
 - CRUCIBLE is installed on FORGE and identifies as **AMD Radeon AI PRO R9700**,
