@@ -1,0 +1,12 @@
+[Unit]
+Description=Run ORCA Product Scout hourly
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=1h
+RandomizedDelaySec=5min
+Persistent=true
+Unit=orca-product-scout.service
+
+[Install]
+WantedBy=timers.target

@@ -237,13 +237,21 @@ class HeartbeatAgent:
         The yielded boolean reports whether this call created the lock file.
         An existing lock without nonce state therefore fails closed instead of
         silently recreating nonce one after state loss.
+
+        The parent directory is locked before publishing or opening the sibling
+        lock file.  Without that outer lock, a second process can open a newly
+        created-but-not-yet-flocked lock file and win the first flock, causing
+        it to misclassify normal first-run initialization as lost state.
         """
 
         flags = os.O_RDWR | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
         created = False
         descriptor = -1
+        parent_locked = False
         with self._validated_parent() as parent_descriptor:
             try:
+                fcntl.flock(parent_descriptor, fcntl.LOCK_EX)
+                parent_locked = True
                 try:
                     descriptor = os.open(
                         self._lock_path.name,
@@ -291,6 +299,11 @@ class HeartbeatAgent:
                     except OSError:
                         pass
                     os.close(descriptor)
+                if parent_locked:
+                    try:
+                        fcntl.flock(parent_descriptor, fcntl.LOCK_UN)
+                    except OSError:
+                        pass
 
     def _read_nonce(self, *, parent_descriptor: int | None = None) -> int | None:
         if parent_descriptor is None:

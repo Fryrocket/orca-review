@@ -1,0 +1,97 @@
+{
+  "suite": "orca-math-engineering-v2",
+  "version": 2,
+  "cases": [
+    {
+      "name": "linear_system",
+      "category": "linear_algebra",
+      "prompt": "Solve 2x+y-z=8, -3x-y+2z=-11, and -2x+y+2z=-3. Report the numeric value of x.",
+      "expected": 2.0,
+      "relative_tolerance": 1e-9
+    },
+    {
+      "name": "matrix_eigenvalue",
+      "category": "linear_algebra",
+      "prompt": "Find the largest eigenvalue of the matrix [[4,1],[2,3]].",
+      "expected": 5.0,
+      "relative_tolerance": 1e-9
+    },
+    {
+      "name": "matrix_determinant",
+      "category": "linear_algebra",
+      "prompt": "Find the determinant of the matrix [[2,1,3],[0,-1,4],[5,2,0]].",
+      "expected": 19.0,
+      "relative_tolerance": 1e-9
+    },
+    {
+      "name": "cantilever_deflection",
+      "category": "mechanical",
+      "prompt": "Using Euler-Bernoulli small-deflection theory, find the end deflection in metres of a cantilever with end load F=120 N, length L=0.8 m, Young modulus E=200e9 Pa, and second moment I=1.6e-6 m^4.",
+      "expected": 0.000064,
+      "relative_tolerance": 1e-6
+    },
+    {
+      "name": "shaft_torsion_stress",
+      "category": "mechanical",
+      "prompt": "Find maximum torsional shear stress in pascals for a solid circular shaft with torque 35 N m and diameter 0.025 m, using tau=16T/(pi*d^3).",
+      "expected": 11408226.320827056,
+      "relative_tolerance": 2e-6
+    },
+    {
+      "name": "rlc_resonance",
+      "category": "electronics",
+      "prompt": "Find the ideal series-RLC resonant frequency in hertz for L=12e-3 H and C=4.7e-6 F.",
+      "expected": 670.1632053603607,
+      "relative_tolerance": 2e-5
+    },
+    {
+      "name": "loaded_divider",
+      "category": "electronics",
+      "prompt": "A 12 V loaded divider has upper resistor 10 kOhm, lower resistor 15 kOhm, and a 30 kOhm load in parallel with the lower resistor. Find output voltage in volts.",
+      "expected": 6.0,
+      "relative_tolerance": 1e-9
+    },
+    {
+      "name": "buck_ripple",
+      "category": "electronics",
+      "prompt": "For an ideal buck converter with Vin=48 V, Vout=12 V, inductance 150e-6 H, and switching frequency 100000 Hz, find peak-to-peak inductor ripple current in amperes.",
+      "expected": 0.6,
+      "relative_tolerance": 1e-9
+    },
+    {
+      "name": "wall_heat_flow",
+      "category": "thermal",
+      "prompt": "Find steady one-dimensional conductive heat flow in watts through a wall with k=0.045 W/(m K), area=12 m^2, thickness=0.15 m, and delta-T=25 K.",
+      "expected": 90.0,
+      "relative_tolerance": 1e-9
+    },
+    {
+      "name": "three_phase_power",
+      "category": "electrical_power",
+      "prompt": "Find real output power in watts for a balanced three-phase system with 400 V line voltage, 18 A line current, power factor 0.86, and efficiency 0.92. Use sqrt(3)*V*I*PF*efficiency.",
+      "expected": 9866.86991242917,
+      "relative_tolerance": 2e-6
+    },
+    {
+      "name": "binomial_probability",
+      "category": "probability",
+      "prompt": "Eight independent components each fail with probability 0.03. Find the probability that exactly two fail. Return a decimal probability, not a percent.",
+      "expected": 0.020990894524210796,
+      "relative_tolerance": 2e-5
+    },
+    {
+      "name": "gaussian_integral_segment",
+      "category": "calculus",
+      "prompt": "Numerically evaluate integral exp(-x^2) dx from x=0 to x=1.",
+      "expected": 0.7468241328124271,
+      "relative_tolerance": 2e-6
+    },
+    {
+      "name": "voltage_gain_db",
+      "category": "electronics",
+      "prompt": "Find voltage gain in decibels for a voltage ratio of 2.5, using 20*log10(ratio).",
+      "expected": 7.958800173440752,
+      "relative_tolerance": 2e-6
+    }
+  ]
+}

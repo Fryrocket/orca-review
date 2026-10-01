@@ -34,6 +34,43 @@ def test_candidates_and_temper_remain_inactive_and_lane_bounded():
     assert "body_action_without_r3" in ROLE_CATALOG["temper"].prohibited
 
 
+def test_solo_operator_bot_crew_is_registered_gated_and_non_authoritative():
+    crew = (
+        "reliability_sentinel", "recovery_marshal", "connector_steward",
+        "evidence_auditor", "security_watch", "budget_officer",
+        "legal_compliance_clerk", "inventory_steward", "product_scout",
+        "product_development_lead", "channel_operator", "creative_director",
+        "temper_watch", "browser_operator", "daily_briefing_officer",
+        "continuity_keeper",
+    )
+    assert all(role_id in ROLE_CATALOG for role_id in crew)
+    assert ROLE_CATALOG["reliability_sentinel"].active
+    assert ROLE_CATALOG["recovery_marshal"].active
+    assert ROLE_CATALOG["connector_steward"].active
+    assert ROLE_CATALOG["evidence_auditor"].active
+    assert ROLE_CATALOG["security_watch"].active
+    assert ROLE_CATALOG["budget_officer"].active
+    assert ROLE_CATALOG["legal_compliance_clerk"].active
+    assert ROLE_CATALOG["inventory_steward"].active
+    assert ROLE_CATALOG["product_scout"].active
+    assert ROLE_CATALOG["product_development_lead"].active
+    assert ROLE_CATALOG["channel_operator"].active
+    assert ROLE_CATALOG["creative_director"].active
+    assert ROLE_CATALOG["browser_operator"].active
+    assert ROLE_CATALOG["daily_briefing_officer"].active
+    assert all(not ROLE_CATALOG[role_id].active for role_id in crew
+               if role_id not in {"reliability_sentinel", "recovery_marshal", "connector_steward", "evidence_auditor", "security_watch", "budget_officer", "legal_compliance_clerk", "inventory_steward", "product_scout", "product_development_lead", "channel_operator", "creative_director", "browser_operator", "daily_briefing_officer"})
+    for role_id in crew:
+        role = ROLE_CATALOG[role_id]
+        assert not ({"approve_r3", "deploy"} & set(role.authority))
+        assert role.activation_gate
+    assert "move_money" in ROLE_CATALOG["budget_officer"].prohibited
+    assert "delete_backup" in ROLE_CATALOG["recovery_marshal"].prohibited
+    assert "restart_service" in ROLE_CATALOG["reliability_sentinel"].prohibited
+    assert "publish" in ROLE_CATALOG["channel_operator"].prohibited
+    assert ROLE_CATALOG["temper_watch"].lanes == ("bgm",)
+
+
 def test_every_core_bot_has_a_bounded_program_and_handoff():
     validate_bot_programs()
     assert set(BOT_PROGRAMS) == set(CORE_BOTS)

@@ -49,6 +49,9 @@ def test_operator_console_assets_exist_and_include_required_views():
     assert "stop_condition" in js
     assert "rationale" in js
     assert "/api/images/generate" in js
+    assert 'id="cancel-chat-generation"' in html
+    assert "cancelMediaGeneration" in js
+    assert "Generation canceled. Change the prompt" in js
 
 
 def test_console_mutations_reuse_one_envelope_only_for_transport_retry():
@@ -179,6 +182,8 @@ def test_crucible_video_is_available_in_chat_and_canvas():
     assert "await generateChatVideo(videoPrompt)" in js
     assert "Save MP4" in js
     assert "URL.revokeObjectURL(generatedVideoURL)" in js
+    assert "cancel-video-generation" in js
+    assert "cancel-image-generation" in js
 
 
 def test_inventory_endpoint_is_read_only_and_fails_closed():
@@ -472,7 +477,9 @@ def test_memory_endpoint_is_authenticated_and_retrieved_in_chat(tmp_path):
         assert denied.value.code == 401
         headers['X-ORCA-Operator-Token'] = token
         with urlopen(Request(base + '/api/memory', data=body, headers=headers)) as response:
-            assert json.load(response)['capacity'] == 300000
+            payload = json.load(response)
+            assert payload['capacity'] == 50_000_000
+            assert payload['capacity_lines'] == 50_000_000
         with urlopen(Request(base + '/api/chat', data=json.dumps({
                 'prompt': 'What is the telescope project?', 'history': []}).encode(), headers=headers)) as response:
             assert json.load(response)['result']['summary'] == 'Cedar'

@@ -1,0 +1,17 @@
+[Unit]
+Description=ORCA Evidence Auditor independent read-only verifier
+
+[Service]
+Type=oneshot
+User=fryrocket
+Group=fryrocket
+ExecStart=/usr/local/lib/orca/orca_evidence_auditor.py
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/var/lib/orca-evidence-auditor/inbox /var/lib/orca-evidence-auditor/artifacts
+ReadWritePaths=/var/lib/orca-evidence-auditor
+RestrictAddressFamilies=AF_UNIX
+SystemCallFilter=@system-service
+UMask=0027

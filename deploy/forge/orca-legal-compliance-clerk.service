@@ -1,0 +1,17 @@
+[Unit]
+Description=ORCA Legal and Compliance Clerk cited checklist organizer
+
+[Service]
+Type=oneshot
+User=fryrocket
+Group=fryrocket
+ExecStart=/usr/local/lib/orca/orca_legal_compliance_clerk.py
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/var/lib/orca-legal-input
+ReadWritePaths=/var/lib/orca-legal-compliance
+RestrictAddressFamilies=AF_UNIX
+SystemCallFilter=@system-service
+UMask=0027

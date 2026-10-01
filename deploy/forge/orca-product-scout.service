@@ -1,0 +1,24 @@
+[Unit]
+Description=ORCA Product Scout cited candidate scorer
+After=orca.service
+Wants=orca.service
+
+[Service]
+Type=oneshot
+User=fryrocket
+Group=fryrocket
+ExecStart=/usr/local/lib/orca/orca_product_scout.py
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+StateDirectory=orca-product-scout
+StateDirectoryMode=0750
+ReadOnlyPaths=-/var/lib/orca-product-scout-input
+ReadWritePaths=/var/lib/orca-product-scout
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallFilter=@system-service
+UMask=0027

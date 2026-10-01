@@ -1,0 +1,25 @@
+[Unit]
+Description=ORCA Browser Operator plan validator
+After=orca-studio-gateway.service
+Wants=orca-studio-gateway.service
+
+[Service]
+Type=oneshot
+User=fryrocket
+Group=fryrocket
+Environment=PYTHONPATH=/opt/orca/current
+ExecStart=/usr/local/lib/orca/orca_browser_operator.py
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+StateDirectory=orca-browser-operator
+StateDirectoryMode=0750
+ReadOnlyPaths=-/var/lib/orca-browser-input
+ReadWritePaths=/var/lib/orca-browser-operator
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallFilter=@system-service
+UMask=0027

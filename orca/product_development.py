@@ -45,7 +45,8 @@ def build_product_development_plan(prompt: str, inventory: dict | None = None) -
 
     electronics = any(word in normalized for word in (
         "electronic", "pcb", "circuit", "sensor", "arduino", "raspberry", "pi hat",
-        "motor", "robot", "device", "powered", "battery", "charger", "wireless", "ai",
+        "pi 5", " hat", "dac", "watchdog", "motor", "robot", "device", "powered",
+        "battery", "charger", "wireless", "ai",
     ))
     software = electronics or any(word in normalized for word in (
         "software", "firmware", "app", "cloud", "connected", "smart", "ai"))

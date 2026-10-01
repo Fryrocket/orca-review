@@ -1,0 +1,21 @@
+[Unit]
+Description=ORCA Reliability Sentinel read-only health observer
+After=network-online.target orca-forge-tunnel.service orca-recovery-marshal.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=fryrocket
+Group=fryrocket
+ExecStart=/usr/bin/python3 /usr/local/lib/orca/reliability_sentinel.py
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/var/lib/orca-recovery-marshal
+ReadWritePaths=/var/lib/orca-reliability-sentinel
+RestrictAddressFamilies=AF_INET AF_INET6
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallFilter=@system-service
+UMask=0027

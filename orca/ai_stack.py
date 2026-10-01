@@ -83,6 +83,12 @@ AI_SERVICES = {
         "deterministic rules only", "python", "cpu",
         0, 1, 2, deployment_state="live",
     ),
+    "temper_edge": AIServiceProfile(
+        "temper_edge", "temper",
+        "BGM sensor preprocessing, bounded Hailo inference, anomaly detection and offline queueing",
+        "BGM model pending physical acceptance", "HailoRT", "Hailo-8 (26 TOPS INT8)",
+        8_192, 1, 6, deployment_state="planned_unproven",
+    ),
     "forge_crucible": AIServiceProfile(
         "forge_crucible", "forge",
         "gated CRUCIBLE runtime supervisor and acceptance surface",
@@ -107,11 +113,13 @@ AI_LADDERS = {
     "monitoring": ("ember_sentinel", "forge_policy", "fry"),
     "large_inference": ("forge_qwen", "fry"),
     "large_gpu_inference": ("forge_qwen", "forge_crucible", "fry"),
+    "edge_inference": ("temper_edge", "forge_qwen", "kiln_quench", "fry"),
 }
 
 
 COGNITIVE_FABRIC = {
     "identity": "one ORCA mind with specialized execution surfaces",
+    "executive_orchestrator": "ORCA Executive; plans and coordinates but never overrides Fry, policy, approvals or lane boundaries",
     "authoritative_writer": "forge",
     "shared_memory_owner": "forge",
     "operator_surface": "anvil",

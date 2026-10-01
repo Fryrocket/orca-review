@@ -24,6 +24,10 @@ def calculate(expression):
             context.Emax = 100
             context.Emin = -100
             context.traps[Underflow] = True
+            # localcontext copies the caller's signal flags.  Exactness must be
+            # determined only by this calculation, not by unrelated Decimal
+            # work that previously set Inexact in the same thread.
+            context.clear_flags()
             def bounded(value):
                 if value and not Fraction(1, 10**100) <= abs(value) < 10**101:
                     raise ValueError("Magnitude exceeds the calculator's limits.")

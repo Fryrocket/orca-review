@@ -12,9 +12,9 @@ from .security import redact_text
 
 
 class ChatMemory:
-    capacity = 300_000
+    capacity = 50_000_000
 
-    def __init__(self, path, *, capacity=300_000):
+    def __init__(self, path, *, capacity=50_000_000):
         if not 2 <= capacity <= self.capacity:
             raise ValueError("invalid archive capacity")
         self.capacity = capacity
@@ -28,8 +28,22 @@ class ChatMemory:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 request_id TEXT NOT NULL, position INTEGER NOT NULL,
                 role TEXT NOT NULL, content TEXT NOT NULL,
+                line_count INTEGER NOT NULL DEFAULT 1,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(request_id, position)
+            );
+            CREATE TABLE IF NOT EXISTS memory_stats (
+                id INTEGER PRIMARY KEY CHECK(id=1),
+                total_lines INTEGER NOT NULL DEFAULT 0 CHECK(total_lines >= 0)
+            );
+            CREATE TABLE IF NOT EXISTS conversation_checkpoints (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                checkpoint_key TEXT NOT NULL UNIQUE,
+                version INTEGER NOT NULL UNIQUE CHECK(version > 0),
+                summary TEXT NOT NULL,
+                source_message_count INTEGER NOT NULL CHECK(source_message_count >= 0),
+                source_line_count INTEGER NOT NULL CHECK(source_line_count >= 0),
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
             CREATE VIRTUAL TABLE IF NOT EXISTS memory_search USING fts5(
                 content, content='messages', content_rowid='id', tokenize='unicode61'
@@ -42,6 +56,83 @@ class ChatMemory:
                 VALUES('delete',old.id,old.content);
             END;
         """)
+        columns = {row[1] for row in self.db.execute("PRAGMA table_info(messages)")}
+        if "line_count" not in columns:
+            self.db.execute(
+                "ALTER TABLE messages ADD COLUMN line_count INTEGER NOT NULL DEFAULT 1")
+            self.db.execute("""
+                UPDATE messages SET line_count =
+                    1 + length(content) - length(replace(content, char(10), ''))
+            """)
+        self.db.execute("""
+            INSERT OR IGNORE INTO memory_stats(id,total_lines)
+            SELECT 1,coalesce(sum(line_count),0) FROM messages
+        """)
+        self.db.executescript("""
+            CREATE TRIGGER IF NOT EXISTS memory_line_insert AFTER INSERT ON messages BEGIN
+                UPDATE memory_stats SET total_lines=total_lines+new.line_count WHERE id=1;
+            END;
+            CREATE TRIGGER IF NOT EXISTS memory_line_delete AFTER DELETE ON messages BEGIN
+                UPDATE memory_stats SET total_lines=total_lines-old.line_count WHERE id=1;
+            END;
+            CREATE TRIGGER IF NOT EXISTS checkpoints_no_update
+            BEFORE UPDATE ON conversation_checkpoints BEGIN
+                SELECT RAISE(ABORT,'conversation checkpoints are append-only');
+            END;
+            CREATE TRIGGER IF NOT EXISTS checkpoints_no_delete
+            BEFORE DELETE ON conversation_checkpoints BEGIN
+                SELECT RAISE(ABORT,'conversation checkpoints are append-only');
+            END;
+        """)
+        self.db.commit()
+
+    @staticmethod
+    def continuity_policy():
+        return {
+            "raw_transcript_preserved": True,
+            "checkpoints_append_only": True,
+            "checkpoints_versioned": True,
+            "checkpoint_is_authority": False,
+            "checkpoint_is_execution_evidence": False,
+            "verified_runtime_evidence_wins_conflicts": True,
+            "retrieval": "bounded_relevant_excerpts_plus_recent_context",
+        }
+
+    def checkpoint(self, checkpoint_key, summary):
+        if (not isinstance(checkpoint_key, str)
+                or not re.fullmatch(r"[A-Za-z0-9_-]{8,100}", checkpoint_key)):
+            raise ValueError("invalid checkpoint key")
+        if not isinstance(summary, str) or not summary.strip() or len(summary) > 24_000:
+            raise ValueError("invalid checkpoint summary")
+        cleaned = redact_text(summary)
+        with self.lock, self.db:
+            existing = self.db.execute("""
+                SELECT version,summary,source_message_count,source_line_count,created_at
+                FROM conversation_checkpoints WHERE checkpoint_key=?
+            """, (checkpoint_key,)).fetchone()
+            if existing:
+                if existing[1] != cleaned:
+                    raise ValueError("checkpoint key already used for different summary")
+                version, _, messages, lines, created_at = existing
+                return {"checkpoint_key": checkpoint_key, "version": version,
+                        "source_message_count": messages, "source_line_count": lines,
+                        "created_at": created_at, "policy": self.continuity_policy()}
+            version = self.db.execute(
+                "SELECT coalesce(max(version),0)+1 FROM conversation_checkpoints").fetchone()[0]
+            messages = self.db.execute("SELECT count(*) FROM messages").fetchone()[0]
+            lines = self.db.execute(
+                "SELECT total_lines FROM memory_stats WHERE id=1").fetchone()[0]
+            self.db.execute("""
+                INSERT INTO conversation_checkpoints(
+                    checkpoint_key,version,summary,source_message_count,source_line_count
+                ) VALUES(?,?,?,?,?)
+            """, (checkpoint_key, version, cleaned, messages, lines))
+            created_at = self.db.execute(
+                "SELECT created_at FROM conversation_checkpoints WHERE checkpoint_key=?",
+                (checkpoint_key,)).fetchone()[0]
+            return {"checkpoint_key": checkpoint_key, "version": version,
+                    "source_message_count": messages, "source_line_count": lines,
+                    "created_at": created_at, "policy": self.continuity_policy()}
 
     def append(self, request_id, messages):
         if not isinstance(request_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{8,100}", request_id):
@@ -55,24 +146,39 @@ class ChatMemory:
                     or not isinstance(item.get("content"), str)
                     or not item["content"].strip() or len(item["content"]) > 24_000):
                 raise ValueError("invalid archive message")
-            cleaned.append((item["role"], redact_text(item["content"])))
+            content = redact_text(item["content"])
+            cleaned.append((item["role"], content, content.count("\n") + 1))
         with self.lock, self.db:
             existing = self.db.execute(
                 "SELECT role,content FROM messages WHERE request_id=? ORDER BY position",
                 (request_id,)).fetchall()
-            if existing and existing != cleaned:
+            comparable = [(role, content) for role, content, _ in cleaned]
+            if existing and comparable[:len(existing)] != existing:
                 raise ValueError("memory request id already used for different messages")
-            if not existing:
+            if len(cleaned) > len(existing):
                 self.db.executemany(
-                    "INSERT INTO messages(request_id,position,role,content) VALUES(?,?,?,?)",
-                    [(request_id, i, role, content) for i, (role, content) in enumerate(cleaned)])
-            cutoff = self.db.execute(
-                "SELECT id FROM messages ORDER BY id DESC LIMIT 1 OFFSET ?",
-                (self.capacity - 1,)).fetchone()
-            if cutoff:
-                self.db.execute("DELETE FROM messages WHERE id < ?", cutoff)
-            return {"stored_messages": self.db.execute("SELECT count(*) FROM messages").fetchone()[0],
-                    "capacity": self.capacity}
+                    "INSERT INTO messages(request_id,position,role,content,line_count) "
+                    "VALUES(?,?,?,?,?)",
+                    [(request_id, i, role, content, lines)
+                     for i, (role, content, lines)
+                     in enumerate(cleaned[len(existing):], len(existing))])
+            total_lines = self.db.execute(
+                "SELECT total_lines FROM memory_stats WHERE id=1").fetchone()[0]
+            excess = total_lines - self.capacity
+            if excess > 0:
+                cutoff = self.db.execute("""
+                    SELECT id FROM (
+                        SELECT id,sum(line_count) OVER (ORDER BY id) AS removed_lines
+                        FROM messages
+                    ) WHERE removed_lines >= ? ORDER BY id LIMIT 1
+                """, (excess,)).fetchone()
+                if cutoff:
+                    self.db.execute("DELETE FROM messages WHERE id <= ?", cutoff)
+            stored_messages = self.db.execute("SELECT count(*) FROM messages").fetchone()[0]
+            stored_lines = self.db.execute(
+                "SELECT total_lines FROM memory_stats WHERE id=1").fetchone()[0]
+            return {"stored_messages": stored_messages, "stored_lines": stored_lines,
+                    "capacity": self.capacity, "capacity_lines": self.capacity}
 
     def context(self, prompt, history):
         current = recent_history(validate_history(history), 8000)

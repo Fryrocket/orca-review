@@ -2,6 +2,7 @@
 """Native KILN Studio shell for the KILN Ubuntu desktop."""
 
 from urllib.parse import urlparse
+import ipaddress
 import json
 from pathlib import Path
 import re
@@ -19,6 +20,7 @@ from gi.repository import Gdk, Gio, GLib, Gtk, WebKit2  # noqa: E402
 
 STUDIO_URL = "http://127.0.0.1:8788/"
 STUDIO_ORIGIN = ("http", "127.0.0.1", 8788)
+BROWSER_READ_ACCEPTANCE_ORIGIN = ("http", "127.0.0.1", 18799)
 APP_IDS = {
     "chrome": "orca-chrome.desktop",
     "firefox": "firefox.desktop",
@@ -82,6 +84,38 @@ def valid_web_url(uri):
                 and (parsed.port is None or 1 <= parsed.port <= 65535))
     except ValueError:
         return False
+
+
+def valid_browser_read_url(uri):
+    """Allow public HTTPS plus one fixed loopback origin used by acceptance."""
+    if not valid_web_url(uri):
+        return False
+    try:
+        parsed = urlparse(uri)
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        origin = (parsed.scheme, parsed.hostname, port)
+        if origin == BROWSER_READ_ACCEPTANCE_ORIGIN:
+            return True
+        if parsed.scheme != "https" or parsed.hostname.endswith((".local", ".internal")):
+            return False
+        try:
+            address = ipaddress.ip_address(parsed.hostname)
+        except ValueError:
+            return parsed.hostname not in {"localhost"}
+        return not (address.is_private or address.is_loopback or address.is_link_local
+                    or address.is_reserved or address.is_multicast or address.is_unspecified)
+    except (ValueError, TypeError):
+        return False
+
+
+def validate_browser_read_request(payload):
+    if not isinstance(payload, dict) or set(payload) != {"id", "action", "url"}:
+        raise ValueError("Invalid browser read request")
+    if not isinstance(payload["id"], str) or not re.fullmatch(r"[a-zA-Z0-9-]{1,64}", payload["id"]):
+        raise ValueError("Invalid request ID")
+    if payload["action"] != "read_browser_page" or not valid_browser_read_url(payload["url"]):
+        raise ValueError("Browser read URL is not allowed")
+    return payload["url"]
 
 
 def validate_launch(payload):
@@ -225,6 +259,10 @@ class KilnStudio(Gtk.Application):
             if len(raw) > 32_768:
                 raise ValueError("Studio request is too large")
             payload = json.loads(raw)
+            if payload.get("action") == "read_browser_page":
+                uri = validate_browser_read_request(payload)
+                self._open_browser(uri, capture_request_id=payload["id"])
+                return
             if payload.get("action") == "open_artifact":
                 kind, path = validate_artifact_request(payload)
                 artifact_apps = {"board": "kicad_pcb_editor", "schematic": "kicad_schematic_editor",
@@ -280,11 +318,14 @@ class KilnStudio(Gtk.Application):
         except Exception as error:
             reply = {"id": payload.get("id", "") if isinstance(payload, dict) else "",
                      "ok": False, "message": str(error)[:240]}
+        self._send_launcher_reply(reply)
+
+    def _send_launcher_reply(self, reply):
         self.web_view.run_javascript(
             "window.dispatchEvent(new CustomEvent('orca-launch-result',{detail:"
             + json.dumps(reply) + "}));", None, None, None)
 
-    def _open_browser(self, uri):
+    def _open_browser(self, uri, capture_request_id=None):
         if len(self.browser_windows) >= 6:
             raise ValueError("Close an ORCA browser window before opening another (maximum six).")
         # Separate ephemeral context and content manager: no Studio cookies or app bridge.
@@ -296,7 +337,7 @@ class KilnStudio(Gtk.Application):
         address = Gtk.Entry()
         address.set_placeholder_text("https://example.com")
         view = WebKit2.WebView.new_with_context(WebKit2.WebContext.new_ephemeral())
-        status = Gtk.Label(label="Private session. No ORCA tools or memory access. Downloads and device permissions are disabled.")
+        status = Gtk.Label(label="Private session. No cookies, ORCA tools, or memory access. Downloads and device permissions are disabled.")
         status.set_line_wrap(True)
         for label, callback in [("Back", view.go_back), ("Forward", view.go_forward), ("Reload", view.reload)]:
             button = Gtk.Button(label=label)
@@ -307,7 +348,8 @@ class KilnStudio(Gtk.Application):
             target = address.get_text().strip()
             if ":" not in target:
                 target = "https://" + target
-            if valid_web_url(target):
+            validator = valid_browser_read_url if capture_request_id else valid_web_url
+            if validator(target):
                 view.load_uri(target)
             else:
                 status.set_text("Enter an HTTP or HTTPS address without a username or password.")
@@ -316,7 +358,8 @@ class KilnStudio(Gtk.Application):
             if kind not in (WebKit2.PolicyDecisionType.NAVIGATION_ACTION, WebKit2.PolicyDecisionType.NEW_WINDOW_ACTION):
                 return False
             target = decision.get_navigation_action().get_request().get_uri()
-            if target == "about:blank" or valid_web_url(target):
+            validator = valid_browser_read_url if capture_request_id else valid_web_url
+            if target == "about:blank" or validator(target):
                 if kind == WebKit2.PolicyDecisionType.NEW_WINDOW_ACTION:
                     decision.ignore()
                     view.load_uri(target)
@@ -330,7 +373,40 @@ class KilnStudio(Gtk.Application):
         view.connect("permission-request", lambda _view, request: (request.deny(), True)[1])
         view.get_context().connect("download-started", lambda _context, download: download.cancel())
         view.connect("notify::uri", lambda *_: address.set_text(view.get_uri() or ""))
-        view.connect("load-failed", lambda _view, _event, _uri, error: (status.set_text("Page could not load: " + error.message), False)[1])
+        completed = {"value": False}
+        def reply_once(reply):
+            if completed["value"]:
+                return
+            completed["value"] = True
+            self._send_launcher_reply(reply)
+        def load_failed(_view, _event, _uri, error):
+            status.set_text("Page could not load: " + error.message)
+            if capture_request_id:
+                reply_once({"id": capture_request_id, "ok": False,
+                            "message": "Private browser could not read the page."})
+            return False
+        view.connect("load-failed", load_failed)
+        if capture_request_id:
+            def capture_done(browser_view, js_result, _data):
+                try:
+                    result = browser_view.run_javascript_finish(js_result)
+                    captured = json.loads(result.get_js_value().to_string())
+                    if (not isinstance(captured, dict) or set(captured) != {"url", "title", "text"}
+                            or not valid_browser_read_url(captured["url"])):
+                        raise ValueError("Invalid page capture")
+                    reply_once({"id": capture_request_id, "ok": True,
+                                "message": "Read a private browser page as untrusted content.",
+                                "page": captured})
+                    status.set_text("Page text captured for ORCA as untrusted content. No form was submitted.")
+                except Exception:
+                    reply_once({"id": capture_request_id, "ok": False,
+                                "message": "Private browser returned an invalid page capture."})
+            def load_changed(browser_view, event):
+                if event != WebKit2.LoadEvent.FINISHED or completed["value"]:
+                    return
+                script = "JSON.stringify({url:location.href,title:(document.title||'').slice(0,500),text:(document.body?document.body.innerText:'').slice(0,50000)})"
+                browser_view.run_javascript(script, None, capture_done, None)
+            view.connect("load-changed", load_changed)
         box.pack_start(toolbar, False, False, 0)
         box.pack_start(status, False, False, 0)
         box.pack_start(view, True, True, 0)

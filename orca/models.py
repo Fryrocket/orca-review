@@ -17,12 +17,12 @@ class ModelRoute:
 
 DEFAULT_ROUTES = {
     "orchestration": ModelRoute("orchestration", "forge_policy", "human-runbook"),
-    "coding": ModelRoute("coding", "forge_smith", "approved-cloud-coder"),
+    "coding": ModelRoute("coding", "kiln_codex", "forge_qwen"),
     "review": ModelRoute("review", "kiln_quench", "human-review"),
     "monitoring": ModelRoute("monitoring", "ember_sentinel", "operations-runbook"),
-    "documentation": ModelRoute("documentation", "forge_smith", "approved-cloud-synthesis"),
+    "documentation": ModelRoute("documentation", "kiln_codex", "forge_qwen"),
     "embeddings": ModelRoute("embeddings", "forge_embeddings", "human-runbook"),
-    "large_inference": ModelRoute("large_inference", "forge_smith", "human-runbook"),
+    "large_inference": ModelRoute("large_inference", "forge_qwen", "human-runbook"),
     "large_gpu_inference": ModelRoute(
         "large_gpu_inference", "forge_crucible", "human-runbook"),
 }

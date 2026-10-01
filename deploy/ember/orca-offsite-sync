@@ -1,0 +1,81 @@
+#!/bin/bash
+set -euo pipefail
+umask 077
+
+CONFIG=/var/lib/orca-offsite/rclone.conf
+REMOTE=orca-drive:ORCA-Offsite/ember-restic
+SOURCE=/srv/restic/orca-forge
+STATUS_FILE=/var/lib/orca-offsite/status.json
+LOG_FILE=/var/lib/orca-offsite/rclone.log
+
+write_status() {
+  printf '{"state":"%s","detail":"%s","updated_epoch":%s}\n' \
+    "$1" "$2" "$(date +%s)" > "$STATUS_FILE.tmp"
+  chmod 0644 "$STATUS_FILE.tmp"
+  mv "$STATUS_FILE.tmp" "$STATUS_FILE"
+}
+
+write_failure() {
+  write_status failed "offsite copy or verification failed; existing remote files retained"
+}
+trap write_failure EXIT
+
+exec 9</var/lib/orca-backup/run.lock
+flock -n 9 || exit 1
+
+if ! python3 - "$CONFIG" <<'PY'
+import configparser, json, sys
+try:
+    config = configparser.RawConfigParser()
+    config.read(sys.argv[1])
+    token = json.loads(config['orca-drive']['token'])
+    raise SystemExit(0 if token.get('refresh_token') or token.get('access_token') else 1)
+except Exception:
+    raise SystemExit(1)
+PY
+then
+  write_status pending "Google Drive sign-in required; no authorization token"
+  trap - EXIT
+  exit 1
+fi
+
+rclone --config "$CONFIG" about orca-drive: --json \
+  --retries 5 --low-level-retries 10 --retries-sleep 30s \
+  > /var/lib/orca-offsite/quota.json
+python3 - /var/lib/orca-offsite/quota.json <<'PY'
+import json, sys
+quota = json.load(open(sys.argv[1]))
+total, free = quota.get('total'), quota.get('free')
+if not isinstance(total, (int, float)) or not isinstance(free, (int, float)) or total <= 0:
+    raise SystemExit('Drive quota unavailable; copy withheld')
+if free / total <= .1:
+    raise SystemExit('Google storage is at least 90 percent full; copy withheld')
+PY
+
+write_status running "copying encrypted repository; remote deletion disabled"
+rclone --config "$CONFIG" copy "$SOURCE" "$REMOTE" --immutable \
+  --exclude '/locks/**' --checkers 2 --transfers 2 --drive-chunk-size 16M \
+  --tpslimit 6 --tpslimit-burst 6 \
+  --retries 5 --low-level-retries 10 --retries-sleep 30s \
+  --log-level INFO --log-file "$LOG_FILE"
+
+write_status verifying "encrypted copy complete; verification in progress"
+attempt=1
+while :; do
+  if rclone --config "$CONFIG" check "$SOURCE" "$REMOTE" --one-way \
+    --exclude '/locks/**' --checkers 1 --tpslimit 3 --tpslimit-burst 3 \
+    --retries 5 --low-level-retries 10 --retries-sleep 30s \
+    --log-level INFO --log-file "$LOG_FILE"; then
+    break
+  fi
+  if [ "$attempt" -ge 4 ]; then
+    exit 1
+  fi
+  delay=$((attempt * 120))
+  write_status retrying "Drive verification rate-limited or unavailable; bounded retry scheduled"
+  sleep "$delay"
+  attempt=$((attempt + 1))
+done
+
+write_status healthy "encrypted files copied and checked; no remote deletion"
+trap - EXIT

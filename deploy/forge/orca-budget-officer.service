@@ -1,0 +1,17 @@
+[Unit]
+Description=ORCA Budget Officer read-only financial calculator
+
+[Service]
+Type=oneshot
+User=fryrocket
+Group=fryrocket
+ExecStart=/usr/local/lib/orca/orca_budget_officer.py
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/var/lib/orca-budget-input
+ReadWritePaths=/var/lib/orca-budget-officer
+RestrictAddressFamilies=AF_UNIX
+SystemCallFilter=@system-service
+UMask=0027

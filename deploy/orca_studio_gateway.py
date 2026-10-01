@@ -42,6 +42,7 @@ class Gateway(BaseHTTPRequestHandler):
         is_media_request = self.path in {
             "/api/images/generate", "/api/images/edit", "/api/images/health",
             "/api/videos/generate", "/api/videos/animate", "/api/videos/health",
+            "/api/media/cancel",
         }
         upstream_host = self.image_host if is_media_request else self.upstream_host
         upstream_port = self.image_port if is_media_request else self.upstream_port
@@ -52,6 +53,7 @@ class Gateway(BaseHTTPRequestHandler):
             "/api/videos/generate": "/video/generate",
             "/api/videos/animate": "/video/animate",
             "/api/videos/health": "/health",
+            "/api/media/cancel": "/cancel",
         }.get(self.path, self.path))
         headers["Host"] = f"{upstream_host}:{upstream_port}"
         if body is not None:

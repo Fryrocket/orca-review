@@ -1,5 +1,6 @@
 import json
 import subprocess
+from decimal import Inexact, getcontext
 import pytest
 from orca.science_worker import execute
 from orca.scientific import scientific_calculate, chat_science_request
@@ -21,6 +22,18 @@ def test_exact_basic_cancellation_and_fractions():
     assert calculate('1/3+1/6')['exact']=='1/2'
     assert calculate('2^100')['result']==str(2**100)
     assert not calculate('2^100')['approximate']
+
+
+def test_exact_calculation_ignores_inherited_decimal_signal_flags():
+    context = getcontext()
+    prior = context.flags[Inexact]
+    try:
+        context.flags[Inexact] = True
+        result = calculate('1/3+1/6')
+        assert result['exact'] == '1/2'
+        assert result['approximate'] is False
+    finally:
+        context.flags[Inexact] = prior
 
 
 def test_calculus_and_equations():

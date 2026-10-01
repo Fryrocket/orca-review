@@ -1,0 +1,12 @@
+[Unit]
+Description=Run ORCA Reliability Sentinel every five minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+RandomizedDelaySec=30
+Persistent=true
+Unit=orca-reliability-sentinel.service
+
+[Install]
+WantedBy=timers.target

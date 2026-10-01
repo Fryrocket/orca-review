@@ -60,6 +60,27 @@ def test_edit_gateway_routes_only_edit_uploads_with_larger_limit():
     assert '"/api/images/edit": "/edit"' in source
     assert '"/api/videos/generate": "/video/generate"' in source
     assert '"/api/videos/animate": "/video/animate"' in source
+    assert '"/api/media/cancel": "/cancel"' in source
+
+
+def test_cancel_interrupts_active_comfy_job(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        broker, "comfy_json",
+        lambda method, path, body=None, **kwargs: calls.append((method, path, body)) or {},
+    )
+    broker.CANCEL_EVENT.clear()
+    assert broker.JOB_LOCK.acquire(blocking=False)
+    try:
+        assert broker.cancel_generation() is True
+        assert broker.CANCEL_EVENT.is_set()
+        assert calls == [("POST", "/interrupt", None)]
+        with pytest.raises(broker.GenerationCancelled, match="cancelled by operator"):
+            broker.check_cancelled()
+    finally:
+        broker.CANCEL_EVENT.clear()
+        broker.JOB_LOCK.release()
+    assert broker.cancel_generation() is False
 
 
 def test_canvas_undo_uses_pixel_snapshots_without_relaxing_content_security():
@@ -67,6 +88,8 @@ def test_canvas_undo_uses_pixel_snapshots_without_relaxing_content_security():
     assert 'image: context.getImageData(0, 0, canvas.width, canvas.height)' in source
     assert 'context.putImageData(previous.image, 0, 0)' in source
     assert 'canvasUndo.length > 5' in source
+    assert "fetch('/api/media/cancel', {method: 'POST'})" in source
+    assert "new AbortController()" in source
 
 
 def test_image_request_defaults_are_bounded_and_workflow_is_sdxl():

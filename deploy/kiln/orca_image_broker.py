@@ -29,8 +29,29 @@ VIDEO_ENCODER = "umt5_xxl_fp8_e4m3fn_scaled.safetensors"
 MAX_BODY_BYTES = 16_384
 MAX_EDIT_BODY_BYTES = 18_000_000
 JOB_LOCK = threading.Lock()
+CANCEL_EVENT = threading.Event()
 MANAGED_ENGINE = os.environ.get("ORCA_IMAGE_MANAGED_ENGINE", "1") == "1"
 IMAGE_WORKER = os.environ.get("ORCA_IMAGE_WORKER", "KILN")
+
+
+class GenerationCancelled(RuntimeError):
+    pass
+
+
+def check_cancelled() -> None:
+    if CANCEL_EVENT.is_set():
+        raise GenerationCancelled("generation cancelled by operator")
+
+
+def cancel_generation() -> bool:
+    if not JOB_LOCK.locked():
+        return False
+    CANCEL_EVENT.set()
+    try:
+        comfy_json("POST", "/interrupt", timeout=10)
+    except (OSError, RuntimeError, ValueError, json.JSONDecodeError):
+        pass
+    return True
 
 
 def validate_request(value: object) -> dict[str, object]:
@@ -322,6 +343,7 @@ def comfy_json(method: str, path: str, body: object | None = None, timeout: int 
 
 def wait_for_comfy(deadline: float) -> None:
     while time.monotonic() < deadline:
+        check_cancelled()
         try:
             comfy_json("GET", "/system_stats", timeout=3)
             return
@@ -332,11 +354,13 @@ def wait_for_comfy(deadline: float) -> None:
 
 def generate_image(request: dict[str, object]) -> tuple[bytes, str]:
     try:
+        check_cancelled()
         if MANAGED_ENGINE:
             subprocess.run(
                 ["/usr/bin/systemctl", "start", "orca-comfyui.service"],
                 check=True, timeout=150)
         wait_for_comfy(time.monotonic() + 120)
+        check_cancelled()
         if "image_bytes" in request:
             upload_edit_image(request["image_bytes"], "orca-edit-source.png")
         if "mask_bytes" in request:
@@ -349,6 +373,7 @@ def generate_image(request: dict[str, object]) -> tuple[bytes, str]:
         deadline = time.monotonic() + 300
         image = None
         while time.monotonic() < deadline:
+            check_cancelled()
             history = comfy_json("GET", f"/history/{prompt_id}", timeout=10)
             entry = history.get(prompt_id, {})
             images = entry.get("outputs", {}).get("7", {}).get("images", [])
@@ -417,6 +442,7 @@ def video_model_ready() -> bool:
 
 
 def generate_video(request: dict[str, object]) -> tuple[bytes, str]:
+    check_cancelled()
     if "image_bytes" in request:
         upload_edit_image(request["image_bytes"], "orca-video-source.png")
     try:
@@ -428,6 +454,7 @@ def generate_video(request: dict[str, object]) -> tuple[bytes, str]:
         deadline = time.monotonic() + 1_200
         media = None
         while time.monotonic() < deadline:
+            check_cancelled()
             history = comfy_json("GET", f"/history/{prompt_id}", timeout=15)
             entry = history.get(prompt_id, {})
             media = _saved_media(entry.get("outputs", {}).get("11", {}), ".mp4")
@@ -487,6 +514,9 @@ class ImageBroker(BaseHTTPRequestHandler):
                     "worker": IMAGE_WORKER}, 200)
 
     def do_POST(self) -> None:
+        if self.path == "/cancel":
+            self._json({"cancelled": cancel_generation()}, 200)
+            return
         if self.path not in {"/generate", "/edit", "/video/generate", "/video/animate"}:
             self._json({"error": "not found"}, 404)
             return
@@ -509,6 +539,7 @@ class ImageBroker(BaseHTTPRequestHandler):
             self._json({"error": f"{IMAGE_WORKER} is already generating an image"}, 409)
             return
         try:
+            CANCEL_EVENT.clear()
             is_video = self.path.startswith("/video/")
             content, prompt_id = generate_video(request) if is_video else generate_image(request)
             self.send_response(200)
@@ -526,9 +557,12 @@ class ImageBroker(BaseHTTPRequestHandler):
                 self.send_header("X-ORCA-Video-FPS", str(request["fps"]))
             self.end_headers()
             self.wfile.write(content)
+        except GenerationCancelled as exc:
+            self._json({"error": str(exc), "cancelled": True}, 409)
         except (OSError, RuntimeError, TimeoutError, subprocess.SubprocessError) as exc:
             self._json({"error": str(exc)}, 502)
         finally:
+            CANCEL_EVENT.clear()
             JOB_LOCK.release()
 
 

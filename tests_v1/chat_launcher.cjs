@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const context = vm.createContext({URL});
 vm.runInContext(fs.readFileSync('orca/static/launcher.js', 'utf8') + '\nglobalThis.launcher = StudioLauncher;', context);
-const {parse, parseTask, parseProject, webURL} = context.launcher;
+const {parse, parseTask, parseProject, parseRead, webURL} = context.launcher;
 for (const text of ['Open Canvas', 'can you open the canvas?', 'Orca, please open canvas', 'show canvas please']) {
   assert.equal(parse(text).target, 'canvas', text);
 }
@@ -65,6 +65,10 @@ assert.equal(parse('open file:///etc/passwd').kind, 'error');
 assert.equal(parseProject("let's create an efficient AI-powered dog feeder").kind, 'project');
 assert.equal(parseProject('explain how to build a dog feeder'), null);
 assert.equal(parseProject('build a weather station'), null);
+assert.equal(parseRead('read https://example.com/').url, 'https://example.com/');
+assert.equal(parseRead('research https://example.com/').url, 'https://example.com/');
+assert.equal(parseRead('read http://example.com/'), null);
+assert.equal(parseRead('read https://example.com/ and submit the form'), null);
 context.launcher.launch({target: 'files'}).then(result => {
   assert.equal(result.ok, false);
   assert.match(result.message, /native KILN/);
@@ -81,6 +85,8 @@ const runContext = vm.createContext({StudioLauncher: context.launcher,
   appendUserMessage: () => {}, appendThinking: () => {},
   show: id => calls.push(['show', id]), appendAssistant: value => calls.push(['reply', value.summary]),
   showOps: id => calls.push(['ops', id]),
+  beginConversationTurn: async () => null,
+  startBusinessWorkflow: async () => null,
   rememberConversation: async () => {},
   postChat: async () => { throw Error('Explicit launcher must not call the model'); }
 });

@@ -1,6 +1,7 @@
 import ast
 from pathlib import Path
 import re
+import ipaddress
 
 import pytest
 
@@ -11,9 +12,9 @@ def launcher_rules():
     nodes = [node for node in tree.body if
              isinstance(node, (ast.Import, ast.ImportFrom)) and
              (getattr(node, "module", "") == "urllib.parse" or
-              isinstance(node, ast.Import) and all(item.name in {"re", "json"} for item in node.names))
-             or isinstance(node, ast.FunctionDef) and node.name in {"valid_web_url", "validate_launch"}
-             or isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "APP_IDS" for t in node.targets)]
+              isinstance(node, ast.Import) and all(item.name in {"re", "json", "ipaddress"} for item in node.names))
+             or isinstance(node, ast.FunctionDef) and node.name in {"valid_web_url", "valid_browser_read_url", "validate_launch", "validate_browser_read_request"}
+             or isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id in {"APP_IDS", "BROWSER_READ_ACCEPTANCE_ORIGIN"} for t in node.targets)]
     scope = {}
     exec(compile(ast.Module(body=nodes, type_ignores=[]), "launcher_rules", "exec"), scope)
     return scope
@@ -48,11 +49,34 @@ def test_launch_envelope_restricted(payload):
 
 def test_external_browser_has_no_privileged_manager():
     source = Path("desktop/KILNStudio/kiln-studio.py").read_text()
-    method = source.split("    def _open_browser(self, uri):", 1)[1].split("    def _decide_policy", 1)[0]
+    method = source.split("    def _open_browser(self, uri, capture_request_id=None):", 1)[1].split("    def _decide_policy", 1)[0]
     assert "WebContext.new_ephemeral()" in method
     assert "register_script_message_handler" not in method
     assert "subprocess" not in source
     assert "new_from_filename" in source
+
+
+def test_private_page_reader_has_strict_request_and_url_boundaries():
+    rules = launcher_rules()
+    request = {"id": "read-1", "action": "read_browser_page", "url": "https://example.com/"}
+    assert rules["validate_browser_read_request"](request) == "https://example.com/"
+    for uri in ("http://example.com/", "https://127.0.0.1/", "https://192.168.1.1/",
+                "https://localhost/", "https://router.local/", "file:///etc/passwd"):
+        with pytest.raises(ValueError):
+            rules["validate_browser_read_request"]({**request, "url": uri})
+    assert rules["validate_browser_read_request"](
+        {**request, "url": "http://127.0.0.1:18799/acceptance"}) == "http://127.0.0.1:18799/acceptance"
+
+
+def test_page_capture_is_bounded_untrusted_and_cannot_download_or_request_permissions():
+    source = Path("desktop/KILNStudio/kiln-studio.py").read_text()
+    method = source.split("    def _open_browser(self, uri, capture_request_id=None):", 1)[1].split(
+        "    def _decide_policy", 1)[0]
+    assert "WebContext.new_ephemeral()" in method
+    assert "request.deny()" in method
+    assert "download.cancel()" in method
+    assert ".slice(0,50000)" in method
+    assert "untrusted content" in method
 
 
 def test_project_artifacts_are_confined_to_orca_project_root():

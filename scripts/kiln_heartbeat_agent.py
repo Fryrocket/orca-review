@@ -12,6 +12,7 @@ import time
 from urllib.request import Request, urlopen
 
 from orca.heartbeat_agent import HeartbeatAgent
+from orca.telemetry import encode_detail
 
 
 def load_key(path: Path) -> bytes:
@@ -89,7 +90,7 @@ def main() -> None:
         except Exception:
             state = "degraded"
             detail = "one or more required health endpoints unavailable"
-        agent.send(state=state, detail=detail)
+        agent.send(state=state, detail=encode_detail(detail))
         if args.once:
             return
         time.sleep(args.interval)

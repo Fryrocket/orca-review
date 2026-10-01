@@ -61,7 +61,8 @@ const businessSites = Object.freeze({
   ebay_seller: 'https://www.ebay.com/sh/ovw',
   alibaba_seller: 'https://seller.alibaba.com/',
   temu_seller: 'https://seller.temu.com/',
-  aws: 'https://console.aws.amazon.com/'
+  aws: 'https://console.aws.amazon.com/',
+  chatgpt_finances: 'https://chatgpt.com/'
 });
 document.querySelectorAll('[data-business-site]').forEach(button => {
   button.addEventListener('click', async () => {

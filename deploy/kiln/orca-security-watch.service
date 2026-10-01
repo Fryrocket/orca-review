@@ -1,0 +1,18 @@
+[Unit]
+Description=ORCA Security Watch advisory metadata observer
+After=orca-evidence-auditor.service
+
+[Service]
+Type=oneshot
+User=fryrocket
+Group=fryrocket
+ExecStart=/usr/local/lib/orca/orca_security_watch.py
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/etc/systemd/system
+ReadWritePaths=/var/lib/orca-security-watch
+RestrictAddressFamilies=AF_UNIX
+SystemCallFilter=@system-service
+UMask=0027

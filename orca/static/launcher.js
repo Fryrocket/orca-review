@@ -2,6 +2,7 @@
 const StudioLauncher = (() => {
   const views = {studio: 'studio', chat: 'studio', code: 'projects', canvas: 'canvas',
     inventory: 'inventory', engineering: 'engineering', operations: 'operations',
+    'bot monitor': 'bot-monitor', bots: 'bot-monitor',
     business: 'business', quasarvolt: 'business', 'quasar vault': 'business',
     'quasarvolt supply': 'business', 'quasar vault supply': 'business',
     'product builder': 'product-builder', 'product development': 'product-builder'};
@@ -46,6 +47,7 @@ const StudioLauncher = (() => {
     notion: 'https://www.notion.so/',
     linear: 'https://linear.app/', 'google photos': 'https://photos.google.com/',
     muse: 'https://ai.meta.com/muse/', 'meta muse': 'https://ai.meta.com/muse/',
+    'chatgpt finances': 'https://chatgpt.com/', finances: 'https://chatgpt.com/',
     shopify: 'https://accounts.shopify.com/store-login',
     'amazon seller': 'https://sellercentral.amazon.com/', 'seller central': 'https://sellercentral.amazon.com/',
     'ebay seller': 'https://www.ebay.com/sh/ovw',
@@ -104,6 +106,13 @@ const StudioLauncher = (() => {
     if (/\b(?:don't|do not|explain|describe|how (?:do|would)|example|pretend)\b/i.test(value)) return null;
     return {kind: 'project', prompt: value};
   }
+  function parseRead(text) {
+    if (typeof text !== 'string' || text.length > 2400) return null;
+    const match = /^(?:(?:hey\s+)?orca[, ]+)?(?:(?:can|could|would) you\s+)?(?:please\s+)?(?:read|inspect|research)\s+(https:\/\/\S+)\s*[.!?]?$/i.exec(text.trim());
+    if (!match || /\b(?:submit|buy|purchase|publish|send|sign in|log in)\b/i.test(text)) return null;
+    const url = webURL(match[1]);
+    return url ? {url} : null;
+  }
   const pending = new Map();
   if (typeof window !== 'undefined') window.addEventListener('orca-launch-result', event => {
     const result = event.detail;
@@ -154,5 +163,16 @@ const StudioLauncher = (() => {
       catch { clearTimeout(timer); pending.delete(id); resolve({ok: false, message: 'KILN could not receive the CAD draft.'}); }
     });
   }
-  return {parse, parseTask, parseProject, webURL, launch, createProject, openArtifact, saveCadDraft};
+  function readPage(url) {
+    const handler = globalThis.webkit?.messageHandlers?.orcaLauncher;
+    if (!handler) return Promise.resolve({ok: false, message: 'Page reading requires native KILN Studio.'});
+    const id = globalThis.crypto.randomUUID();
+    return new Promise(resolve => {
+      const timer = setTimeout(() => { pending.delete(id); resolve({ok: false, message: 'Private browser read timed out.'}); }, 45000);
+      pending.set(id, result => { clearTimeout(timer); resolve(result); });
+      try { handler.postMessage(JSON.stringify({id, action: 'read_browser_page', url})); }
+      catch { clearTimeout(timer); pending.delete(id); resolve({ok: false, message: 'KILN could not receive the browser read request.'}); }
+    });
+  }
+  return {parse, parseTask, parseProject, parseRead, webURL, launch, createProject, openArtifact, saveCadDraft, readPage};
 })();
