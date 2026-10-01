@@ -117,7 +117,8 @@ NODES = {
                         capabilities=("forge_edge_worker", "mqtt", "sensor_ingest",
                                       "signal_processing", "calibration",
                                       "edge_inference_hardware", "edge_vision_benchmarked",
-                                      "uvc_camera_discovery", "offline_queue",
+                                      "uvc_camera_discovery", "signed_edge_job_broker",
+                                      "offline_queue",
                                       "telemetry", "edge_storage", "dashboards",
                                       "local_arm64")),
 }
