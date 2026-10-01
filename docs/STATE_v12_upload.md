@@ -540,6 +540,11 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   checks without changing live state. Its first run passed 5/5, performed zero
   external actions, and produced a six-event redacted hash chain with head
   `90a45bca7809361d2cd7407b43843c412e82e6e3f94b213a0cad3788aa1c0fc4`.
+  The same harness then ran from the activated FORGE release and passed 5/5;
+  retained evidence is
+  `/var/lib/orca/unattended-acceptance/unattended-20261001T184849Z.jsonl`
+  with valid six-event head
+  `363fa789f200a1df17f89873c0388871ea464f19301b12a7257b3fc868b46373`.
   The shared run-evidence writer detects tampering and redacts credential-like
   fields. Sensitive broker requests still require authenticated owner approval;
   the test never accessed a real keychain or secret. The recovery drill was
