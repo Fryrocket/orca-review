@@ -33,11 +33,15 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   running firmware 4.23.0. CPU temperature was 45.2 C with no throttling and
   root storage was 4% used. On 2026-10-01 it was renamed to `temper`, KILN was
   given a dedicated restricted relay key, and FORGE accepted its owner-enrolled
-  signed heartbeat. The heartbeat is healthy and authenticated; workload
-  routing remains paused pending the remaining BGM acceptance gates. Local
-  commit `8aa1af5` corrects ORCA's displayed address and storage inventory and
-  passed 1,026 tests, but it is staged only; no FORGE core release was deployed
-  because TEMPER enrollment approval did not authorize a core restart.
+  signed heartbeat. Owner authorization on 2026-10-01 made TEMPER a full FORGE
+  ecosystem member and authorized the tested ORCA core integration. Immutable
+  release `a5eb12efc83559c0a226b34f60321154fb361713` is live on FORGE with
+  health and integrity valid and rollback preserved to
+  `daily-briefing-officer-20261001-candidate`. TEMPER now appears in the FORGE
+  fabric with its edge-worker, sensor, MQTT, telemetry, storage and Hailo
+  capabilities. The exact release passed 1,026 tests. Autonomous workload
+  routing remains paused: membership is live, while execution must still pass
+  MQTT authentication, approved-model, recovery and soak gates.
 
 ## CRUCIBLE AND GPU STATUS
 
@@ -149,13 +153,17 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
 - KILN live verification on 2026-09-30 found `/usr/bin/google-chrome-stable`,
   version `154.0.8037.57`. The dedicated-profile path was not asserted by that
   command and remains subject to the launcher/profile acceptance test.
-- TEMPER remains BGM-lane and paused from workloads until
-  network/MQTT ACLs, telemetry depth,
+- TEMPER is a live FORGE-lane ecosystem member and remains paused from
+  autonomous workloads until network/MQTT ACLs, telemetry depth,
   model provenance, recovery, fault, and dedicated soak acceptance pass.
   Discovery, MAC/address binding, SSH fingerprint, Pi 5, memory, 1 TB NVMe,
   PCIe, Hailo-8, hostname, restricted KILN relay and signed-heartbeat gates are
   verified. ORCA reports TEMPER healthy and authenticated with evidence
-  integrity valid. MQTT, telemetry-depth, recovery, fault and soak gates follow.
+  integrity valid. Its Hailo-8 hardware is live but model execution is gated:
+  no reviewed `.hef` model is installed and the configured HEF path is empty.
+  MQTT listener 1883 still accepts anonymous LAN clients; credentialed listener
+  41883 is available for a controlled migration. MQTT, model, recovery, fault
+  and soak gates follow.
 - EMBER was audited live on 2026-09-30. The signed heartbeat, FORGE loopback
   tunnel, NUT UPS driver/server/monitor, read-only OLED, wake guard, Tailscale,
   and FORGE-VIS backup services were active. The local encrypted Restic backup
@@ -238,9 +246,11 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
 - EMBER's remaining hardening gates are the supervised physical power-loss and
   reboot drill plus exception-only stale-backup alert acceptance. These require
   owner availability and were not attempted remotely.
-- TEMPER is positively discovered, renamed, authenticated and publishing a
-  healthy signed heartbeat. It remains safely paused until MQTT ACL, offline
-  queue, recovery, fault and dedicated soak acceptance are established.
+- TEMPER is positively discovered, renamed, authenticated, publishing a healthy
+  signed heartbeat and deployed as a FORGE fabric member in release
+  `a5eb12efc83559c0a226b34f60321154fb361713`. It remains safely paused from
+  autonomous jobs until MQTT ACL, approved Hailo model, offline queue, recovery,
+  fault and dedicated soak acceptance are established.
 - The Notion To Do database has been cleaned of its starter tutorial rows. Its
   only genuine standalone task remains the comprehensive ORCA/Forge operator
   and developer manual after stable operation.
