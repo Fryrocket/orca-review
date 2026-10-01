@@ -23,11 +23,15 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
 - EMBER: `192.168.4.26`; Tailscale `100.87.165.66`; Raspberry Pi 4, 8 GB,
   512 GB USB SSD. CyberPower UPS is online at 100% charge and 4% load with
   7,025 seconds estimated runtime; no NUT errors appeared in the last 30 minutes.
-- Fry reports TEMPER is physically connected to the network. KILN's bounded
-  discovery pass found no `temper`/`temper.local` DNS or mDNS identity and ORCA
-  still has no TEMPER heartbeat or verified address. Treat the cable/link as
-  reported but the node identity and reachability as unproven; do not guess an
-  address from the neighbor table.
+- TEMPER is positively discovered on the LAN. Its Raspberry Pi Ethernet MAC is
+  `88:a2:9e:35:fc:25` at `192.168.4.27`; Wi-Fi is
+  `88:a2:9e:35:fc:26` at `192.168.4.25`. The stable ED25519 SSH fingerprint is
+  `SHA256:rFC82HnEi91Uxz9R8LRddN2w4gHF/95+aUNKJhDk+6o`. Read-only key access
+  from ANVIL verified a Raspberry Pi 5 Model B Rev 1.1, 16 GB RAM, Debian 13,
+  1 TB Crucial T500 NVMe, ASMedia two-port PCIe switch and a responding Hailo-8
+  running firmware 4.23.0. CPU temperature was 45.2 C with no throttling and
+  root storage was 4% used. Its current hostname is still `fryrocket`; KILN has
+  no authorized node key and ORCA has no signed TEMPER heartbeat yet.
 
 ## CRUCIBLE AND GPU STATUS
 
@@ -142,11 +146,11 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
 - TEMPER remains BGM-lane, `planned_unproven`, and cannot be activated until
   physical hardware, PCIe topology, identity, network/MQTT ACLs, telemetry,
   model provenance, recovery, fault, and dedicated soak acceptance pass.
-  Immediate checklist: obtain TEMPER's first `192.168.*` address from
-  `hostname -I` or the router lease table; bind that address to TEMPER's MAC;
-  set and verify the `temper` hostname/mDNS record; verify its SSH fingerprint;
-  enroll its signed ORCA heartbeat; verify Pi 5, memory, NVMe and Hailo-8; then
-  continue the existing MQTT, telemetry, recovery, fault and soak gates.
+  Discovery, MAC/address binding, SSH fingerprint, Pi 5, memory, NVMe, PCIe and
+  Hailo-8 gates are verified. Next: with explicit credential/permission
+  approval, create a dedicated KILN-to-TEMPER key restricted to KILN's LAN
+  address, rename the host to `temper`, verify `temper.local`, then enroll its
+  signed ORCA heartbeat. MQTT, telemetry, recovery, fault and soak gates follow.
 - EMBER was audited live on 2026-09-30. The signed heartbeat, FORGE loopback
   tunnel, NUT UPS driver/server/monitor, read-only OLED, wake guard, Tailscale,
   and FORGE-VIS backup services were active. The local encrypted Restic backup
