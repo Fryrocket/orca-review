@@ -41,6 +41,7 @@ VIDEO_PROMPTS = (
     "Macro camera glide across silver traces on a compact electronics board, subtle workshop lights, steady motion, no text",
     "A small electronics module rests on an ESD mat while the camera makes a slow controlled arc, realistic lighting, no logos",
 )
+SHORT_VIDEO_FRAMES = 33
 
 
 def utc_now() -> str:
@@ -217,7 +218,8 @@ def run(args: argparse.Namespace) -> dict:
                     if make_video:
                         path = "/api/videos/generate"
                         body = {"prompt": prompt, "width": 832, "height": 480,
-                                "length": 49, "steps": 12, "fps": 16, "seed": seed}
+                                "length": SHORT_VIDEO_FRAMES, "steps": 12,
+                                "fps": 16, "seed": seed}
                         artifact = output_dir / f"media-{media_index + 1:02d}.mp4"
                     else:
                         path = "/api/images/generate"

@@ -105,7 +105,9 @@ purchase, or contact outsiders.
   first reboot exposed a tunnel process stuck before Tailscale readiness; the
   source-managed unit now uses bounded connection attempts and automatic retry,
   and a second reboot proved automatic recovery without manual intervention.
-- The complete ORCA source suite passed **1,116/1,116** after the changes. All
+- The final soak runner uses bounded 33-frame video samples and excludes the
+  previously rejected 49- and 73-frame job lengths.
+- The complete ORCA source suite passed **1,117/1,117** after the changes. All
   four Linux nodes showed no failed units at final verification. ORCA health and
   integrity were valid, and all five signed node heartbeats were healthy.
 

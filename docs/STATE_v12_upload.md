@@ -634,7 +634,9 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   boot-time Tailscale tunnel race; its tunnel now uses bounded connection
   attempts and automatic retry. A second reboot proved automatic tunnel,
   signed-heartbeat, UPS, backup, recovery and monitoring recovery.
-- Final source regression passed **1,116/1,116**. ORCA `/api/health` returned
+- The final soak runner uses bounded 33-frame video samples and explicitly does
+  not submit the previously rejected 49- or 73-frame jobs.
+- Final source regression passed **1,117/1,117**. ORCA `/api/health` returned
   healthy with valid integrity. ANVIL, FORGE, KILN, EMBER and TEMPER all report
   fresh signed healthy heartbeats, and the Linux nodes show no failed units.
   ANVIL's application firewall and FileVault are on; stealth mode remains the
