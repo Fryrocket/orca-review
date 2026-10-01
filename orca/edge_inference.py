@@ -1,0 +1,157 @@
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass
+
+
+@dataclass(frozen=True)
+class EdgeModel:
+    id: str
+    task: str
+    artifact: str
+    state: str
+    input_types: tuple[str, ...]
+    benchmark_fps: float
+
+
+@dataclass(frozen=True)
+class EdgeWorkflow:
+    id: str
+    area: str
+    purpose: str
+    model_tasks: tuple[str, ...]
+    readiness: str
+    output: str
+
+
+# These artifacts are supplied by the Raspberry Pi/Hailo packages installed on
+# TEMPER.  They are Hailo-8 artifacts, not the incompatible H8L/H10 variants.
+H8_MODELS = (
+    EdgeModel(
+        "yolov6n_h8", "object_detection",
+        "/usr/share/hailo-models/yolov6n_h8.hef", "runtime_benchmarked",
+        ("usb_camera", "image", "video"), 140.9,
+    ),
+    EdgeModel(
+        "yolov8s_h8", "object_detection",
+        "/usr/share/hailo-models/yolov8s_h8.hef", "runtime_benchmarked",
+        ("usb_camera", "image", "video"), 148.22,
+    ),
+    EdgeModel(
+        "yolov5n_seg_h8", "instance_segmentation",
+        "/usr/share/hailo-models/yolov5n_seg_h8.hef", "runtime_benchmarked",
+        ("usb_camera", "image", "video"), 61.32,
+    ),
+    EdgeModel(
+        "yolov8s_pose_h8", "pose_estimation",
+        "/usr/share/hailo-models/yolov8s_pose_h8.hef", "runtime_benchmarked",
+        ("usb_camera", "image", "video"), 228.5,
+    ),
+)
+
+
+EDGE_WORKFLOWS = (
+    EdgeWorkflow(
+        "inventory_visual_count", "inventory",
+        "Count and locate visible stock while keeping the canonical ledger authoritative.",
+        ("object_detection", "instance_segmentation"), "camera_and_acceptance_required",
+        "count proposal with frame, model and confidence evidence",
+    ),
+    EdgeWorkflow(
+        "receiving_and_packaging_check", "inventory",
+        "Flag damaged, missing, duplicated or incorrectly packed incoming items.",
+        ("object_detection", "instance_segmentation"), "custom_model_required",
+        "inspection proposal; never an automatic acceptance or rejection",
+    ),
+    EdgeWorkflow(
+        "pcb_assembly_inspection", "engineering",
+        "Assist inspection of component presence, orientation, soldering and visible defects.",
+        ("object_detection", "instance_segmentation"), "custom_model_required",
+        "annotated defect candidates for human or QUENCH review",
+    ),
+    EdgeWorkflow(
+        "product_media_preflight", "canvas",
+        "Preflight product photos and clips for framing, occlusion and visible subject placement.",
+        ("object_detection", "instance_segmentation"), "camera_or_file_input_required",
+        "quality findings and crop/mask suggestions",
+    ),
+    EdgeWorkflow(
+        "prototype_observation", "product-builder",
+        "Observe bounded prototype tests and associate visible events with the test timeline.",
+        ("object_detection", "pose_estimation"), "camera_and_acceptance_required",
+        "timestamped observations, never autonomous physical control",
+    ),
+    EdgeWorkflow(
+        "lab_safety_observation", "operations",
+        "Detect configured visible hazards or missing protective equipment in a declared test area.",
+        ("object_detection", "pose_estimation"), "custom_model_and_owner_policy_required",
+        "advisory alert with retained evidence limits",
+    ),
+    EdgeWorkflow(
+        "listing_asset_verification", "business",
+        "Compare draft listing assets with the selected product and required image checklist.",
+        ("object_detection", "instance_segmentation"), "custom_model_required",
+        "mismatch report; publishing remains approval-controlled",
+    ),
+    EdgeWorkflow(
+        "sensor_quality_and_anomaly", "bgm",
+        "Run low-latency artifact and anomaly screening near the sensor source.",
+        ("signal_quality", "anomaly_detection"), "validated_custom_hef_required",
+        "quality/anomaly evidence only; no diagnosis, dosing or medical claim",
+    ),
+    EdgeWorkflow(
+        "local_speech_recognition", "studio",
+        "Transcribe bounded local voice input without consuming general reasoning capacity.",
+        ("automatic_speech_recognition",), "validated_audio_model_required",
+        "draft transcript for review before sending",
+    ),
+)
+
+
+EDGE_GOVERNANCE = {
+    "execution": (
+        "Signed bounded jobs only. Every result records source, model ID, artifact hash, "
+        "timestamps, confidence, latency, temperature and disposition."
+    ),
+    "privacy": (
+        "No facial recognition, identity inference, covert surveillance or unbounded recording. "
+        "Frames are retained only when the owning workflow explicitly requires evidence."
+    ),
+    "authority": (
+        "Inference may observe, classify and propose. It may not publish, purchase, change stock, "
+        "operate machinery, make a medical decision or approve its own output."
+    ),
+    "safety": (
+        "One bounded accelerator queue with temperature, memory, disk, deadline and restart limits; "
+        "fail closed on stale models, missing provenance or evidence-integrity failure."
+    ),
+    "fallback": "CPU preprocessing remains available; unavailable Hailo work returns a typed blocked result.",
+}
+
+
+def edge_inference_blueprint(*, camera_connected: bool = False) -> dict:
+    """Describe TEMPER's accepted edge scope without starting remote execution."""
+    return {
+        "node_id": "temper",
+        "accelerator": "Hailo-8",
+        "capacity": {"tops_int8": 26, "scheduler": "single governed queue"},
+        "benchmark": {
+            "date": "2026-10-01",
+            "method": "HailoRT hardware-only synthetic streaming input",
+            "scope": "accelerator throughput, not end-to-end camera or post-processing latency",
+        },
+        "camera": {
+            "type": "USB UVC camera",
+            "connected": camera_connected,
+            "discovery": "automatic uvcvideo/V4L2 discovery; internal Pi codec devices excluded",
+            "state": "available" if camera_connected else "awaiting_physical_connection",
+        },
+        "models": [asdict(model) for model in H8_MODELS],
+        "workflows": [asdict(workflow) for workflow in EDGE_WORKFLOWS],
+        "governance": EDGE_GOVERNANCE,
+        "runtime": {
+            "hardware": "verified",
+            "model_invocation": "gated",
+            "automatic_execution": False,
+            "reason": "camera discovery, per-model acceptance and signed job broker are required",
+        },
+    }

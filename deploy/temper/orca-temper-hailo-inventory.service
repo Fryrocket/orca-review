@@ -1,0 +1,23 @@
+[Unit]
+Description=ORCA TEMPER Hailo and USB camera inventory
+After=local-fs.target
+
+[Service]
+Type=oneshot
+User=fryrocket
+Group=fryrocket
+StateDirectory=orca-temper
+StateDirectoryMode=0750
+ExecStart=/usr/bin/python3 /usr/local/lib/orca/temper_hailo_inventory.py --output /var/lib/orca-temper/hailo-inventory.json
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+UMask=0027
+

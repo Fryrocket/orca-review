@@ -36,6 +36,10 @@ TOOL_CATALOG = {
     "node.observe": ToolCapability("node.observe", "fleet", "Observe enrolled node health", None, PermissionLevel.R0),
     "studio.capabilities": ToolCapability("studio.capabilities", "studio", "List registered Studio workspaces, applications, business areas and tools", None, PermissionLevel.R0),
     "inventory.search": ToolCapability("inventory.search", "inventory", "Search the canonical KILN inventory without changing stock", None, PermissionLevel.R0),
+    "temper.inference_capabilities": ToolCapability(
+        "temper.inference_capabilities", "edge",
+        "Inspect TEMPER Hailo-8 models, camera readiness, applicable workflows and safety gates",
+        None, PermissionLevel.R0),
 }
 
 
@@ -47,6 +51,7 @@ BOT_TOOL_MANIFESTS = {
         "terminal.inspect", "drive.read", "drive.search", "notion.read",
         "linear.read", "node.observe",
         "studio.capabilities", "inventory.search",
+        "temper.inference_capabilities",
     }),
     "smith": frozenset({
         "math.scientific", "engineering.calculate", "engineering.catalog",
@@ -55,6 +60,7 @@ BOT_TOOL_MANIFESTS = {
         "terminal.inspect", "drive.read", "drive.search", "notion.read",
         "linear.read", "node.observe",
         "studio.capabilities", "inventory.search",
+        "temper.inference_capabilities",
     }),
     "quench": frozenset({
         "math.scientific", "engineering.calculate", "engineering.catalog",
@@ -62,6 +68,7 @@ BOT_TOOL_MANIFESTS = {
         "file.read", "file.search", "repo.read", "web.search", "web.fetch",
         "terminal.inspect", "drive.read", "drive.search", "node.observe",
         "studio.capabilities", "inventory.search",
+        "temper.inference_capabilities",
     }),
     "security_gate": frozenset(),
 }
@@ -93,6 +100,8 @@ TOOL_ARGUMENT_SCHEMAS = {
     "studio.capabilities": {"area": "Optional: all, workspaces, applications, business, or tools"},
     "inventory.search": {"query": "Optional item, SKU, category, location, lot or serial text", "state": "Optional: all, healthy, reorder, stockout, or attention", "limit": "Optional integer 1-50"},
     "node.observe": {"node_id": "Optional enrolled node ID or all"},
+    "temper.inference_capabilities": {
+        "input_type": "Optional: all, camera, image, video, sensor, or audio"},
 }
 
 

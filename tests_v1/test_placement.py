@@ -51,6 +51,9 @@ def test_verified_three_host_profiles_match_intended_roles():
         ("monitoring", "ember"),
         ("ups_watch", "ember"),
         ("backup_observer", "ember"),
+        ("edge_vision", "temper"),
+        ("edge_sensor_inference", "temper"),
+        ("edge_audio_inference", "temper"),
     ],
 )
 def test_static_placement_recommends_hardware_appropriate_node(workload, node_id):

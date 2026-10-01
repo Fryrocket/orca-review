@@ -61,6 +61,18 @@ def test_inventory_search_is_read_only_filtered_and_bounded():
 def test_node_observe_filters_and_new_chat_tools_are_manifested_read_only():
     tools = StudioReadTools(control_snapshot=snapshot)
     assert [node["id"] for node in tools.node_observe(node_id="kiln")["nodes"]] == ["kiln"]
-    required = {"studio.capabilities", "inventory.search", "node.observe"}
+    required = {"studio.capabilities", "inventory.search", "node.observe",
+                "temper.inference_capabilities"}
     assert required <= BOT_TOOL_MANIFESTS["orca"]
     assert all(not TOOL_CATALOG[name].mutates for name in required)
+
+
+def test_temper_inference_tool_is_bounded_read_only_and_filters_workflows():
+    tools = StudioReadTools(control_snapshot=snapshot)
+    camera = tools.temper_inference_capabilities(input_type="camera")
+    assert camera["node_id"] == "temper"
+    assert camera["camera"]["state"] == "awaiting_physical_connection"
+    assert any(model["id"] == "yolov6n_h8" for model in camera["models"])
+    assert any(workflow["id"] == "inventory_visual_count" for workflow in camera["workflows"])
+    assert camera["runtime"]["automatic_execution"] is False
+    assert "No facial recognition" in camera["governance"]["privacy"]

@@ -83,6 +83,18 @@ WORKLOAD_PLACEMENTS = {
         "backup_observer", ("backup_observer",), ("ember",),
         "use EMBER for independent backup observation without making it an authoritative writer",
     ),
+    "edge_vision": WorkloadPlacement(
+        "edge_vision", ("edge_inference_hardware",), ("temper",),
+        "use TEMPER's Hailo-8 for accepted low-latency camera, image and video inference",
+    ),
+    "edge_sensor_inference": WorkloadPlacement(
+        "edge_sensor_inference", ("edge_inference_hardware", "sensor_ingest"), ("temper",),
+        "keep accepted signal-quality and anomaly inference near TEMPER's sensor inputs",
+    ),
+    "edge_audio_inference": WorkloadPlacement(
+        "edge_audio_inference", ("edge_inference_hardware",), ("temper",),
+        "reserve TEMPER for an accepted local speech or audio model without consuming FORGE reasoning capacity",
+    ),
 }
 
 

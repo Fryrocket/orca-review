@@ -116,7 +116,8 @@ NODES = {
                         storage_gib=1_000, wired_network_mbps=1_000,
                         capabilities=("forge_edge_worker", "mqtt", "sensor_ingest",
                                       "signal_processing", "calibration",
-                                      "edge_inference_hardware", "offline_queue",
+                                      "edge_inference_hardware", "edge_vision_benchmarked",
+                                      "uvc_camera_discovery", "offline_queue",
                                       "telemetry", "edge_storage", "dashboards",
                                       "local_arm64")),
 }

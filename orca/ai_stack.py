@@ -85,9 +85,10 @@ AI_SERVICES = {
     ),
     "temper_edge": AIServiceProfile(
         "temper_edge", "temper",
-        "FORGE edge preprocessing, sensor quality, anomaly detection and offline queueing; Hailo inference remains model-gated",
-        "CPU quality pipeline live; Hailo HEF not yet provisioned", "HailoRT", "Hailo-8 (26 TOPS INT8)",
-        8_192, 1, 6, deployment_state="hardware_live_model_gated",
+        "FORGE edge vision, preprocessing, sensor quality, anomaly detection, local audio and offline queueing; execution remains job-gated",
+        "Four packaged Hailo-8 vision HEFs benchmarked; custom models and job broker remain acceptance-gated",
+        "HailoRT", "Hailo-8 (26 TOPS INT8)",
+        8_192, 1, 6, deployment_state="hardware_live_models_benchmarked_broker_gated",
     ),
     "forge_crucible": AIServiceProfile(
         "forge_crucible", "forge",

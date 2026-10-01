@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from .inventory import InventoryReadError, analyze_inventory_snapshot
+from .edge_inference import edge_inference_blueprint
 
 
 WORKSPACES = (
@@ -154,9 +155,31 @@ class StudioReadTools:
             "paused_lanes": snapshot.get("paused_lanes", []),
         }
 
+    def temper_inference_capabilities(self, *, input_type: str = "all") -> dict:
+        if input_type not in {"all", "camera", "image", "video", "sensor", "audio"}:
+            raise ValueError("edge inference input type is invalid")
+        result = edge_inference_blueprint(camera_connected=False)
+        if input_type != "all":
+            aliases = {"camera": "usb_camera", "sensor": "signal_quality", "audio": "automatic_speech_recognition"}
+            target = aliases.get(input_type, input_type)
+            result["models"] = [
+                model for model in result["models"]
+                if target in model["input_types"] or target == model["task"]
+            ]
+            result["workflows"] = [
+                workflow for workflow in result["workflows"]
+                if target in workflow["model_tasks"]
+                or (input_type in {"camera", "image", "video"}
+                    and any(task in {"object_detection", "instance_segmentation", "pose_estimation"}
+                            for task in workflow["model_tasks"]))
+            ]
+        result["filter"] = input_type
+        return result
+
     def handlers(self) -> dict:
         return {
             "studio.capabilities": self.capabilities,
             "inventory.search": self.inventory_search,
             "node.observe": self.node_observe,
+            "temper.inference_capabilities": self.temper_inference_capabilities,
         }
