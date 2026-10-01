@@ -1,0 +1,11 @@
+[Unit]
+Description=Poll ORCA TEMPER signed Hailo job queue
+
+[Timer]
+OnBootSec=20s
+OnUnitActiveSec=10s
+AccuracySec=2s
+Persistent=true
+
+[Install]
+WantedBy=timers.target
