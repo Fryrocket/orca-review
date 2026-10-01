@@ -615,7 +615,13 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   The timer remains active with zero restarts; after firewall activation and the
   Docker protected-port attestation, the current report is `healthy`, has zero
   findings, reads no secret content, and applies no changes.
-- Final source regression passed **1,114/1,114**. ORCA `/api/health` returned
+- A delayed acceptance cycle exposed and repaired a second evidence-only issue:
+  the Docker filter remained effective, but its attestation lived under `/run`
+  and could disappear during service lifecycle cleanup. The root-produced
+  attestation now lives in persistent systemd-managed state under `/var/lib`,
+  the watcher consumes that path, focused checks pass, and a subsequent live
+  watcher run again reports `healthy` with zero findings.
+- Final source regression passed **1,115/1,115**. ORCA `/api/health` returned
   healthy with valid integrity. ANVIL, FORGE, KILN, EMBER and TEMPER all report
   fresh signed healthy heartbeats, and the Linux nodes show no failed units.
   ANVIL's application firewall and FileVault are on; stealth mode remains the

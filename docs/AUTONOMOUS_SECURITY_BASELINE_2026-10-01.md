@@ -85,7 +85,9 @@ purchase, or contact outsiders.
   MinIO remained reachable from the LAN, the ORCA/Tailscale gateway remained
   reachable, and Redis was independently confirmed unreachable from the LAN.
   Security Watch now consumes a root-produced, non-secret protected-port
-  attestation and reports healthy with zero findings.
+  attestation from persistent systemd-managed state under `/var/lib` and
+  reports healthy with zero findings. This avoids false degradation if
+  transient runtime directories are cleaned between scheduled watcher runs.
   A Docker unit dependency re-applies the filter after future Docker restarts.
 - FORGE: UFW and fail2ban are active. Effective SSH policy is
   `PasswordAuthentication no`, `PermitRootLogin no`, and

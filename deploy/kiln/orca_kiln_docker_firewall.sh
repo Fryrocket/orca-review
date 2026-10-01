@@ -6,7 +6,7 @@ IP6T=/usr/sbin/ip6tables
 CHAIN=ORCA-DOCKER-FILTER
 LAN=192.168.4.0/22
 PUBLISHED_PORTS=2222,3000,6379,9000,9001
-ATTESTATION=/run/orca-kiln-docker-firewall/protected-ports.json
+ATTESTATION=/var/lib/orca-kiln-docker-firewall/protected-ports.json
 
 $IPT -N "$CHAIN" 2>/dev/null || true
 $IPT -F "$CHAIN"

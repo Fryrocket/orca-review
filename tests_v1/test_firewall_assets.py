@@ -24,10 +24,21 @@ def test_kiln_docker_firewall_service_has_narrow_capabilities():
     assert "ProtectHome=true" in unit
     assert "CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW" in unit
     assert "RemainAfterExit=yes" in unit
-    assert "RuntimeDirectory=orca-kiln-docker-firewall" in unit
+    assert "StateDirectory=orca-kiln-docker-firewall" in unit
+    assert "RuntimeDirectory=orca-kiln-docker-firewall" not in unit
     assert "PartOf=docker.service" in unit
 
 
 def test_docker_restart_reapplies_the_orca_filter():
     dropin = (ROOT / "deploy/kiln/20-orca-firewall.conf").read_text()
     assert "Wants=orca-kiln-docker-firewall.service" in dropin
+
+
+def test_firewall_attestation_survives_runtime_directory_cleanup():
+    script = (ROOT / "deploy/kiln/orca_kiln_docker_firewall.sh").read_text()
+    watcher = (ROOT / "deploy/kiln/orca_security_watch.py").read_text()
+    persistent_path = "/var/lib/orca-kiln-docker-firewall/protected-ports.json"
+    assert persistent_path in script
+    assert persistent_path in watcher
+    assert "/run/orca-kiln-docker-firewall/protected-ports.json" not in script
+    assert "/run/orca-kiln-docker-firewall/protected-ports.json" not in watcher

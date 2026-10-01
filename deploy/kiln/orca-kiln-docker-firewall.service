@@ -16,8 +16,8 @@ CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW
 AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
 SystemCallFilter=@system-service @network-io
-RuntimeDirectory=orca-kiln-docker-firewall
-RuntimeDirectoryMode=0755
+StateDirectory=orca-kiln-docker-firewall
+StateDirectoryMode=0755
 
 [Install]
 WantedBy=multi-user.target

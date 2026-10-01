@@ -81,7 +81,7 @@ def read_ufw_enabled(path="/etc/ufw/ufw.conf"):
     return values.get("ENABLED") == "yes"
 
 
-def read_protected_public_ports(path="/run/orca-kiln-docker-firewall/protected-ports.json"):
+def read_protected_public_ports(path="/var/lib/orca-kiln-docker-firewall/protected-ports.json"):
     try:
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError, TypeError):
