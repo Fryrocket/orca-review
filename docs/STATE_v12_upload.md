@@ -750,5 +750,20 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   approved knowledge, ticketing, file scanning, calendar, consent/suppression,
   failed-work replay, entity resolution and real performance routing remain
   unconnected behind their individual acceptance gates.
+- The auto-updating zero-based budget is now tracked as **planned and
+  unconnected** in Linear FOR-31 and the matching Notion checklist. The intended
+  read-only source is an owner-authorized ChatGPT Finances connection through
+  Plaid. Credentials, MFA, account selection and connection management remain
+  inside ChatGPT/Plaid; ORCA will accept only a versioned, source-referenced
+  financial snapshot after synthetic and owner-reviewed live acceptance.
+- The planned budget engine assigns all available income to spending, savings,
+  debt, taxes or reserves; compares actuals with plan; handles transfers,
+  reimbursements, credit-card payments and pending duplicates; and tracks
+  envelopes, sinking funds, commitments, rollovers, runway, tax reserve,
+  inventory purchasing capacity and scenarios. Material variances route to
+  Action Center and Executive Morning Brief. Personal and business books remain
+  separated. No direct third-party OpenAI Finances API is claimed, and money
+  movement, bill payment, trading, account changes, tax filing, credential
+  storage and autonomous budget approval remain prohibited.
 
 END STATE.md — AS OF 2026-10-01
