@@ -20,9 +20,9 @@
       document.querySelector('#communications-quarantined').textContent = counts.quarantined || 0;
       document.querySelector('#communications-headline').textContent = body.daily_brief?.headline || 'No briefing available.';
       setList('#communications-top-actions', body.daily_brief?.top_actions || [], task =>
-        `<article><b>${safe(task.subject)}</b><small>${safe(task.association)} · ${safe(task.priority)}</small><p>${safe(task.action)}</p></article>`);
+        `<article><b>${safe(task.subject)}</b><small>${safe(task.association)} · ${safe(task.priority)} · propose ${safe(task.proposed_workspace)}</small><p>${safe(task.action)}</p></article>`);
       setList('#communications-tasks', body.tasks || [], task =>
-        `<article><b>${safe(task.subject)}</b><small>${safe(task.association)} · ${safe(task.priority)}${task.deadline ? ` · ${safe(task.deadline)}` : ''}</small><p>${safe(task.action)}</p></article>`);
+        `<article><b>${safe(task.subject)}</b><small>${safe(task.association)} · ${safe(task.priority)} · ${safe(task.proposed_workspace)} / ${safe(task.proposed_owner)}${task.deadline ? ` · ${safe(task.deadline)}` : ''}</small><p>${safe(task.action)}</p></article>`);
       setList('#communications-calendar', body.calendar_candidates || [], item =>
         `<article><b>${safe(item.title)}</b><small>${safe(item.association)} · candidate only</small><p>${safe(item.when)}</p></article>`);
       setList('#communications-timelines', body.timelines || [], timeline =>

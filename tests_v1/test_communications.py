@@ -33,6 +33,9 @@ def test_communications_builds_tasks_timelines_calendar_quarantine_and_brief():
         "relationships": 2, "quarantined": 1, "urgent": 0,
     }
     assert result["tasks"][0]["state"] == "owner_review_required"
+    assert result["tasks"][0]["proposed_workspace"] == "business"
+    assert result["tasks"][0]["proposed_owner"] == "connector_steward"
+    assert result["daily_brief"]["proposed_handoffs"][0]["state"] == "proposal_only"
     assert result["calendar_candidates"][0]["state"] == "candidate_only"
     assert result["quarantine"][0]["message_reference"] == "mail-3"
     assert result["daily_brief"]["external_actions"] == 0

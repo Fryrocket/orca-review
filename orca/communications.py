@@ -11,6 +11,16 @@ _RISK_TERMS = (
     "suspicious", "phishing", "spoof", "malware", "credential", "password",
     "unexpected attachment", "unknown link", "impersonation", "fraud",
 )
+_ROUTES = {
+    "order": ("inventory", "channel_operator"),
+    "invoice": ("accounting", "budget_officer"),
+    "lead": ("business", "channel_operator"),
+    "support": ("operations", "daily_briefing_officer"),
+    "compliance": ("legal", "legal_compliance_clerk"),
+    "vendor": ("business", "connector_steward"),
+    "spam": ("security", "security_watch"),
+    "other": ("inbox", "daily_briefing_officer"),
+}
 
 
 def _needs_follow_up(message: dict[str, Any]) -> bool:
@@ -43,6 +53,9 @@ def build_communications_snapshot(messages: Iterable[dict[str, Any]]) -> dict[st
         "priority": message["priority"],
         "draft_available": bool(message.get("draft_reply")),
         "state": "owner_review_required",
+        "proposed_workspace": _ROUTES[message["category"]][0],
+        "proposed_owner": _ROUTES[message["category"]][1],
+        "source_reference": message["message_reference"],
     } for message in safe_rows if _needs_follow_up(message)]
     calendar = [{
         "message_reference": task["message_reference"],
@@ -73,6 +86,12 @@ def build_communications_snapshot(messages: Iterable[dict[str, Any]]) -> dict[st
         "urgent": urgent,
         "top_actions": tasks[:5],
         "generated_from": "privacy_minimized_inbox_summaries",
+        "proposed_handoffs": [{
+            "message_reference": task["message_reference"],
+            "workspace": task["proposed_workspace"],
+            "owner": task["proposed_owner"],
+            "state": "proposal_only",
+        } for task in tasks[:5]],
         "external_actions": 0,
     }
     return {

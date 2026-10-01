@@ -676,7 +676,11 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   on the minimized Inbox records rather than creating a second mailbox. Its
   deterministic read-only operating view produces customer/vendor timelines,
   an owner-review follow-up queue, calendar candidates, suspicious-summary
-  quarantine and one exception-oriented daily communications brief. It uses
+  quarantine and one exception-oriented daily communications brief. Each
+  follow-up carries a proposal-only cross-workspace route: invoices to
+  Accounting/Budget, orders to Inventory/Channel Operations, compliance to
+  Legal, support to Operations, vendor matters to Business/Connector Steward,
+  leads to Business/Channel Operations, and suspicious items to Security. It uses
   ORCA's existing Connector Steward, Evidence Auditor, Legal and Compliance
   Clerk and Daily Briefing Officer lanes instead of creating an overlapping
   autonomous bot. It performs zero sends, mailbox mutations, calendar writes,
