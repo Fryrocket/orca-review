@@ -29,7 +29,10 @@ Status: local rebuild alpha. This runbook does not authorize deployment, remote 
 
 - Evidence-chain failure: stop mutation, preserve the database read-only, open an incident, and restore from the last verified copy.
 - State corruption or state/evidence-head mismatch: do not overwrite the source database; copy it, retain checksums, and diagnose the copy.
-- Lost node contact: keep the node paused. Recovery requires a fresh authenticated heartbeat and explicit resume.
+- Lost node contact: pause the node with the durable `heartbeat_stale` reason.
+  A later fresh authenticated healthy heartbeat may clear only this availability
+  reason (and a node-reported transient-health reason). Operator, security,
+  key-rotation, legacy and manual-health pauses never clear automatically.
 - Credential exposure: never copy the value into evidence. Rotate it in the approved secret system and record only identifiers and timestamps.
 - Unexpected mutation or execution: engage emergency stop, isolate it, preserve evidence, and require QUENCH review.
 
@@ -52,3 +55,32 @@ receives independent QUENCH review. A written plan or successful process start i
 not restore proof.
 
 Paused jobs now have an explicit authenticated Resume action. It never overrides a remaining global, bot, lane, node, or approval boundary. A paused R2/R3 job returns to waiting approval if its approval is not yet granted; completion and denial remain terminal. See the September 23 regression review for restart/resume coverage.
+
+## Autonomous power-return chain — 2026-10-02
+
+1. EMBER stays on the CyberPower UPS and boots its enabled NUT, backup,
+   heartbeat and recovery timers. If KILN is unreachable for three consecutive
+   checks, EMBER sends bounded Wake-on-LAN packets and then verifies both KILN's
+   SSH reachability and ORCA's integrity-valid health endpoint.
+2. KILN boots Docker and its `unless-stopped` containers, SSH, tunnels, signed
+   heartbeat, Studio gateway and graphical session. Its one-minute guard wakes
+   FORGE after three failed checks and verifies the FORGE ORCA health endpoint.
+3. FORGE starts ORCA and its signed heartbeat, inference, media, review and bot
+   services through enabled systemd units. The live control plane automatically
+   clears only outage-generated node pauses after fresh signed healthy evidence.
+4. TEMPER and EMBER are Raspberry Pi nodes and boot when input power returns;
+   their enabled timers restore signed telemetry and bounded edge services.
+5. ANVIL's battery, enabled launch agents and Wake-on-LAN restore its optional
+   operator/tunnel services. ORCA must remain functional while ANVIL is absent.
+6. EMBER writes `/var/lib/orca-recovery/fleet-readiness.json` every minute. It
+   reports ready only when evidence integrity is valid, emergency stop is off,
+   all five required nodes have fresh healthy heartbeats and no node is paused.
+
+The deployed wake and readiness programs are source-controlled under
+`deploy/recovery/`; the host units are under `deploy/ember/` and `deploy/kiln/`.
+Never interpret a successful software restart as proof of cold-power behavior.
+The remaining acceptance gate is an owner-present whole-site power-cut test,
+including UPS-on-battery behavior and firmware `Restore after AC loss` settings
+on KILN and FORGE. ANVIL's macOS `autorestart` setting is also an owner-present
+administrator action. Router, switch and modem power must be included in that
+physical drill or placed on appropriate UPS capacity.

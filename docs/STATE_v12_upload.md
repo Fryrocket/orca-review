@@ -963,4 +963,45 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   credentials remain an owner-unlock path until the planned non-GUI credential
   broker is implemented and accepted.
 
+## Autonomous whole-fleet power recovery — 2026-10-02
+
+- Claude's KILN terminal autostart is disabled in
+  `~/.config/autostart/kiln-claude-terminal.desktop`; its prior file is retained
+  as a timestamped rollback copy. Existing sessions were not interrupted.
+- ORCA release `/opt/orca/releases/power-recovery-20261002-7390496` is live on
+  FORGE. The prior release
+  `/opt/orca/releases/20cdd631f30c9729a4576db19fd9b448acbd0d386a8a41284e1e3cd6b5172633`
+  is preserved by `/var/lib/orca/previous-release`. Activation health and
+  integrity passed with zero service restarts. Commit `7390496` passed the
+  complete **1,161/1,161** regression suite.
+- Node pauses now carry durable provenance. Fresh signed healthy heartbeats
+  automatically clear only transient availability reasons
+  (`heartbeat_stale` and `reported_health`). Operator, manual-health,
+  key-rotation and legacy pauses remain protected. Jobs paused during an outage
+  are not blindly replayed, preventing duplicated external work.
+- The existing power chain is now source-controlled and verified: EMBER checks
+  and wakes KILN every minute; KILN checks and wakes FORGE every minute. EMBER's
+  stale `.24` target was retired in favor of KILN's current `.28` address, and
+  the effective guard now requires KILN's Tailscale ORCA endpoint to report both
+  healthy status and valid integrity instead of accepting an open SSH port as
+  full recovery.
+- EMBER now runs `orca-fleet-readiness.timer` every minute. The accepted report
+  at `/var/lib/orca-recovery/fleet-readiness.json` recorded schema 1,
+  `ready: true`, no failures, all five required nodes, fresh signed healthy
+  heartbeats, valid evidence integrity, emergency stop off and no paused nodes.
+  ANVIL was resumed through ORCA's revision-checked owner path after immutable
+  evidence showed recurring transient availability pauses and a fresh signed
+  healthy heartbeat.
+- KILN and FORGE Wake-on-LAN settings are enabled in the operating system;
+  KILN/FORGE/EMBER services and KILN's graphical Studio supervision are enabled
+  for boot. EMBER reports its CyberPower UPS online at 100% charge. TEMPER has a
+  fresh signed healthy heartbeat and prior reboot recovery evidence, though its
+  interactive SSH command channel still fails to complete and remains a
+  separate maintenance defect rather than a dependency for signed telemetry.
+- Software recovery is verified without shutting down any node. A true
+  owner-present whole-site power-cut/UPS-on-battery drill remains required to
+  prove motherboard `Restore after AC loss`, network-equipment power, cold-boot
+  Wake-on-LAN and ANVIL's macOS administrator-only `autorestart` policy. No
+  claim of 100% physical recovery is made until that controlled drill passes.
+
 END STATE.md — AS OF 2026-10-02
