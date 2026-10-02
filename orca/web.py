@@ -604,6 +604,7 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     from .product_package import (
                         attach_quench_review,
                         create_pi5_cooling_hat_package,
+                        prepare_fabrication_readiness,
                         quench_review_prompt,
                     )
                     result = create_pi5_cooling_hat_package(
@@ -617,6 +618,20 @@ class OrcaHandler(BaseHTTPRequestHandler):
                         )
                         result = attach_quench_review(
                             self._product_artifact_root(), result["package_id"], independent)
+                    normalized_prompt = " ".join(data["prompt"].casefold().split())
+                    if ("fabrication-readiness" in normalized_prompt
+                            or "fabrication readiness" in normalized_prompt):
+                        result = prepare_fabrication_readiness(
+                            self._product_artifact_root(), result["project"]["project_id"])
+                        if self.server.runtime_gateway is not None:
+                            independent = self.server.runtime_gateway.invoke(
+                                service_id="kiln_quench", bot_id="quench",
+                                prompt=quench_review_prompt(
+                                    self._product_artifact_root(), result["package_id"]),
+                                use_tool_broker=False,
+                            )
+                            result = attach_quench_review(
+                                self._product_artifact_root(), result["package_id"], independent)
                     return self._json(result, HTTPStatus.CREATED)
                 if path == "/api/product-development/fabrication-readiness":
                     if set(data) != {"project_id"}:

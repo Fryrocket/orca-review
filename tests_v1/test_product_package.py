@@ -112,6 +112,40 @@ def test_product_package_http_create_and_authenticated_download(tmp_path):
         server.server_close()
 
 
+def test_http_single_prompt_chains_fabrication_readiness(tmp_path):
+    token = "r" * 32
+    control = ControlPlane()
+    server = OrcaHTTPServer(("127.0.0.1", 0), control, operator_token=token)
+    control.evidence.path = str(tmp_path / "orca-events.db")
+    Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        prompt = PROMPT + " Complete the fabrication-readiness phase in the same request."
+        request = Request(
+            f"http://127.0.0.1:{server.server_port}/api/product-development/package",
+            data=json.dumps({"prompt": prompt}).encode(), method="POST",
+            headers={"Content-Type": "application/json", "X-ORCA-Operator-Token": token})
+        with urlopen(request) as response:
+            created = json.load(response)
+        assert created["status"] == "fabrication_readiness_prepared_physical_validation_blocked"
+        # The unit server has no QUENCH runtime, so the independent review file
+        # is the one live artifact intentionally absent here.
+        assert created["artifact_count"] == 27
+        request = Request(
+            f"http://127.0.0.1:{server.server_port}{created['download_url']}",
+            headers={"X-ORCA-Operator-Token": token})
+        with urlopen(request) as response:
+            payload = response.read()
+        archive = tmp_path / "single-request.zip"
+        archive.write_bytes(payload)
+        with zipfile.ZipFile(archive) as bundle:
+            assert "fabrication-readiness.md" in bundle.namelist()
+            assert "owner-execution-checklist.md" in bundle.namelist()
+            assert bundle.testzip() is None
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
 def test_chat_routes_complete_pi5_hat_requests_to_real_package():
     source = Path("orca/static/app.js").read_text()
     assert "function wantsEndToEndProductPackage" in source
