@@ -123,6 +123,13 @@ def test_manual_routes_require_authenticated_orca_identity(tmp_path: Path):
         server.server_close()
 
 
+def test_verified_product_workflow_routes_are_narrowly_allowlisted():
+    assert gateway.allowed_request("POST", "/api/product-development/package")
+    assert gateway.allowed_request("POST", "/api/product-development/fabrication-readiness")
+    assert not gateway.allowed_request("PUT", "/api/product-development/package")
+    assert not gateway.allowed_request("POST", "/api/product-development/arbitrary")
+
+
 def test_gateway_token_file_must_be_owner_only(tmp_path: Path):
     token = tmp_path / "token"
     token.write_text("x" * 48)
