@@ -601,36 +601,46 @@ class OrcaHandler(BaseHTTPRequestHandler):
                 if path == "/api/product-development/package":
                     if set(data) != {"prompt"}:
                         raise ValueError("product package creation requires one prompt")
-                    from .product_package import (
-                        attach_quench_review,
-                        create_pi5_cooling_hat_package,
-                        prepare_fabrication_readiness,
-                        quench_review_prompt,
-                    )
-                    result = create_pi5_cooling_hat_package(
+                    normalized_prompt = " ".join(data["prompt"].casefold().split())
+                    environment_request = any(
+                        marker in normalized_prompt
+                        for marker in ("environment", "humidity", "sht31"))
+                    if environment_request:
+                        from .environment_package import (
+                            attach_environment_quench_review as attach_review,
+                            create_pi5_environment_hat_package as create_package,
+                            environment_quench_prompt as review_prompt,
+                        )
+                    else:
+                        from .product_package import (
+                            attach_quench_review as attach_review,
+                            create_pi5_cooling_hat_package as create_package,
+                            quench_review_prompt as review_prompt,
+                        )
+                    result = create_package(
                         data["prompt"], self._product_artifact_root())
                     if self.server.runtime_gateway is not None:
                         independent = self.server.runtime_gateway.invoke(
                             service_id="kiln_quench", bot_id="quench",
-                            prompt=quench_review_prompt(
+                            prompt=review_prompt(
                                 self._product_artifact_root(), result["package_id"]),
                             use_tool_broker=False,
                         )
-                        result = attach_quench_review(
+                        result = attach_review(
                             self._product_artifact_root(), result["package_id"], independent)
-                    normalized_prompt = " ".join(data["prompt"].casefold().split())
                     if ("fabrication-readiness" in normalized_prompt
-                            or "fabrication readiness" in normalized_prompt):
+                            or "fabrication readiness" in normalized_prompt) and not environment_request:
+                        from .product_package import prepare_fabrication_readiness
                         result = prepare_fabrication_readiness(
                             self._product_artifact_root(), result["project"]["project_id"])
                         if self.server.runtime_gateway is not None:
                             independent = self.server.runtime_gateway.invoke(
                                 service_id="kiln_quench", bot_id="quench",
-                                prompt=quench_review_prompt(
+                                prompt=review_prompt(
                                     self._product_artifact_root(), result["package_id"]),
                                 use_tool_broker=False,
                             )
-                            result = attach_quench_review(
+                            result = attach_review(
                                 self._product_artifact_root(), result["package_id"], independent)
                     return self._json(result, HTTPStatus.CREATED)
                 if path == "/api/product-development/fabrication-readiness":

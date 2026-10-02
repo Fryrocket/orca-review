@@ -451,8 +451,11 @@ function wantsEndToEndProductPackage(prompt) {
   if (typeof prompt !== 'string' || prompt.length > 12000) return false;
   const text = prompt.trim().toLowerCase();
   if (/\b(?:don't|do not|never)\s+(?:create|build|design|make)\b/.test(text)) return false;
+  const supportedElectronics = /\b(?:fan|cooling)\b/.test(text)
+    || (/\b(?:environment|environmental|humidity|temperature|sht31)\b/.test(text)
+      && /\b(?:sensor|status|alarm|monitor)\b/.test(text));
   return /\b(?:raspberry\s*pi\s*5|pi\s*5)\b/.test(text)
-    && /\b(?:hat|board)\b/.test(text) && /\b(?:fan|cooling)\b/.test(text)
+    && /\b(?:hat|board)\b/.test(text) && supportedElectronics
     && /\b(?:complete|completion|end[- ]to[- ]end|a[- ]to[- ]z|production[- ]ready|all\s+(?:tools|processes|tabs|workspaces))\b/.test(text);
 }
 
@@ -489,13 +492,14 @@ async function generateProductPackage(prompt) {
   note.textContent = `ORCA created tracked project ${result.project.project_id} with ${result.artifact_count} real artifacts, ${reviewLabel}, and verified the package SHA-256 ${result.zip_sha256.slice(0, 16)}…. ${functionalProof} Manufacturing release remains blocked by ${result.review.blocking_evidence.join(', ')}.`;
   const download = document.createElement('button'); download.type = 'button';
   download.className = 'chat-image-download'; download.textContent = 'Download complete design package';
-  download.addEventListener('click', () => downloadManualArtifact(result.download_url, 'ORCA-Pi5-Cooling-HAT.zip'));
+  download.addEventListener('click', () => downloadManualArtifact(result.download_url, result.archive_filename || 'ORCA-Electronics-Project.zip'));
   const manifest = document.createElement('button'); manifest.type = 'button';
   manifest.className = 'chat-image-download'; manifest.textContent = 'Download evidence manifest';
   manifest.addEventListener('click', () => downloadManualArtifact(result.manifest_url, 'MANIFEST.json'));
   bubble.append(heading, note, download, manifest); item.append(bubble); $('#conversation').append(item);
   $('#conversation').scrollTop = $('#conversation').scrollHeight;
-  return `ORCA created tracked project ${result.project.project_id} and checksum-verified its functional Pi 5 cooling HAT design package (${result.artifact_count} artifacts; ${result.zip_sha256}). Its connected schematic, routed board and fabrication outputs passed the software gate; manufacturing release remains blocked pending physical evidence.`;
+  if (result.manual_content) await exportManualDocument('create product user manual', result.manual_content, item);
+  return `ORCA created tracked project ${result.project.project_id} and checksum-verified its functional electronics design package (${result.artifact_count} artifacts; ${result.zip_sha256}). Its connected schematic, routed board and fabrication outputs passed the software gate; manufacturing release remains blocked pending physical evidence.`;
 }
 
 async function generateFabricationReadiness(projectId) {
