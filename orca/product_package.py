@@ -256,17 +256,38 @@ def create_pi5_cooling_hat_package(prompt: str, root: str | Path) -> dict:
 
 def quench_review_prompt(root: str | Path, package_id: str) -> str:
     package = Path(root).resolve() / package_id
-    material = []
-    for name in ("README.md", "requirements.csv", "BOM.csv", "thermal-calculations.json",
-                 "verification-plan.md", "safety-compliance-review.md",
-                 "manufacturing-readiness.md", "MANIFEST.json"):
-        material.append(f"--- {name} ---\n{(package / name).read_text(encoding='utf-8')}")
+    manifest = json.loads((package / "MANIFEST.json").read_text(encoding="utf-8"))
+    artifacts = [
+        {"name": item["name"], "bytes": item["bytes"],
+         "sha256_prefix": item["sha256"][:16]}
+        for item in manifest.get("artifacts", [])[:40]
+        if isinstance(item, dict)
+        and isinstance(item.get("name"), str)
+        and isinstance(item.get("bytes"), int)
+        and isinstance(item.get("sha256"), str)
+    ]
+    evidence = {
+        "package_id": package_id,
+        "status": manifest.get("status"),
+        "artifacts": artifacts,
+        "requirements": (package / "requirements.csv").read_text(encoding="utf-8")[:1_600],
+        "thermal_calculations": json.loads(
+            (package / "thermal-calculations.json").read_text(encoding="utf-8")),
+        "safety_review": (package / "safety-compliance-review.md").read_text(
+            encoding="utf-8")[:900],
+        "manufacturing_gate": (package / "manufacturing-readiness.md").read_text(
+            encoding="utf-8")[:1_200],
+    }
     return (
         "Independently review this ORCA-generated Raspberry Pi 5 cooling HAT engineering "
-        "package. Check internal consistency, electrical and thermal claims, safety, missing "
-        "evidence, testability, and whether its release block is truthful. Do not claim physical "
-        "testing, certification, or manufacturing readiness. Return the required QUENCH JSON "
-        "contract with exact evidence and the next gate.\n\n" + "\n\n".join(material))[:24_000]
+        "package from the compact, checksum-bound evidence below. Check internal consistency, "
+        "electrical and thermal claims, safety, missing evidence, testability, and whether its "
+        "release block is truthful. Do not claim physical testing, certification, or manufacturing "
+        "readiness. Be concise so the structured result completes: summary at most 400 characters; "
+        "exactly three evidence strings at most 240 characters each; uncertainty at most 240 "
+        "characters; next_gate must be blocked. Return only the required QUENCH JSON contract.\n\n"
+        + json.dumps(evidence, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    )[:8_000]
 
 
 def attach_quench_review(root: str | Path, package_id: str, output: dict) -> dict:

@@ -10,6 +10,7 @@ from orca.product_package import (
     attach_quench_review,
     create_pi5_cooling_hat_package,
     list_product_projects,
+    quench_review_prompt,
 )
 from orca.web import OrcaHTTPServer
 
@@ -39,6 +40,10 @@ def test_pi5_package_creates_real_checksum_verified_artifacts(tmp_path):
 
 def test_quench_review_is_embedded_and_rehashes_the_package(tmp_path):
     initial = create_pi5_cooling_hat_package(PROMPT, tmp_path)
+    prompt = quench_review_prompt(tmp_path, initial["package_id"])
+    assert len(prompt) < 8_000
+    assert "checksum-bound evidence" in prompt
+    assert '"thermal_calculations"' in prompt
     reviewed = attach_quench_review(tmp_path, initial["package_id"], {
         "summary": "Prototype package is internally consistent but correctly blocked.",
         "evidence": ["Physical test evidence is absent."],
