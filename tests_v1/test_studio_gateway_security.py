@@ -4,6 +4,8 @@ import importlib.util
 from http.client import HTTPConnection
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import hashlib
+import hmac
 import os
 import pytest
 import subprocess
@@ -99,6 +101,19 @@ def test_manual_routes_require_authenticated_orca_identity(tmp_path: Path):
         connection.request("POST", "/api/manuals/export", body=body, headers={"Content-Type": "application/json"})
         response = connection.getresponse()
         assert response.status == 401
+        response.read()
+        connection.close()
+
+        session = hmac.new(
+            gateway.Gateway.identity_token.encode(), b"orca-studio-session-v1", hashlib.sha256
+        ).hexdigest()
+        connection = HTTPConnection("127.0.0.1", server.server_port, timeout=3)
+        connection.request("POST", "/api/manuals/export", body=b"{}", headers={
+            "Content-Type": "application/json",
+            "Cookie": f"ORCA_GATEWAY_SESSION={session}",
+        })
+        response = connection.getresponse()
+        assert response.status == 400
         response.read()
         connection.close()
     finally:

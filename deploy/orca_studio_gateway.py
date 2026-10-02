@@ -8,6 +8,7 @@ import hashlib
 import html
 import hmac
 from http.client import HTTPConnection
+from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from ipaddress import ip_address, ip_network
 import json
@@ -288,7 +289,23 @@ class Gateway(BaseHTTPRequestHandler):
             return None
         supplied_identity = self.headers.get("X-ORCA-Identity", "")
         supplied_token = self.headers.get("X-ORCA-Identity-Token", "")
-        if supplied_identity != self.identity or not hmac.compare_digest(supplied_token, self.identity_token):
+        header_authenticated = (
+            supplied_identity == self.identity
+            and hmac.compare_digest(supplied_token, self.identity_token)
+        )
+        cookies = SimpleCookie()
+        try:
+            cookies.load(self.headers.get("Cookie", ""))
+        except Exception:
+            cookies = SimpleCookie()
+        session = cookies.get("ORCA_GATEWAY_SESSION")
+        expected_session = hmac.new(
+            self.identity_token.encode("utf-8"), b"orca-studio-session-v1", hashlib.sha256
+        ).hexdigest()
+        cookie_authenticated = bool(
+            session and hmac.compare_digest(session.value, expected_session)
+        )
+        if not header_authenticated and not cookie_authenticated:
             self.send_error(401, "authenticated ORCA identity required")
             return None
         if self.headers.get("Transfer-Encoding") or len(self.headers.get_all("Content-Length", [])) > 1:
@@ -411,6 +428,14 @@ class Gateway(BaseHTTPRequestHandler):
             for name, value in response.getheaders():
                 if name.lower() not in HOP_BY_HOP | {"content-length"}:
                     self.send_header(name, value)
+            if self.command == "GET" and path == "/" and response.status == 200:
+                session = hmac.new(
+                    self.identity_token.encode("utf-8"), b"orca-studio-session-v1", hashlib.sha256
+                ).hexdigest()
+                self.send_header(
+                    "Set-Cookie",
+                    f"ORCA_GATEWAY_SESSION={session}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400",
+                )
             self.send_header("Content-Length", str(len(payload)))
             self.end_headers()
             if self.command != "HEAD":
