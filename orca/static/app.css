@@ -24,7 +24,7 @@ body {
   margin: 0;
   background:
     linear-gradient(rgb(3 10 14 / .12), rgb(3 10 14 / .3)),
-    url('/moonlit-forest-twilight.png') center center / cover fixed,
+    url('/moonlit-forest-twilight-bright.png') center center / cover fixed,
     var(--bg);
   color: var(--text);
   font: 14px/1.45 Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;

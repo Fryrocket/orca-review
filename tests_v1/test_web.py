@@ -133,17 +133,17 @@ def test_concurrent_health_state_and_business_reads_share_sqlite_safely():
         server.server_close()
 
 
-def test_twilight_forest_background_is_served_as_an_image():
+def test_bright_twilight_forest_background_is_served_as_an_image():
     server = OrcaHTTPServer(("127.0.0.1", 0), ControlPlane())
     Thread(target=server.serve_forever, daemon=True).start()
     try:
         with urlopen(
-            f"http://127.0.0.1:{server.server_port}/moonlit-forest-twilight.png"
+            f"http://127.0.0.1:{server.server_port}/moonlit-forest-twilight-bright.png"
         ) as response:
             assert response.headers["Content-Type"] == "image/png"
             assert response.read(8) == b"\x89PNG\r\n\x1a\n"
         css = (STATIC_ROOT / "app.css").read_text()
-        assert "url('/moonlit-forest-twilight.png')" in css
+        assert "url('/moonlit-forest-twilight-bright.png')" in css
     finally:
         server.shutdown()
         server.server_close()
