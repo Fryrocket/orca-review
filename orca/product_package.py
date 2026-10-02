@@ -303,6 +303,10 @@ def attach_quench_review(root: str | Path, package_id: str, output: dict) -> dic
     review["independent_reviewer"] = "QUENCH"
     review["quench_next_gate"] = output.get("next_gate")
     review["result"] = "prototype_package_independently_reviewed_manufacturing_release_blocked"
+    review["blocking_evidence"] = [
+        item for item in review.get("blocking_evidence", [])
+        if item != "independent QUENCH review"
+    ]
     (package / "REVIEW.json").write_text(json.dumps(review, indent=2), encoding="utf-8")
     prior_project = json.loads((package / "PROJECT.json").read_text(encoding="utf-8"))
     project = _project_record(

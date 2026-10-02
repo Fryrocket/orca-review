@@ -52,6 +52,7 @@ def test_quench_review_is_embedded_and_rehashes_the_package(tmp_path):
     })
     assert reviewed["review"]["independent_authoring"] is True
     assert reviewed["review"]["independent_reviewer"] == "QUENCH"
+    assert "independent QUENCH review" not in reviewed["review"]["blocking_evidence"]
     assert reviewed["project"]["independently_reviewed"] is True
     assert reviewed["zip_sha256"] != initial["zip_sha256"]
     with zipfile.ZipFile(tmp_path / initial["package_id"] / "ORCA-Pi5-Cooling-HAT.zip") as bundle:
