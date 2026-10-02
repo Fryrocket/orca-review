@@ -55,6 +55,11 @@ _ENGINEERING_REQUEST = re.compile(
     r"shaft|buck|boost|filter|frequency|impedance|engineering)\b",
     re.IGNORECASE,
 )
+_USER_MANUAL_REQUEST = re.compile(
+    r"\b(?:orca\s+)?user\s+manual\b|\bmanual\b.*\borca\b|"
+    r"\bdetailed\s+(?:description|guide)\b.*\borca\b",
+    re.IGNORECASE,
+)
 
 
 def tool_request_relevant(name: str, prompt: str) -> bool:
@@ -324,6 +329,29 @@ class SandboxedOpenAIAdapter:
                 for name in BOT_PROGRAMS[bot_id].tools
                 if name in tool_broker.handlers and name in TOOL_ARGUMENT_SCHEMAS
             }
+            # Self-documentation has one compact authoritative source. Route it
+            # deterministically instead of asking the model to choose among the
+            # full catalog, where it can select several overlapping tools and
+            # overflow the final prompt with duplicated evidence.
+            if ("studio.user_manual_source" in available
+                    and _USER_MANUAL_REQUEST.search(prompt)):
+                results = tool_broker.execute(
+                    bot_id=bot_id,
+                    requests=[ToolRequest("studio.user_manual_source", {})],
+                )
+                prompt = (
+                    prompt + "\n\nVerified authoritative ORCA manual source:\n"
+                    + json.dumps(
+                        [{"name": result.name, "output": result.output}
+                         for result in results],
+                        sort_keys=True, separators=(",", ":"), allow_nan=False,
+                    )
+                    + "\nUse this source for capability and status claims. Write the "
+                      "requested manual itself in summary, not a synopsis of it."
+                )
+                if len(prompt) > self.max_prompt_chars:
+                    raise ValueError("manual source exceeds the local runtime prompt limit")
+                available = {}
             if available:
                 item_schema = {
                     "type": "object", "properties": {

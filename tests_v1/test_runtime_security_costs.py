@@ -413,6 +413,40 @@ def test_openai_adapter_keeps_relevant_requested_math():
     assert executions == [{"expression": "37*48-119"}]
 
 
+def test_orca_manual_uses_only_compact_authoritative_source():
+    executions = []
+    broker = ReadOnlyToolBroker({
+        "studio.user_manual_source": lambda: executions.append("manual") or {
+            "title": "ORCA User Manual authoritative source",
+            "status": {"live": ["Studio"]},
+        },
+        "studio.capabilities": lambda **arguments: executions.append("capabilities") or {
+            "oversized": "should not run",
+        },
+    })
+    calls = []
+    final = {"summary": "# ORCA User Manual\n\nActual manual content.",
+             "evidence": ["studio.user_manual_source"],
+             "uncertainty": "none", "next_gate": "none"}
+    adapter = SandboxedOpenAIAdapter(
+        endpoint="http://127.0.0.1:11437/v1/chat/completions",
+        allowed_models=("ORCA-CODEX",),
+        transport=lambda url, payload, timeout: calls.append(payload) or {
+            "choices": [{"message": {"content": __import__("json").dumps(final)}}]
+        },
+    )
+    result = adapter.invoke(
+        bot_id="orca", model="ORCA-CODEX",
+        prompt="Create the complete ORCA user manual now.", tool_broker=broker)
+    assert result == final
+    assert executions == ["manual"]
+    assert len(calls) == 1
+    rendered = calls[0]["messages"][-1]["content"]
+    assert "Verified authoritative ORCA manual source" in rendered
+    assert "studio.user_manual_source" in rendered
+    assert "studio.capabilities" not in rendered
+
+
 def test_orca_conversation_is_in_scope_without_expanding_action_authority():
     prompt = PROMPT_CONTRACTS["orca"].system
     assert "ordinary conversation, general knowledge, creative ideas, and advice are in scope" in prompt
