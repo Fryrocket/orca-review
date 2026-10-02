@@ -923,4 +923,44 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   next security release, followed by regression, negative permission tests,
   external acceptance and another five-node endurance run.
 
+## KILN autonomous desktop recovery — 2026-10-02
+
+- A request to hide GNOME's top panel exposed an unacceptable operational
+  dependency: the third-party Hide Top Bar extension required a shell/session
+  reload, while GDM automatic login cannot automatically unlock an encrypted
+  login keyring. The attempted shell reload ended the graphical session, but
+  KILN did not reboot and ORCA's login-independent services remained healthy.
+- The third-party extension was disabled and completely uninstalled. KILN now
+  uses stock GNOME. The top panel is hidden only by running KILN Studio as a
+  normal full-screen application; `F11` restores a window. No ORCA action or
+  remote maintenance path now reloads GNOME to change display chrome.
+- KILN Studio is supervised by the graphical user service manager through
+  `~/.config/systemd/user/kiln-studio.service`. It starts with the graphical
+  session, restarts after an application failure in three seconds, stops with
+  that session, and retries the login-free Studio gateway every five seconds
+  when the gateway is temporarily unavailable. Chrome is not part of ORCA's
+  autonomous startup path.
+- The repair passed **41/41** focused desktop tests and the complete ORCA
+  regression passed **1,155/1,155**. Source commits are `f4b482f` and
+  `ee3629b`; installed rollback checkpoints are retained under
+  `/home/fryrocket/.local/share/orca-rollback/20261002T143934Z` and
+  `/home/fryrocket/.local/share/orca-rollback/20261002T144415Z`.
+- Live recovery evidence passed three layers: KILN Studio started in isolated
+  preflight; a forced Studio process failure restarted from PID 438821 to
+  439176 with ORCA and all core services active; and a brief Studio-gateway
+  outage preserved the Studio PID and recovered healthy service automatically.
+  A final GDM-only recovery cycle returned an active, unlocked X11 session,
+  started supervised KILN Studio at PID 440504, and verified its window at the
+  full 1920x1080 display size. ORCA reported `healthy` with valid integrity,
+  the Hide Top Bar extension was absent, and the gateway, FORGE tunnel and
+  KILN node services were active.
+- The old encrypted keyring was not destroyed; preserved copies remain under
+  `~/.local/share/keyrings/` with the `locked-backup-20261002T0929` and
+  `retired-20261002T0929` suffixes. A new login keyring exists, but automatic
+  login intentionally leaves GUI secrets locked after a session restart.
+  Autonomous ORCA operation no longer depends on that keyring. The owner must
+  still replace the temporary KILN account password privately; browser-stored
+  credentials remain an owner-unlock path until the planned non-GUI credential
+  broker is implemented and accepted.
+
 END STATE.md — AS OF 2026-10-02
