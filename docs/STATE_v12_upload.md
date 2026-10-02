@@ -1175,4 +1175,48 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   hardware. Exact fit, received-part pinout/keying, bench power/PWM/tach/fault
   behavior and thermal soak remain mandatory physical gates.
 
+## ORCA environmental electronics A-to-Z acceptance — 2026-10-02
+
+- A one-message black-box ORCA Studio run created real tracked project
+  `orca_pi5_environment_hat_3334934aae57eb4b` for a Raspberry Pi 5
+  Environmental Status HAT. ORCA, not the outside engineering session,
+  generated and registered the complete software/design package, invoked
+  QUENCH, exported the manual through LibreOffice Writer on KILN and returned
+  four working download controls.
+- The package contains 39 manifest-tracked artifacts plus the ZIP: connected
+  KiCad schematic and four-layer routed PCB, exact Pi pin map, SHT31-DIS,
+  discrete common-cathode RGB indication, 2N7000 low-current open-drain alarm,
+  CAT24C32 HAT+ identity circuit, BOM/alternates, calculations, CRC-validating
+  reference firmware, fabrication Gerbers for all copper layers, separate
+  PTH/NPTH drill outputs, placement data, assembly/manufacturing/test guidance,
+  user manual, review packet, evidence and checksums.
+- Independent deterministic verification reports **0 DRC violations, 0
+  unconnected pads, 0 footprint errors and 0 ERC errors**. The ZIP contains 40
+  readable entries with no integrity failure. Final package SHA-256 is
+  `041a16b06a47f9d91519bd54dbb3f5eb1595b2130495ae468648d3f1dab3957e`;
+  manifest SHA-256 is
+  `637847314c21097b93d9b5d4cfc687e0bda441bac9cdfefbff9f98731bb9bc2f`.
+- The first independent review was rejected after it claimed the BOM omitted
+  parts that were visibly present. ORCA now supplies QUENCH the actual bounded
+  BOM and pin map and refuses to accept findings contradicted by deterministic
+  package evidence. The final review has no evidence contradictions and keeps
+  manufacturing blocked on real received-part verification, mechanical fit,
+  bench electrical/alarm testing, sensor calibration and environmental test.
+- KILN's LibreOffice broker created a genuine two-page PDF and editable ODT.
+  PDF SHA-256 is
+  `3c81bfdcb0f48f0a239acaa7df81236241ad4bcd2dd847ae9fad0ad3422ac02c`;
+  ODT SHA-256 is
+  `446eca8306737da3e94c75d6ab4ba8efc03413db3af81d8e9c2902b0c5a7da2d`.
+  The converter, FORGE ORCA and KILN Studio gateway are active with zero
+  automatic restart failures.
+- The full regression passes **1,186/1,186**. Live FORGE release is
+  `/opt/orca/releases/environment-hat-20261002-fdce32f`; prior immutable
+  releases remain available for rollback. KILN's narrow gateway allowlist now
+  admits only the verified product creation/readiness endpoints and strict
+  checksum-shaped ZIP/manifest download paths.
+- Status is
+  `functional_design_independently_reviewed_physical_validation_blocked`.
+  This passes the autonomous software/design and document-delivery test. It is
+  not a claim that fabricated hardware has been physically proven.
+
 END STATE.md — AS OF 2026-10-02
