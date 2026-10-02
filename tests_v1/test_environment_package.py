@@ -58,8 +58,22 @@ def test_environment_hat_quench_review_is_embedded(tmp_path):
     })
     assert reviewed["project"]["independently_reviewed"] is True
     assert reviewed["review"]["independent_reviewer"] == "QUENCH"
+    assert reviewed["review"]["quench_evidence_contradictions"] == []
     with zipfile.ZipFile(tmp_path / initial["package_id"] / initial["archive_filename"]) as bundle:
         assert "QUENCH-REVIEW.json" in bundle.namelist()
+
+
+def test_environment_hat_rejects_review_claims_contradicted_by_package(tmp_path):
+    initial = create_pi5_environment_hat_package(PROMPT, tmp_path)
+    reviewed = attach_environment_quench_review(tmp_path, initial["package_id"], {
+        "summary": "BOM/SHT31 mismatch: BOM lacks SHT31 and no pull-up resistors are present.",
+        "evidence": ["BOM omits SHT31.", "No pull-up resistors.", "Physical tests pending."],
+        "uncertainty": "Physical behavior remains unproven.",
+        "next_gate": "blocked",
+    })
+    assert reviewed["project"]["independently_reviewed"] is False
+    assert reviewed["review"]["result"] == "independent_review_conflict_blocked"
+    assert reviewed["review"]["quench_evidence_contradictions"]
 
 
 def test_environment_request_uses_product_endpoint_and_real_download(tmp_path):

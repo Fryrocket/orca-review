@@ -274,28 +274,57 @@ def environment_quench_prompt(root: str | Path, package_id: str) -> str:
     manifest = json.loads((package / "MANIFEST.json").read_text(encoding="utf-8"))
     evidence = {
         "project": json.loads((package / "PROJECT.json").read_text(encoding="utf-8")),
-        "artifacts": [{"name": x["name"], "bytes": x["bytes"], "sha256_prefix": x["sha256"][:16]} for x in manifest["artifacts"][:45]],
-        "requirements": (package / "requirements.csv").read_text(encoding="utf-8")[:1800],
-        "calculations": (package / "power-and-interface-calculations.md").read_text(encoding="utf-8")[:1500],
-        "drc": (package / "pcb-drc.rpt").read_text(encoding="utf-8")[:900],
-        "erc": (package / "schematic-erc.rpt").read_text(encoding="utf-8")[:900],
-        "manufacturing_gate": (package / "manufacturing-readiness.md").read_text(encoding="utf-8")[:1200],
+        "artifact_names": [x["name"] for x in manifest["artifacts"][:45]],
+        "manifest_sha256": _digest(package / "MANIFEST.json"),
+        "requirements": (package / "requirements.csv").read_text(encoding="utf-8")[:1200],
+        "bom": (package / "BOM.csv").read_text(encoding="utf-8")[:1500],
+        "pin_map": (package / "pin-map.csv").read_text(encoding="utf-8")[:900],
+        "calculations": (package / "power-and-interface-calculations.md").read_text(encoding="utf-8")[:1000],
+        "drc": (package / "pcb-drc.rpt").read_text(encoding="utf-8")[-700:],
+        "erc": (package / "schematic-erc.rpt").read_text(encoding="utf-8")[-500:],
+        "manufacturing_gate": (package / "manufacturing-readiness.md").read_text(encoding="utf-8")[:800],
     }
-    return ("Independently review this checksum-bound Raspberry Pi 5 environmental HAT package. Check schematic/PCB/BOM consistency, SHT31 and HAT+ requirements, GPIO safety, alarm limits, evidence truthfulness and missing physical proof. Never claim fabrication, calibration, certification or physical testing. Be concise: summary <=400 characters; exactly three evidence strings <=240 characters; uncertainty <=240 characters; next_gate must be blocked. Return only the required QUENCH JSON contract.\n\n" + json.dumps(evidence, sort_keys=True, separators=(",", ":")))[:7900]
+    return ("Independently review this checksum-bound Raspberry Pi 5 environmental HAT package. Check schematic/PCB/BOM consistency, SHT31 and HAT+ requirements, GPIO safety, alarm limits, evidence truthfulness and missing physical proof. The supplied BOM and pin map are authoritative package evidence: do not claim a part or pull-up is absent when it is listed there. The open-drain alarm intentionally has no onboard output pull-up; external voltage/current must be verified at the physical gate. ERC library warnings concern the checker environment and are not proof that embedded symbols or components are absent. Never claim fabrication, calibration, certification or physical testing. Be concise: summary <=400 characters; exactly three evidence strings <=240 characters; uncertainty <=240 characters; next_gate must be blocked. Return only the required QUENCH JSON contract.\n\n" + json.dumps(evidence, sort_keys=True, separators=(",", ":")))[:7900]
+
+
+def _review_contradictions(package: Path, output: dict) -> list[str]:
+    text = json.dumps(output, sort_keys=True).casefold()
+    bom = (package / "BOM.csv").read_text(encoding="utf-8").casefold()
+    schematic = (package / "pi5-environment-hat.kicad_sch").read_text(encoding="utf-8").casefold()
+    contradictions: list[str] = []
+    if ("bom lacks sht31" in text or "bom/sht31 mismatch" in text or "omits sht31" in text) and "sht31" in bom:
+        contradictions.append("QUENCH claimed SHT31 was absent from BOM, but U1 lists SHT31-DIS-B2.5kS")
+    pullup_absence = any(phrase in text for phrase in (
+        "no pull-up resistors", "no pullups", "no pull-ups", "pull-up resistors or external pull-up",
+    ))
+    if pullup_absence and "10k optional i2c pull-up" in bom and "100k gate pulldown" in bom:
+        contradictions.append("QUENCH claimed pull resistors were absent, but BOM and schematic contain R1/R2 and R7")
+    if "no pull-up resistors" in text and "10k dnp" in schematic:
+        contradictions.append("QUENCH contradicted the connected 10k DNP I2C pull-up footprints")
+    return contradictions
 
 
 def attach_environment_quench_review(root: str | Path, package_id: str, output: dict) -> dict:
     if not isinstance(output, dict) or not isinstance(output.get("summary"), str):
         raise ValueError("QUENCH review output is invalid")
     package = Path(root).resolve() / package_id
+    contradictions = _review_contradictions(package, output)
     (package / "QUENCH-REVIEW.json").write_text(json.dumps(output, indent=2, sort_keys=True), encoding="utf-8")
     review = json.loads((package / "REVIEW.json").read_text(encoding="utf-8"))
-    review.update({"independent_authoring": True, "independent_reviewer": "QUENCH", "quench_next_gate": output.get("next_gate")})
-    review["result"] = "functional_design_independently_reviewed_physical_validation_blocked"
-    review["blocking_evidence"] = [x for x in review["blocking_evidence"] if x != "independent QUENCH review"]
+    review.update({"independent_authoring": not contradictions, "independent_reviewer": "QUENCH",
+                   "quench_next_gate": output.get("next_gate"),
+                   "quench_evidence_contradictions": contradictions})
+    if contradictions:
+        review["result"] = "independent_review_conflict_blocked"
+        review["blocking_evidence"] = ["independent review evidence conflict", *[
+            x for x in review["blocking_evidence"] if x != "independent QUENCH review"]]
+    else:
+        review["result"] = "functional_design_independently_reviewed_physical_validation_blocked"
+        review["blocking_evidence"] = [x for x in review["blocking_evidence"] if x != "independent QUENCH review"]
     (package / "REVIEW.json").write_text(json.dumps(review, indent=2), encoding="utf-8")
     project = json.loads((package / "PROJECT.json").read_text(encoding="utf-8"))
-    project.update({"updated_at": datetime.now(timezone.utc).isoformat(), "status": review["result"], "independently_reviewed": True})
+    project.update({"updated_at": datetime.now(timezone.utc).isoformat(), "status": review["result"],
+                    "independently_reviewed": not contradictions})
     (package / "PROJECT.json").write_text(json.dumps(project, indent=2), encoding="utf-8")
     excluded = {"MANIFEST.json", _ARCHIVE}
     records = [{"name": p.name, "bytes": p.stat().st_size, "sha256": _digest(p)}
