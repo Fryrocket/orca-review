@@ -10,6 +10,7 @@ from orca.product_package import (
     attach_quench_review,
     create_pi5_cooling_hat_package,
     list_product_projects,
+    prepare_fabrication_readiness,
     quench_review_prompt,
 )
 from orca.web import OrcaHTTPServer
@@ -62,6 +63,29 @@ def test_quench_review_is_embedded_and_rehashes_the_package(tmp_path):
         assert json.loads(bundle.read("REVIEW.json"))["independent_authoring"] is True
 
 
+def test_fabrication_readiness_extends_existing_project_without_fake_results(tmp_path):
+    initial = create_pi5_cooling_hat_package(PROMPT, tmp_path)
+    result = prepare_fabrication_readiness(
+        tmp_path, initial["project"]["project_id"])
+    package = tmp_path / initial["package_id"]
+    assert result["status"] == "fabrication_readiness_prepared_physical_validation_blocked"
+    assert result["review"]["fabrication_readiness"]["physical_measurements_claimed"] is False
+    with zipfile.ZipFile(package / "ORCA-Pi5-Cooling-HAT.zip") as bundle:
+        names = set(bundle.namelist())
+        assert {"fabrication-readiness.md", "mechanical-fit-inspection.md",
+                "bench-electrical-test.md", "thermal-soak-procedure.md",
+                "instrumentation-list.csv", "acceptance-matrix.csv",
+                "evidence-rules.md", "owner-execution-checklist.md"} <= names
+        assert bundle.testzip() is None
+        matrix = bundle.read("acceptance-matrix.csv").decode()
+        assert "PENDING" in matrix
+        assert "PASSED" not in matrix
+    manifest = json.loads((package / "MANIFEST.json").read_text())
+    assert all((package / item["name"]).is_file() for item in manifest["artifacts"])
+    assert all(sha256((package / item["name"]).read_bytes()).hexdigest() == item["sha256"]
+               for item in manifest["artifacts"])
+
+
 def test_product_package_http_create_and_authenticated_download(tmp_path):
     token = "p" * 32
     control = ControlPlane()
@@ -95,6 +119,9 @@ def test_chat_routes_complete_pi5_hat_requests_to_real_package():
     assert "Download complete design package" in source
     assert "manufacturing release remains blocked" in source
     assert "tracked project" in source
+    assert "function fabricationReadinessProject" in source
+    assert "'/api/product-development/fabrication-readiness'" in source
+    assert "Download updated readiness package" in source
     assert "use_tool_broker=False" in Path("orca/web.py").read_text()
     runtime = Path("orca/runtime.py").read_text()
     assert 'else 2_048' in runtime

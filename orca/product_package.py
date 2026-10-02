@@ -16,6 +16,7 @@ from .security import redact_text
 MAX_PROMPT = 12_000
 _PACKAGE = re.compile(r"^[a-f0-9]{64}$")
 _ARTIFACT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
+_PROJECT_ID = re.compile(r"^orca_pi5_cooling_hat_[a-f0-9]{16}$")
 
 
 def _digest(path: Path) -> str:
@@ -282,6 +283,12 @@ def quench_review_prompt(root: str | Path, package_id: str) -> str:
         "manufacturing_gate": (package / "manufacturing-readiness.md").read_text(
             encoding="utf-8")[:1_200],
     }
+    readiness = package / "fabrication-readiness.md"
+    if readiness.is_file():
+        evidence["fabrication_readiness"] = readiness.read_text(
+            encoding="utf-8")[:1_500]
+        evidence["acceptance_matrix"] = (package / "acceptance-matrix.csv").read_text(
+            encoding="utf-8")[:1_200]
     return (
         "Independently review this ORCA-generated Raspberry Pi 5 cooling HAT engineering "
         "package from the compact, checksum-bound evidence below. Check internal consistency, "
@@ -308,7 +315,12 @@ def attach_quench_review(root: str | Path, package_id: str, output: dict) -> dic
     review["independent_authoring"] = True
     review["independent_reviewer"] = "QUENCH"
     review["quench_next_gate"] = output.get("next_gate")
-    review["result"] = "prototype_package_independently_reviewed_manufacturing_release_blocked"
+    readiness_prepared = (package / "fabrication-readiness.md").is_file()
+    review["result"] = (
+        "fabrication_readiness_prepared_physical_validation_blocked"
+        if readiness_prepared else
+        "prototype_package_independently_reviewed_manufacturing_release_blocked"
+    )
     review["blocking_evidence"] = [
         item for item in review.get("blocking_evidence", [])
         if item != "independent QUENCH review"
@@ -341,6 +353,97 @@ def attach_quench_review(root: str | Path, package_id: str, output: dict) -> dic
         "manifest_url": f"/api/product-development/packages/{package_id}/MANIFEST.json",
         "project": project,
         "review": review,
+    }
+
+
+def prepare_fabrication_readiness(root: str | Path, project_id: str) -> dict:
+    """Add truthful physical-validation procedures to an existing ORCA project."""
+
+    if not isinstance(project_id, str) or not _PROJECT_ID.fullmatch(project_id):
+        raise ValueError("fabrication-readiness project id is invalid")
+    base = Path(root).resolve()
+    package = None
+    project = None
+    for candidate in base.glob("*/PROJECT.json"):
+        try:
+            record = json.loads(candidate.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            continue
+        if isinstance(record, dict) and record.get("project_id") == project_id:
+            package = candidate.parent
+            project = record
+            break
+    if package is None or project is None:
+        raise FileNotFoundError(project_id)
+
+    files = {
+        "fabrication-readiness.md": """# Fabrication-readiness gate\n\nStatus: SOFTWARE PREPARATION COMPLETE; PHYSICAL VALIDATION BLOCKED.\n\nORCA has prepared the controlled procedures, evidence forms, limits and acceptance matrix. No physical measurement is recorded or implied. The project may advance only after the assembled HAT is tested and each result is signed and checksum-bound.\n\n## Stop conditions\n\nStop power immediately for smoke, odor, visible heating, unstable 5 V, reverse fan rotation, fan stall, current above 1.0 A, SoC temperature above 90 C, or missing tachometer response for 30 seconds while commanded above 35 percent duty.\n\n## Required sequence\n\n1. Mechanical fit and unpowered continuity.\n2. Current-limited first power.\n3. PWM, tachometer and fault-injection bench tests.\n4. Controlled thermal soak.\n5. Evidence hashing and owner sign-off.\n6. QUENCH review of measured evidence before manufacturing release.\n""",
+        "mechanical-fit-inspection.md": """# Mechanical-fit inspection and evidence form\n\nProject: ORCA Pi 5 Active-Cooling HAT\nResult: PENDING PHYSICAL HARDWARE\n\n- [ ] Correct GPIO orientation and full connector seating\n- [ ] Four mounting holes align without board flex\n- [ ] Standoff height measured and recorded\n- [ ] Fan guard and blades have at least 3 mm clearance\n- [ ] Heatsink, CSI/DSI, PoE/fan header and cables remain accessible\n- [ ] Air inlet and exhaust remain unobstructed in the intended enclosure\n- [ ] Photographs include scale and project/revision identifier\n\nRecord measured offsets, minimum clearances, instrument/scale used, date, operator and evidence filenames. Any forced fit, connector interference or blade/cable contact is a fail.\n""",
+        "bench-electrical-test.md": """# Bench electrical, PWM, tachometer and fault test\n\nResult: PENDING PHYSICAL HARDWARE\n\nUse a current-limited 5 V supply for first power. Verify unpowered resistance from 5V_FUSED to GND and connector pin order before attaching the fan. Record supply voltage, inrush current and steady current. Scope PWM at 0, 35, 55, 75 and 100 percent command; frequency shall be 25 kHz within 5 percent and the fan response shall be monotonic. Verify tach input never exceeds 3.3 V and record frequency/RPM. Disconnect temperature input and stop the control process separately; each fault must command 100 percent fan. Open tach for 30 seconds above 35 percent command and verify the declared safe response. Stop on any fabrication-readiness stop condition.\n\nFor every step record timestamp, instrument make/model/serial, calibration status, setup photograph, raw reading or trace filename, expected range, pass/fail and operator initials.\n""",
+        "thermal-soak-procedure.md": """# Controlled thermal-soak procedure\n\nResult: PENDING PHYSICAL HARDWARE\n\nMeasure ambient temperature and use the final Pi, heatsink, fan, enclosure and intended sustained workload. Log ambient, SoC temperature, duty, RPM, 5 V current and throttling flags every two seconds. Stabilize at idle, then run at least 30 minutes at sustained load and maximum intended ambient. Pass requires SoC below 80 C, no thermal throttling, stable tach response, no stop condition and repeatable cooldown. Abort immediately above 90 C, on fan stall, current above 1.0 A, unstable power, odor or visible heating. Preserve the raw log; summaries alone are not evidence.\n""",
+        "instrumentation-list.csv": _csv([
+            ["Instrument", "Minimum capability", "Evidence required"],
+            ["Digital multimeter", "DC voltage/current and resistance", "make/model/serial and calibration status"],
+            ["Oscilloscope or logic analyzer", "100 MHz or adequate 25 kHz PWM/tach capture", "raw traces and setup photograph"],
+            ["Current-limited 5 V supply", "at least 2 A with adjustable limit", "limit, voltage and current log"],
+            ["Temperature logger", "SoC/ambient capture at 2 second interval", "raw CSV and sensor placement photograph"],
+            ["Mechanical scale or caliper", "0.1 mm resolution or better", "clearance measurements and photographs"],
+        ]),
+        "acceptance-matrix.csv": _csv([
+            ["Gate", "Acceptance criterion", "State", "Evidence"],
+            ["Mechanical alignment", "GPIO and four mounts align without stress", "PENDING", "measurements and photographs"],
+            ["Clearance", "fan blades/guard at least 3 mm from obstructions", "PENDING", "caliper readings and photographs"],
+            ["Power", "stable 5 V; current below 1.0 A stop limit", "PENDING", "supply log"],
+            ["PWM", "25 kHz within 5 percent; monotonic response", "PENDING", "scope traces"],
+            ["Tach", "at most 3.3 V and plausible RPM", "PENDING", "scope traces and calculation"],
+            ["Failsafe", "temperature/process faults command 100 percent", "PENDING", "fault log and traces"],
+            ["Thermal", "below 80 C; no throttling for 30 minutes", "PENDING", "raw two-second log"],
+            ["Evidence", "all files named and SHA-256 hashed", "PENDING", "signed evidence manifest"],
+        ]),
+        "evidence-rules.md": """# Physical evidence rules\n\nStore evidence under a revision-specific directory. Name each file `ORCA_<PROJECT>_<GATE>_<UTC-DATE>_<SEQUENCE>.<ext>`. Preserve original instrument exports and photographs. Create a SHA-256 manifest after collection; never edit a file after hashing. The manifest must include project ID, hardware revision, operator, UTC timestamps, instrument identities and every file hash. QUENCH may review copies, but release decisions must reference the immutable manifest. Missing, edited, ambiguous or summary-only evidence leaves the gate blocked.\n""",
+        "owner-execution-checklist.md": """# Owner physical-validation checklist\n\n- [ ] Confirm exact hardware revision and fan connector pinout\n- [ ] Complete mechanical inspection and photographs\n- [ ] Complete unpowered continuity and current-limited first power\n- [ ] Capture PWM and tach traces at every commanded duty\n- [ ] Perform temperature-source, process-stop and tach-loss fault tests\n- [ ] Complete the controlled thermal soak with raw two-second logging\n- [ ] Hash all evidence and sign the manifest\n- [ ] Submit the evidence set to ORCA for independent QUENCH review\n- [ ] Release only if every acceptance-matrix row passes\n\nUntil these boxes are supported by physical evidence, manufacturing release remains blocked.\n""",
+    }
+    for name, content in files.items():
+        (package / name).write_text(content, encoding="utf-8")
+
+    now = datetime.now(timezone.utc).isoformat()
+    status = "fabrication_readiness_prepared_physical_validation_blocked"
+    project.update({"updated_at": now, "status": status,
+                    "manufacturing_release": "blocked_pending_physical_evidence"})
+    (package / "PROJECT.json").write_text(json.dumps(project, indent=2), encoding="utf-8")
+    review_path = package / "REVIEW.json"
+    review = json.loads(review_path.read_text(encoding="utf-8"))
+    review["result"] = status
+    review["fabrication_readiness"] = {
+        "software_preparation_complete": True,
+        "physical_measurements_claimed": False,
+        "physical_validation": "pending_owner_present_hardware",
+    }
+    review["blocking_evidence"] = [
+        "mechanical fit measurements", "bench electrical/PWM/tach/fault results",
+        "thermal soak measurements",
+    ]
+    review_path.write_text(json.dumps(review, indent=2), encoding="utf-8")
+    records = []
+    for path in sorted(package.iterdir()):
+        if path.is_file() and path.name not in {"MANIFEST.json", "ORCA-Pi5-Cooling-HAT.zip"}:
+            records.append({"name": path.name, "bytes": path.stat().st_size,
+                            "sha256": _digest(path)})
+    manifest = {"schema": 1, "package_id": project["package_id"],
+                "created_at": now, "status": status, "artifacts": records}
+    (package / "MANIFEST.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    zip_path = package / "ORCA-Pi5-Cooling-HAT.zip"
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for path in sorted(package.iterdir()):
+            if path.is_file() and path != zip_path:
+                archive.write(path, path.name)
+    return {
+        "package_id": project["package_id"], "project_id": project_id,
+        "status": status, "artifact_count": len(records) + 1,
+        "zip_sha256": _digest(zip_path), "zip_bytes": zip_path.stat().st_size,
+        "download_url": f"/api/product-development/packages/{project['package_id']}/ORCA-Pi5-Cooling-HAT.zip",
+        "manifest_url": f"/api/product-development/packages/{project['package_id']}/MANIFEST.json",
+        "project": project, "review": review,
     }
 
 

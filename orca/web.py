@@ -584,7 +584,7 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     "nonce": heartbeat.nonce,
                     "status": "accepted",
                 }, HTTPStatus.OK)
-            if path in {"/api/inference", "/api/chat", "/api/memory", "/api/science", "/api/engineering", "/api/project/plan", "/api/cad/pcb-draft", "/api/product-development/package", "/api/temper/inventory-dataset/plan", "/api/business/muse/handoff", "/api/business/muse/email-handoff", "/api/solo-operator/action-plan", "/api/solo-operator/snapshot"}:
+            if path in {"/api/inference", "/api/chat", "/api/memory", "/api/science", "/api/engineering", "/api/project/plan", "/api/cad/pcb-draft", "/api/product-development/package", "/api/product-development/fabrication-readiness", "/api/temper/inventory-dataset/plan", "/api/business/muse/handoff", "/api/business/muse/email-handoff", "/api/solo-operator/action-plan", "/api/solo-operator/snapshot"}:
                 try:
                     authenticated_identity = self._authenticate_mutation()
                 except IdentityAuthenticationError as exc:
@@ -608,6 +608,26 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     )
                     result = create_pi5_cooling_hat_package(
                         data["prompt"], self._product_artifact_root())
+                    if self.server.runtime_gateway is not None:
+                        independent = self.server.runtime_gateway.invoke(
+                            service_id="kiln_quench", bot_id="quench",
+                            prompt=quench_review_prompt(
+                                self._product_artifact_root(), result["package_id"]),
+                            use_tool_broker=False,
+                        )
+                        result = attach_quench_review(
+                            self._product_artifact_root(), result["package_id"], independent)
+                    return self._json(result, HTTPStatus.CREATED)
+                if path == "/api/product-development/fabrication-readiness":
+                    if set(data) != {"project_id"}:
+                        raise ValueError("fabrication-readiness requires one project id")
+                    from .product_package import (
+                        attach_quench_review,
+                        prepare_fabrication_readiness,
+                        quench_review_prompt,
+                    )
+                    result = prepare_fabrication_readiness(
+                        self._product_artifact_root(), data["project_id"])
                     if self.server.runtime_gateway is not None:
                         independent = self.server.runtime_gateway.invoke(
                             service_id="kiln_quench", bot_id="quench",
