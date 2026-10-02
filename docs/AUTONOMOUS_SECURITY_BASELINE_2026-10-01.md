@@ -149,3 +149,20 @@ evidence. The audit receives no production credentials, secrets, write access,
 service control, purchasing, publishing or account-change authority. Findings
 must be deduplicated and evidence-backed; remediation is tracked separately and
 no live fix is made during the audit.
+
+## Independent audit result — 2026-10-02
+
+The frozen-export audit is complete and recorded in
+`docs/OUTSIDE_SECURITY_AUDIT_2026-10-02.md`. It issued a conditional pass with
+one high and two medium findings. The priority finding is the combined trust
+boundary created by the login-free `0.0.0.0:8788` Studio gateway and FORGE's
+`--trusted-network-no-auth` mode: a network client that reaches the gateway can
+attempt control-plane mutations as the owner. Medium findings cover plaintext,
+unaudited LAN transport and the root-running media broker.
+
+No live remediation was made during the audit. The next security release must
+remove trusted-network owner impersonation, authenticate a dedicated
+least-privilege gateway identity, explicitly allowlist routes and methods,
+strip client auth headers, restrict or encrypt transport, and de-privilege the
+media broker. Closure requires negative authorization tests, complete
+regression, external acceptance and a new five-node endurance run.

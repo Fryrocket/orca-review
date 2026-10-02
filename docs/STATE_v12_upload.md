@@ -891,10 +891,36 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   run remains preserved separately under `/var/lib/orca-soak/20261001-8h` and
   is not included in the repaired run's pass metrics.
 - Linear FOR-25 and FOR-29, the existing ORCA/FORGE/KILN/TEMPER/EMBER Notion
-  records, and the canonical Google Drive state/security records must reflect
-  this completed result without duplicate artifacts. The next phase is the
-  isolated outside security audit against a frozen, sanitized, read-only
-  export; it has no production credentials, write authority or service-control
-  path and makes no live fixes during the audit.
+  records, and the canonical Google Drive state/security records reflect this
+  completed result without duplicate artifacts.
+
+## Outside security audit checkpoint — 2026-10-02
+
+- The isolated outside audit completed against a frozen read-only export of
+  commit `5e315d9d396cd01501f515c454323e12e47e3f5a`; archive SHA-256
+  `52efa56f21c573258be2caac5cc1a946c024e301639243dd65d8a0234be469fc`.
+  It received no production credentials or live-system authority and made no
+  remediation changes.
+- Result: **conditional pass with remediation required**. No production secret,
+  arbitrary shell execution, unsafe deserialization, destructive installer
+  pipe or world-writable tracked file was found.
+- One high-severity finding is validated: the login-free Studio gateway binds
+  to KILN `0.0.0.0:8788`, is LAN/Tailscale reachable, forwards arbitrary
+  GET/HEAD/POST paths, and reaches a control plane running with
+  `--trusted-network-no-auth`, which assigns unauthenticated mutations the owner
+  identity. This must be replaced with a dedicated authenticated least-privilege
+  gateway identity, explicit route/method allowlisting, stripped client auth
+  headers and a restricted transport boundary.
+- Two medium findings cover plaintext/unaudited LAN Studio traffic and the media
+  broker parsing large requests as root. Remediation requires authenticated TLS
+  or Tailscale-only exposure plus an unprivileged media broker with a tiny fixed
+  service-control helper.
+- The evidence-backed report is
+  `docs/OUTSIDE_SECURITY_AUDIT_2026-10-02.md`. Semgrep, CodeQL and Codex Security
+  were not locally available and were not installed without a separate owner
+  authorization; their future results must be deduplicated against this report.
+- No live security fix has been applied. The remediation backlog now gates the
+  next security release, followed by regression, negative permission tests,
+  external acceptance and another five-node endurance run.
 
 END STATE.md — AS OF 2026-10-02
