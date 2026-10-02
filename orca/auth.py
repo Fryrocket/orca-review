@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from hashlib import sha256
 import hmac
 import json
@@ -26,21 +26,39 @@ class IdentityTokenAuthenticator:
     deliberately not persisted to control state, evidence, logs, or snapshots.
     """
 
-    def __init__(self, credentials: Mapping[str, str]) -> None:
+    def __init__(self, credentials: Mapping[str, str | Sequence[str]]) -> None:
         if not isinstance(credentials, Mapping) or not credentials:
             raise ValueError("identity tokens must be a non-empty mapping")
-        digests: dict[str, bytes] = {}
+        digests: dict[str, tuple[bytes, ...]] = {}
         seen: set[bytes] = set()
-        for identity, token in credentials.items():
+        for identity, configured in credentials.items():
             if not isinstance(identity, str) or identity not in AGENTS:
                 raise ValueError("identity tokens require registered identities")
-            if not isinstance(token, str) or not 32 <= len(token) <= 512:
-                raise ValueError("identity tokens must contain 32-512 characters")
-            digest = sha256(token.encode("utf-8")).digest()
-            if digest in seen:
-                raise ValueError("identity tokens must be unique per identity")
-            seen.add(digest)
-            digests[identity] = digest
+            tokens = [configured] if isinstance(configured, str) else configured
+            if (not isinstance(tokens, Sequence) or isinstance(tokens, (bytes, bytearray))
+                    or not 1 <= len(tokens) <= 8):
+                raise ValueError("identities require 1-8 token credentials")
+            identity_digests = []
+            for token in tokens:
+                if not isinstance(token, str):
+                    raise ValueError("identity tokens must be strings")
+                if token.startswith("sha256:"):
+                    encoded = token.removeprefix("sha256:")
+                    if len(encoded) != 64:
+                        raise ValueError("identity token digest must be SHA-256")
+                    try:
+                        digest = bytes.fromhex(encoded)
+                    except ValueError as exc:
+                        raise ValueError("identity token digest must be SHA-256") from exc
+                else:
+                    if not 32 <= len(token) <= 512:
+                        raise ValueError("identity tokens must contain 32-512 characters")
+                    digest = sha256(token.encode("utf-8")).digest()
+                if digest in seen:
+                    raise ValueError("identity tokens must be unique per identity")
+                seen.add(digest)
+                identity_digests.append(digest)
+            digests[identity] = tuple(identity_digests)
         self._digests = digests
         self._dummy_digest = sha256(b"orca-unconfigured-identity").digest()
 
@@ -50,12 +68,12 @@ class IdentityTokenAuthenticator:
 
     def authenticate(self, identity: str, token: str) -> str:
         candidate = sha256(token.encode("utf-8")).digest() if isinstance(token, str) else b""
-        expected = self._digests.get(identity, self._dummy_digest)
+        expected = self._digests.get(identity, (self._dummy_digest,))
         valid = (
             isinstance(identity, str)
             and identity in self._digests
             and isinstance(token, str)
-            and hmac.compare_digest(expected, candidate)
+            and any(hmac.compare_digest(digest, candidate) for digest in expected)
         )
         if not valid:
             raise IdentityAuthenticationError("identity authentication required")

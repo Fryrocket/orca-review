@@ -1,5 +1,5 @@
 [Unit]
-Description=Login-free ORCA Studio gateway on KILN
+Description=Authenticated Tailnet ORCA Studio gateway on KILN
 After=network-online.target orca-forge-tunnel.service
 Wants=network-online.target orca-forge-tunnel.service
 
@@ -7,13 +7,26 @@ Wants=network-online.target orca-forge-tunnel.service
 Type=simple
 User=fryrocket
 Group=fryrocket
-ExecStart=/usr/bin/python3 /opt/orca-studio/orca_studio_gateway.py --host 0.0.0.0 --port 8788 --upstream-port 18787
+UMask=0077
+StateDirectory=orca-studio
+StateDirectoryMode=0700
+ExecStart=/usr/bin/python3 /opt/orca-studio/orca_studio_gateway.py --host 0.0.0.0 --port 8788 --upstream-port 18787 --token-file /var/lib/orca-studio/gateway-token
 Restart=always
 RestartSec=5
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectKernelLogs=true
+ProtectHostname=true
+ProtectClock=true
+PrivateDevices=true
+RestrictNamespaces=true
+RestrictRealtime=true
+MemoryDenyWriteExecute=true
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 RestrictSUIDSGID=true
 LockPersonality=true

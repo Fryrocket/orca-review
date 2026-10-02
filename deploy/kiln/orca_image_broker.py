@@ -13,6 +13,7 @@ import os
 import random
 import math
 import struct
+import socket
 import zlib
 import subprocess
 import threading
@@ -32,10 +33,23 @@ JOB_LOCK = threading.Lock()
 CANCEL_EVENT = threading.Event()
 MANAGED_ENGINE = os.environ.get("ORCA_IMAGE_MANAGED_ENGINE", "1") == "1"
 IMAGE_WORKER = os.environ.get("ORCA_IMAGE_WORKER", "KILN")
+CONTROL_SOCKET = "/run/orca-media-control/control.sock"
 
 
 class GenerationCancelled(RuntimeError):
     pass
+
+
+def control_engine(operation: str) -> None:
+    if operation not in {"start-image", "stop-image"}:
+        raise ValueError("unsupported media control operation")
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
+        connection.settimeout(180)
+        connection.connect(CONTROL_SOCKET)
+        connection.sendall(operation.encode("ascii") + b"\n")
+        response = connection.recv(32)
+    if response != b"ok\n":
+        raise RuntimeError("media engine control failed")
 
 
 def check_cancelled() -> None:
@@ -356,9 +370,7 @@ def generate_image(request: dict[str, object]) -> tuple[bytes, str]:
     try:
         check_cancelled()
         if MANAGED_ENGINE:
-            subprocess.run(
-                ["/usr/bin/systemctl", "start", "orca-comfyui.service"],
-                check=True, timeout=150)
+            control_engine("start-image")
         wait_for_comfy(time.monotonic() + 120)
         check_cancelled()
         if "image_bytes" in request:
@@ -401,12 +413,10 @@ def generate_image(request: dict[str, object]) -> tuple[bytes, str]:
             connection.close()
     finally:
         if MANAGED_ENGINE:
-            subprocess.run(
-                ["/usr/bin/systemctl", "stop", "orca-comfyui.service"],
-                check=False, timeout=60)
-            subprocess.run(
-                ["/usr/bin/systemctl", "start", "quench-inference.service"],
-                check=False, timeout=180)
+            try:
+                control_engine("stop-image")
+            except (OSError, RuntimeError, TimeoutError):
+                pass
         else:
             comfy_json("POST", "/free", {"unload_models": True, "free_memory": True})
 

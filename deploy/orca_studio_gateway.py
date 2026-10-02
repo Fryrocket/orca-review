@@ -6,6 +6,14 @@ from __future__ import annotations
 import argparse
 from http.client import HTTPConnection
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from ipaddress import ip_address, ip_network
+import json
+import os
+from pathlib import Path
+import re
+import stat
+import sys
+from urllib.parse import urlparse
 
 
 HOP_BY_HOP = {
@@ -13,17 +21,117 @@ HOP_BY_HOP = {
     "te", "trailers", "transfer-encoding", "upgrade",
 }
 
+CLIENT_AUTH_HEADERS = {
+    "x-orca-identity", "x-orca-identity-token", "x-orca-operator-token",
+}
+TAILSCALE_V4 = ip_network("100.64.0.0/10")
+TAILSCALE_V6 = ip_network("fd7a:115c:a1e0::/48")
+MEDIA_GET_PATHS = {"/api/images/health", "/api/videos/health"}
+MEDIA_POST_PATHS = {
+    "/api/images/generate", "/api/images/edit", "/api/videos/generate",
+    "/api/videos/animate", "/api/media/cancel",
+}
+MEDIA_PATHS = MEDIA_GET_PATHS | MEDIA_POST_PATHS
+GET_API_PATHS = {
+    "/api/business/muse", "/api/business/state", "/api/communications",
+    "/api/config", "/api/edge-inference", "/api/engineering/catalog",
+    "/api/health", "/api/inbox", "/api/inventory",
+    "/api/inventory/analysis", "/api/inventory/system", "/api/solo-operator/system",
+    "/api/state", *MEDIA_GET_PATHS,
+}
+POST_API_PATHS = {
+    "/api/business/muse/email-handoff", "/api/business/muse/handoff",
+    "/api/business/records", "/api/business/workflows", "/api/cad/pcb-draft",
+    "/api/chat", "/api/control/emergency-stop", "/api/engineering",
+    "/api/custom-bots/list", "/api/custom-bots/save", "/api/custom-bots/test",
+    "/api/governance/retention-audit", "/api/heartbeats", "/api/inbox/import",
+    "/api/inventory/counts", "/api/inventory/counts/preview",
+    "/api/inventory/workflows", "/api/jobs", "/api/memory",
+    "/api/product-development/plans", "/api/project/plan", "/api/queue",
+    "/api/science", "/api/security/scan", "/api/solo-operator/action-plan",
+    "/api/solo-operator/snapshot", "/api/temper/inventory-dataset/plan",
+    *MEDIA_POST_PATHS,
+}
+POST_API_PATTERNS = tuple(re.compile(pattern) for pattern in (
+    r"/api/approvals/[A-Za-z0-9_.:-]+",
+    r"/api/bots/[A-Za-z0-9_.:-]+/pause",
+    r"/api/incidents(?:/[A-Za-z0-9_.:-]+)?",
+    r"/api/inventory/counts/[A-Za-z0-9_.:-]+/execute",
+    r"/api/inventory/workflows/[A-Za-z0-9_.:-]+/execute",
+    r"/api/jobs/[A-Za-z0-9_.:-]+/(?:complete|pause|resume|review|start)",
+    r"/api/lanes/[A-Za-z0-9_.:-]+/pause",
+    r"/api/nodes/[A-Za-z0-9_.:-]+/(?:health|pause)",
+))
+
+
+def load_gateway_token(path: str | Path) -> str:
+    token_path = Path(path)
+    metadata = token_path.lstat()
+    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+        raise ValueError("gateway token must be a regular non-symlink file")
+    if metadata.st_size < 32 or metadata.st_size > 512:
+        raise ValueError("gateway token must contain 32-512 bytes")
+    if metadata.st_mode & 0o077:
+        raise ValueError("gateway token must be owner-only")
+    if metadata.st_uid != os.geteuid():
+        raise ValueError("gateway token must be owned by the service user")
+    descriptor = os.open(token_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    with os.fdopen(descriptor, "r", encoding="utf-8") as handle:
+        opened = os.fstat(handle.fileno())
+        if (opened.st_dev, opened.st_ino) != (metadata.st_dev, metadata.st_ino):
+            raise ValueError("gateway token changed while opening")
+        token = handle.read().strip()
+    if not 32 <= len(token) <= 512 or any(character.isspace() for character in token):
+        raise ValueError("gateway token is malformed")
+    return token
+
+
+def trusted_client(address: str) -> bool:
+    try:
+        candidate = ip_address(address)
+    except ValueError:
+        return False
+    return candidate.is_loopback or candidate in TAILSCALE_V4 or candidate in TAILSCALE_V6
+
+
+def allowed_request(method: str, path: str) -> bool:
+    if method in {"GET", "HEAD"}:
+        return path == "/" or path in GET_API_PATHS or not path.startswith("/api/")
+    if method != "POST":
+        return False
+    return path in POST_API_PATHS or any(pattern.fullmatch(path) for pattern in POST_API_PATTERNS)
+
 
 class Gateway(BaseHTTPRequestHandler):
     upstream_host = "127.0.0.1"
     upstream_port = 8787
     image_host = "127.0.0.1"
     image_port = 8790
+    identity = "fry"
+    identity_token = ""
 
     def log_message(self, format: str, *args) -> None:
         return
 
+    def log_request(self, code: int | str = "-", size: int | str = "-") -> None:
+        event = {
+            "event": "orca_gateway_request", "method": self.command,
+            "path": urlparse(self.path).path, "status": code,
+            "source": "loopback" if ip_address(self.client_address[0]).is_loopback else "tailnet",
+        }
+        print(json.dumps(event, sort_keys=True), file=sys.stderr, flush=True)
+
     def _proxy(self) -> None:
+        path = urlparse(self.path).path
+        if not trusted_client(self.client_address[0]):
+            self.send_error(403, "trusted transport required")
+            return
+        if not allowed_request(self.command, path):
+            self.send_error(405, "route or method is not allowlisted")
+            return
+        if self.headers.get("Transfer-Encoding") or len(self.headers.get_all("Content-Length", [])) > 1:
+            self.send_error(400, "ambiguous request framing")
+            return
         try:
             length = int(self.headers.get("Content-Length", "0"))
         except ValueError:
@@ -37,13 +145,9 @@ class Gateway(BaseHTTPRequestHandler):
         body = self.rfile.read(length) if length else None
         headers = {
             name: value for name, value in self.headers.items()
-            if name.lower() not in HOP_BY_HOP | {"host", "content-length"}
+            if name.lower() not in HOP_BY_HOP | CLIENT_AUTH_HEADERS | {"host", "content-length"}
         }
-        is_media_request = self.path in {
-            "/api/images/generate", "/api/images/edit", "/api/images/health",
-            "/api/videos/generate", "/api/videos/animate", "/api/videos/health",
-            "/api/media/cancel",
-        }
+        is_media_request = path in MEDIA_PATHS
         upstream_host = self.image_host if is_media_request else self.upstream_host
         upstream_port = self.image_port if is_media_request else self.upstream_port
         upstream_path = ({
@@ -54,8 +158,11 @@ class Gateway(BaseHTTPRequestHandler):
             "/api/videos/animate": "/video/animate",
             "/api/videos/health": "/health",
             "/api/media/cancel": "/cancel",
-        }.get(self.path, self.path))
+        }.get(path, self.path))
         headers["Host"] = f"{upstream_host}:{upstream_port}"
+        if not is_media_request:
+            headers["X-ORCA-Identity"] = self.identity
+            headers["X-ORCA-Identity-Token"] = self.identity_token
         if body is not None:
             headers["Content-Length"] = str(len(body))
         connection = HTTPConnection(
@@ -92,9 +199,11 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8788)
     parser.add_argument("--upstream-host", default="127.0.0.1")
     parser.add_argument("--upstream-port", type=int, default=8787)
+    parser.add_argument("--token-file", required=True)
     args = parser.parse_args()
     Gateway.upstream_host = args.upstream_host
     Gateway.upstream_port = args.upstream_port
+    Gateway.identity_token = load_gateway_token(args.token_file)
     server = ThreadingHTTPServer((args.host, args.port), Gateway)
     server.serve_forever()
 

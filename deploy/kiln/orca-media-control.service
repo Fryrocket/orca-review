@@ -1,20 +1,21 @@
 [Unit]
-Description=Loopback-only KILN Studio image generation broker
-After=network-online.target orca-media-control.service
-Wants=network-online.target orca-media-control.service
+Description=Minimal ORCA GPU service transition controller
+After=network.target
 
 [Service]
 Type=simple
-User=orca-media
+User=root
 Group=orca-media
-ExecStart=/usr/bin/python3 /opt/orca-studio/orca_image_broker.py --host 127.0.0.1 --port 8790
+UMask=0007
+RuntimeDirectory=orca-media-control
+RuntimeDirectoryMode=0750
+ExecStart=/usr/bin/python3 /opt/orca-studio/orca_media_control.py
 Restart=always
 RestartSec=5
-UMask=0077
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ProtectHome=read-only
+ProtectHome=true
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
@@ -25,7 +26,7 @@ PrivateDevices=true
 RestrictNamespaces=true
 RestrictRealtime=true
 MemoryDenyWriteExecute=true
-RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictAddressFamilies=AF_UNIX
 RestrictSUIDSGID=true
 LockPersonality=true
 CapabilityBoundingSet=

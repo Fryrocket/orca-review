@@ -82,6 +82,22 @@ def test_identity_credentials_are_strict_unique_and_digest_only():
         IdentityTokenAuthenticator({"orca": "x" * 32, "fry": "x" * 32})
 
 
+def test_identity_supports_multiple_tokens_with_one_way_gateway_verifier():
+    gateway_token = "gateway-token-" + "z" * 48
+    verifier = "sha256:" + __import__("hashlib").sha256(
+        gateway_token.encode()).hexdigest()
+    authenticator = IdentityTokenAuthenticator({
+        **TOKENS,
+        "fry": [TOKENS["fry"], verifier],
+    })
+    assert authenticator.authenticate("fry", TOKENS["fry"]) == "fry"
+    assert authenticator.authenticate("fry", gateway_token) == "fry"
+    assert gateway_token not in repr(authenticator.__dict__)
+    assert verifier not in repr(authenticator.__dict__)
+    with pytest.raises(ValueError, match="SHA-256"):
+        IdentityTokenAuthenticator({"fry": ["sha256:not-a-digest"]})
+
+
 def test_identity_token_file_must_be_owner_only_regular_json(tmp_path: Path):
     path = tmp_path / "identities.json"
     path.write_text(json.dumps(TOKENS), encoding="utf-8")
