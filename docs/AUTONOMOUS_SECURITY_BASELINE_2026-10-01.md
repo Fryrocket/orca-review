@@ -120,5 +120,32 @@ purchase, or contact outsiders.
   evidence before the node is explicitly resumed.
 - Perform the remaining physical power-loss and UPS-on-battery drills. ANVIL's
   own reboot remains owner-present because it hosts the controlling session.
-- Repeat the external 128-test acceptance lab, node-specific recovery tests,
-  and the final multi-node soak after activation.
+- Repeat the external 128-test acceptance lab and any owner-present
+  node-specific physical recovery tests after future material changes.
+
+## Final endurance acceptance — 2026-10-02
+
+- The repaired final eight-hour five-node soak completed its entire planned
+  duration with **46,492 requests, zero failures, a 0.0% failure rate, and zero
+  soak-service restarts**.
+- 46,436 bounded reads, 48 governed model probes, four image jobs and four
+  approved 33-frame short-video jobs passed. No 49-frame or 73-frame job ran.
+- ORCA integrity and the evidence chain remained valid. ANVIL, FORGE, KILN,
+  EMBER and TEMPER ended with fresh authenticated healthy telemetry and an
+  empty pause list.
+- Security Watch's hardened five-minute timer remained active. Its final
+  soak-time attestation reported the firewall active, zero findings, no secret
+  content read and no changes applied. The oneshot service is correctly
+  inactive between successful timer runs.
+- Final evidence is preserved under
+  `/var/lib/orca-soak/20261001-8h-rerun`; the earlier stopped run remains
+  preserved separately and is excluded from these pass metrics.
+
+## Next independent gate
+
+Begin the outside security audit only against a frozen, sanitized, read-only
+export of code, configuration, infrastructure definitions, manifests and
+evidence. The audit receives no production credentials, secrets, write access,
+service control, purchasing, publishing or account-change authority. Findings
+must be deduplicated and evidence-backed; remediation is tracked separately and
+no live fix is made during the audit.
