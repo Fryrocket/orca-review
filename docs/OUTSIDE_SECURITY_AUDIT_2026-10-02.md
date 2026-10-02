@@ -126,3 +126,70 @@ limits where compatible.
 Physical power-loss, UPS-on-battery behavior, ANVIL reboot, and macOS
 administrator-only controls remain untested and must not be represented as
 accepted.
+
+## Post-remediation validation — commit `ebe7c5c` — 2026-10-02
+
+The remediation candidate was frozen into a new read-only export of 398 tracked
+files. Its source archive SHA-256 is
+`05268e65d3f28d1676e88c95ee9d9b8e37481edd0a1aeadc21c38679da9a0d36`.
+All 1,151 regression tests passed, all 247 Python files parsed successfully, and
+no tracked file was world-writable.
+
+Free scanner coverage was added on ANVIL without changing ORCA's Python runtime:
+
+| Scanner | Purpose | Validated result |
+|---|---|---|
+| Semgrep Community Edition 1.176.0 | Static application analysis | 121 candidates triaged; no new validated high-severity defect |
+| Gitleaks 8.30.1 | Repository secret detection | Six matches, all synthetic test fixtures or a documented SHA-256 fingerprint |
+| Trivy 0.75.0 | Vulnerability, secret, and configuration scanning | Zero vulnerabilities, zero secrets, zero recognized misconfigurations |
+| Bandit 1.9.4 | Python security linting | Zero high; medium/low findings were bounded URL, fixed-argument subprocess, deliberate bind, SQL allowlist, socket-mode, or temporary-evidence patterns |
+| pip-audit 2.10.1 | Python dependency advisories | No known vulnerabilities |
+| detect-secrets 1.5.0 | High-entropy and credential pattern scanning | Zero findings |
+
+Deterministic cross-checks found no shell execution, unsafe deserialization,
+world-writable tracked files, or production credentials. OSV returned no known
+advisories for the pinned `sympy==1.14.0` and `mpmath==1.3.0` dependencies. The
+Semgrep SQL candidates use fields selected from a fixed application allowlist;
+the dynamic import candidate uses constant feature-module names; and its lone
+`exec` candidate is confined to a test that inspects launcher syntax.
+
+### Finding status after safe live hardening
+
+- **ORCA-SEC-001 remains open (High).** The candidate now contains gateway
+  authentication, a route/method allowlist, client-auth header stripping, and
+  privacy-safe metadata logging, and removes trusted-network owner
+  impersonation. The live KILN/FORGE path still uses the earlier login-free
+  configuration. Final activation requires a new dedicated gateway credential
+  and verifier; the existing owner credential must remain untouched.
+- **ORCA-SEC-002 is materially reduced and pending final closure.** The general
+  LAN firewall allowance for KILN port 8788 was removed. The verified access
+  path is now loopback/Tailscale, whose transport is encrypted. The new
+  privacy-safe gateway logging becomes live with the authenticated gateway
+  release.
+- **ORCA-SEC-003 is closed as an audit-location correction.** The active media
+  broker is on CRUCIBLE, runs as the unprivileged `fryrocket` account, listens
+  only on loopback, and has zero restarts. The inactive legacy KILN broker and
+  unused helper are disabled; KILN continues to use its healthy SSH tunnel to
+  CRUCIBLE.
+
+### Remaining owner review and acceptance gates
+
+- Explicitly authorize creation of the dedicated ORCA gateway credential and
+  verifier, then activate the already-tested candidate and repeat negative auth
+  tests, full regression, and a bounded live acceptance run.
+- Review whether ANVIL's enabled Apple remote-management/listening services are
+  all intentional. macOS stealth mode and administrator-only changes remain an
+  owner-present gate.
+- KILN currently permits six SSH authentication attempts while the other Linux
+  nodes permit three; reducing it is a low-priority consistency hardening item,
+  not a demonstrated exploit.
+
+### Recurring assurance
+
+The existing six-hour ORCA continuity monitor now also tracks the last
+successful scanner cycle. Once seven full days have elapsed it updates only the
+approved free scanner tools and advisory databases, scans a frozen read-only
+export, validates and deduplicates findings, updates the authoritative records,
+and reports only actionable changes. It never weakens the six-hour operational
+monitoring cadence and never changes live production solely from a scanner
+alert.
