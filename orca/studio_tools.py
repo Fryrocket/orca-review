@@ -77,6 +77,43 @@ PROTECTED_CORE = (
     "evidence integrity controls and rollback assets",
 )
 
+STUDIO_MODES = (
+    {"id": "auto", "name": "Auto", "status": "live", "purpose": "Route the request to the least-powerful capable specialist."},
+    {"id": "reason", "name": "Chat", "status": "live", "purpose": "Conversation, explanation, planning and brainstorming."},
+    {"id": "code", "name": "Code", "status": "live", "purpose": "Governed coding and implementation drafts; deployment remains gated."},
+    {"id": "review", "name": "Review", "status": "live", "purpose": "Independent technical and evidence review through QUENCH."},
+    {"id": "engineer", "name": "Engineer", "status": "live", "purpose": "Engineering analysis with explicit assumptions, calculations and verification."},
+    {"id": "visual", "name": "Visual", "status": "live", "purpose": "Visual direction, diagrams and image-editing plans."},
+    {"id": "photo", "name": "Photo", "status": "live", "purpose": "Bounded local photos, art, illustrations and product-image jobs on CRUCIBLE."},
+    {"id": "video", "name": "Video", "status": "live", "purpose": "Bounded local short-video jobs on CRUCIBLE; publishing remains gated."},
+)
+
+MANUAL_STATUS = {
+    "live": (
+        "Studio, Code, Canvas, Inventory, Engineering, Operations, QuasarVolt, Product Builder and Bot Monitor interfaces",
+        "Legal, Accounting, Budget and Connections control-center interfaces",
+        "governed chat routing, durable chat memory, approvals, evidence, rollback and signed five-node telemetry",
+        "local CRUCIBLE image generation and bounded short-video generation",
+        "TEMPER enrollment, signed telemetry, USB-camera discovery and accepted packaged Hailo-8 vision models",
+    ),
+    "staged_or_connection_dependent": (
+        "bank and ChatGPT Finances read-only feeds until the owner authorizes an eligible account",
+        "mail reading and Meta Muse email organization until an owner-authorized provider session exists",
+        "live marketplace, supplier, cloud and publishing connectors until their scoped authentication and read/write acceptance passes",
+    ),
+    "planned_or_gated": (
+        "custom TEMPER models, future local speech recognition and new plugins until provenance, tests and approval pass",
+        "physical whole-site outage and UPS-on-battery drills until the owner is present",
+    ),
+    "approval_gated": (
+        "purchases, payments, transfers, publishing, sending messages, account changes, stock mutations, filings, signatures, deployment and irreversible actions",
+    ),
+    "unavailable_by_design": (
+        "autonomous authority over money, legal conclusions, credentials, permissions or the protected ORCA core",
+        "facial recognition, covert recording, medical diagnosis and unbounded physical control",
+    ),
+}
+
 
 class StudioReadTools:
     """Read-only bridge from ORCA Chat to Studio's registered capabilities."""
@@ -113,6 +150,80 @@ class StudioReadTools:
             result["connectors"] = snapshot.get("connector_capabilities", [])
         result["protected_core"] = PROTECTED_CORE
         return result
+
+    def user_manual_source(self) -> dict:
+        """Return one compact, authoritative grounding record for self-documentation."""
+
+        snapshot = self.control_snapshot()
+        nodes = [
+            {
+                "id": node.get("id", node.get("node_id")),
+                "state": node.get("state", node.get("status", "unproven")),
+                "duty": node.get("duty", ""),
+                "paused": bool(node.get("paused", False)),
+            }
+            for node in snapshot.get("nodes", [])
+        ]
+        return {
+            "title": "ORCA User Manual authoritative source",
+            "purpose": (
+                "ORCA is a policy-first solo-operator control plane that plans, routes, "
+                "executes bounded work, preserves evidence and stops at approval boundaries."
+            ),
+            "workspaces": WORKSPACES,
+            "studio_modes": STUDIO_MODES,
+            "business_control_centers": (
+                "Legal and compliance", "Accounting", "Budget", "Connections and AI paths",
+                "Bot Monitor", "product and market discovery", "sales and fulfillment",
+                "creative advertising", "contracts", "tax operations", "data governance",
+                "agent control", "business simulation",
+            ),
+            "governance": {
+                "read_only": "Inspection, research, calculations, planning, drafting and simulations may run directly within bounded tools.",
+                "approval_required": APPLICATION_POLICY["approval_controlled"],
+                "blocked_from_everyday_chat": APPLICATION_POLICY["blocked"],
+                "core_authority": (
+                    "Only an explicitly authenticated external Frontier engineering session may change ORCA core code, policy, authentication, deployment or integrity controls, with tests and rollback."
+                ),
+                "protected_core": PROTECTED_CORE,
+            },
+            "status": MANUAL_STATUS,
+            "temper": {
+                "status": "enrolled_live_custom_models_gated",
+                "hardware": "Raspberry Pi 5, 16 GiB RAM, 1 TB NVMe, Hailo-8 26 TOPS and owner-connected USB camera",
+                "live_uses": (
+                    "signed telemetry", "camera discovery", "packaged object detection",
+                    "instance segmentation", "pose estimation", "bounded edge job brokering",
+                    "inventory and assembly observation plans", "offline queueing",
+                ),
+                "gates": "No covert recording, face recognition, autonomous stock change, physical control or unreviewed custom-model deployment.",
+            },
+            "recovery": {
+                "live": (
+                    "immutable releases", "previous-release rollback", "signed node heartbeats",
+                    "KILN-to-FORGE wake guard", "EMBER-to-KILN wake guard",
+                    "fleet-readiness verification", "integrity checks", "encrypted backups",
+                ),
+                "owner_present": (
+                    "whole-site power cut", "UPS battery drill", "firmware restore-after-power-loss settings",
+                ),
+            },
+            "operating_loop": (
+                "Choose a workspace or Auto mode", "state the desired outcome and constraints",
+                "inspect the proposed route and evidence", "approve only real authority boundaries",
+                "review the result and verification", "retain evidence and rollback",
+            ),
+            "example_seeds": (
+                "concept-to-launch product simulation", "KiCad PCB draft and independent review",
+                "inventory barcode lookup and approval-gated count adjustment",
+                "product photo and 33-frame advertising clip", "budget-versus-actual analysis",
+                "legal compliance evidence pack", "TEMPER camera inventory observation",
+                "node outage detection and rollback-safe recovery",
+            ),
+            "fleet": nodes,
+            "evidence_chain_valid": snapshot.get("evidence_chain_valid"),
+            "paused_nodes": snapshot.get("paused_nodes", []),
+        }
 
     def inventory_search(self, *, query: str = "", state: str = "all", limit: int = 20) -> dict:
         if not isinstance(query, str) or len(query) > 240:
@@ -218,6 +329,7 @@ class StudioReadTools:
     def handlers(self) -> dict:
         return {
             "studio.capabilities": self.capabilities,
+            "studio.user_manual_source": self.user_manual_source,
             "inventory.search": self.inventory_search,
             "node.observe": self.node_observe,
             "temper.inference_capabilities": self.temper_inference_capabilities,

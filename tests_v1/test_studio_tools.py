@@ -61,12 +61,26 @@ def test_inventory_search_is_read_only_filtered_and_bounded():
 def test_node_observe_filters_and_new_chat_tools_are_manifested_read_only():
     tools = StudioReadTools(control_snapshot=snapshot)
     assert [node["id"] for node in tools.node_observe(node_id="kiln")["nodes"]] == ["kiln"]
-    required = {"studio.capabilities", "inventory.search", "node.observe",
+    required = {"studio.capabilities", "studio.user_manual_source", "inventory.search", "node.observe",
                 "temper.inference_capabilities", "temper.plan_inference_workflow",
                 "temper.plan_inventory_dataset", "temper.plan_inventory_capture",
                 "temper.validate_inventory_dataset", "temper.plan_hailo_conversion"}
     assert required <= BOT_TOOL_MANIFESTS["orca"]
     assert all(not TOOL_CATALOG[name].mutates for name in required)
+
+
+def test_user_manual_source_is_compact_authoritative_and_status_aware():
+    result = StudioReadTools(control_snapshot=snapshot).user_manual_source()
+    assert result["title"] == "ORCA User Manual authoritative source"
+    assert {item["id"] for item in result["workspaces"]} >= {
+        "studio", "inventory", "operations", "business", "product-builder"
+    }
+    assert {item["name"] for item in result["studio_modes"]} == {
+        "Auto", "Chat", "Code", "Review", "Engineer", "Visual", "Photo", "Video"
+    }
+    assert "Frontier engineering session" in result["governance"]["core_authority"]
+    assert result["temper"]["status"] == "enrolled_live_custom_models_gated"
+    assert len(__import__("json").dumps(result).encode()) < 24_000
 
 
 def test_temper_inference_tool_is_bounded_read_only_and_filters_workflows():

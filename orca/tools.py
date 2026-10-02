@@ -35,6 +35,10 @@ TOOL_CATALOG = {
     "linear.read": ToolCapability("linear.read", "work", "Read approved Linear work items", "linear", PermissionLevel.R0),
     "node.observe": ToolCapability("node.observe", "fleet", "Observe enrolled node health", None, PermissionLevel.R0),
     "studio.capabilities": ToolCapability("studio.capabilities", "studio", "List registered Studio workspaces, applications, business areas and tools", None, PermissionLevel.R0),
+    "studio.user_manual_source": ToolCapability(
+        "studio.user_manual_source", "studio",
+        "Read the compact authoritative ORCA user-manual capability and status source",
+        None, PermissionLevel.R0),
     "inventory.search": ToolCapability("inventory.search", "inventory", "Search the canonical KILN inventory without changing stock", None, PermissionLevel.R0),
     "temper.inference_capabilities": ToolCapability(
         "temper.inference_capabilities", "edge",
@@ -71,6 +75,7 @@ BOT_TOOL_MANIFESTS = {
         "terminal.inspect", "drive.read", "drive.search", "notion.read",
         "linear.read", "node.observe",
         "studio.capabilities", "inventory.search",
+        "studio.user_manual_source",
         "temper.inference_capabilities",
         "temper.plan_inference_workflow",
         "temper.plan_inventory_dataset",
@@ -84,6 +89,7 @@ BOT_TOOL_MANIFESTS = {
         "terminal.inspect", "drive.read", "drive.search", "notion.read",
         "linear.read", "node.observe",
         "studio.capabilities", "inventory.search",
+        "studio.user_manual_source",
         "temper.inference_capabilities",
         "temper.plan_inference_workflow",
         "temper.plan_inventory_dataset",
@@ -96,6 +102,7 @@ BOT_TOOL_MANIFESTS = {
         "file.read", "file.search", "repo.read", "web.search", "web.fetch",
         "terminal.inspect", "drive.read", "drive.search", "node.observe",
         "studio.capabilities", "inventory.search",
+        "studio.user_manual_source",
         "temper.inference_capabilities",
         "temper.plan_inference_workflow",
         "temper.plan_inventory_dataset",
@@ -130,6 +137,7 @@ TOOL_ARGUMENT_SCHEMAS = {
     "drive.search": {"query": "Drive file-name query"},
     "drive.read": {"path": "Google Drive path relative to My Drive"},
     "studio.capabilities": {"area": "Optional: all, workspaces, applications, business, or tools"},
+    "studio.user_manual_source": {},
     "inventory.search": {"query": "Optional item, SKU, category, location, lot or serial text", "state": "Optional: all, healthy, reorder, stockout, or attention", "limit": "Optional integer 1-50"},
     "node.observe": {"node_id": "Optional enrolled node ID or all"},
     "temper.inference_capabilities": {
