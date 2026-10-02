@@ -158,6 +158,8 @@ def test_workspace_header_shows_local_twelve_hour_clock_and_time_zone():
     assert 'id="workspace-date"' in html
     assert 'id="workspace-time"' in html
     assert 'id="workspace-time-zone"' in html
+    heading = html.split('<div class="workspace-heading">', 1)[1].split('</div>\n        </div>', 1)[0]
+    assert heading.index('workspace-title-block') < heading.index('workspace-clock')
     assert "hour12: true" in js
     assert "timeZoneName: 'short'" in js
     assert "setInterval(updateWorkspaceClock, 1000)" in js
