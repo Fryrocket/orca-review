@@ -137,6 +137,22 @@ def create_pi5_cooling_hat_package(prompt: str, root: str | Path) -> dict:
             ["C2", 1, "100 nF 16 V X7R 0603", "Murata GRM188R71C104KA01D", "X7R equivalent", "local decoupling"],
             ["FAN1", 1, "40x10 mm 5 V four-wire PWM fan", "Noctua NF-A4x10 5V PWM", "Verified 5 V four-wire fan", "airflow/current/connector required"],
         ]),
+        "cost-estimate.csv": _csv([
+            ["Item", "Quantity", "Planning unit cost USD", "Planning extended USD", "Basis"],
+            ["Pi HAT PCB, prototype quantity", 1, "12.00", "12.00", "placeholder; obtain quote before spend"],
+            ["5 V four-wire PWM fan", 1, "15.00", "15.00", "planning allowance"],
+            ["GPIO stacking header", 1, "4.50", "4.50", "planning allowance"],
+            ["Fan header and protection/control parts", 1, "6.50", "6.50", "planning allowance"],
+            ["Hardware/standoffs", 1, "4.00", "4.00", "planning allowance"],
+            ["TOTAL", "", "", "42.00", "before tax, shipping, assembly and test"],
+        ]),
+        "inventory-map.csv": _csv([
+            ["Need", "Required specification", "Inventory state", "Allocation"],
+            ["Fan", "40x10 mm, 5 V, four-wire PWM", "not matched to a verified SKU", "none"],
+            ["GPIO header", "2x20 Pi HAT stacking header", "not matched to a verified SKU", "none"],
+            ["Protection/control components", "exact BOM manufacturer parts", "not matched to verified SKUs", "none"],
+            ["PCB", "65 x 56.5 mm, 2-layer prototype", "not in stock", "none"],
+        ]),
         "thermal-calculations.json": json.dumps({
             "status": "calculated_with_explicit_assumptions",
             "assumptions": {"ambient_c": 25, "pi5_design_heat_w": 12, "target_soc_c": 75, "fan_voltage_v": 5, "fan_current_a_assumed": 0.15},
@@ -153,6 +169,8 @@ def create_pi5_cooling_hat_package(prompt: str, root: str | Path) -> dict:
             ["REQ-005", "Protect 5 V fan branch against short/overcurrent", "current-limit and fault test", "design complete; bench test pending"],
         ]),
         "verification-plan.md": """# Verification plan\n\n1. Inspect HAT outline, mounting holes, GPIO orientation, heatsink and fan clearance against Raspberry Pi 5 mechanical drawings.\n2. Run KiCad ERC and DRC with the selected fabrication stack-up; accept zero unexplained violations.\n3. Confirm fan connector pin order before power. Current-limit the 5 V supply for first power-on.\n4. Measure fan inrush and steady current; verify PTC and 5 V rail margin.\n5. Scope PWM at 25 kHz and verify fan response at 0, 35, 55, 75 and 100 percent.\n6. Verify tach input never exceeds 3.3 V and compare measured RPM with expected tolerance.\n7. Disconnect temperature source and stop the controller process; fan must reach 100 percent.\n8. Run idle and sustained CPU workload thermal soaks at 25 C and maximum intended ambient. Record SoC temperature, RPM, throttling flags and acoustics.\n9. Power-cycle ten times and perform one controlled outage recovery test.\n10. QUENCH reviews measurements, KiCad checks, BOM/datasheets and manufacturing outputs before fabrication release.\n""",
+        "test-fixture.md": """# Bench test fixture\n\nUse a current-limited 5 V supply, inline current measurement, oscilloscope or logic analyzer, thermocouple near the SoC/heatsink interface, ambient sensor, tach capture, and a guarded fan. Break out 5V_FUSED, GND, FAN_PWM_OD, FAN_TACH_3V3, GPIO18 and GPIO17 at labeled test points. Record supply voltage/current, PWM frequency/duty, tach frequency/RPM, SoC temperature, ambient temperature and throttling flags every two seconds. Use a nonconductive fixture that leaves airflow unobstructed. No automated pass is valid without traceable instrument readings.\n""",
+        "mechanical-fit.md": """# Mechanical fit and airflow\n\nBoard outline target: 65 x 56.5 mm with four 2.7 mm mounting holes on the Raspberry Pi HAT pattern. Confirm the exact Pi 5 connector datum, connector height, standoff height, camera/display connector access, PoE/fan header conflicts and the selected heatsink envelope against official mechanical drawings before fabrication. Place the 40 mm fan above the heatsink with a guard and at least 3 mm blade clearance. Airflow direction must be tested in the intended enclosure; recirculation or blocked exhaust invalidates the thermal estimate.\n""",
         "assembly-and-user-guide.md": """# Assembly and use\n\nDo not fabricate from this prototype until the verification plan passes. Mount a Pi 5 compatible heatsink first. Install the HAT on correctly sized standoffs with power removed. Mount the fan so airflow crosses the heatsink and does not foul cables. Confirm the exact fan connector pinout. Install `fan_control.py` with the `python3-lgpio` dependency as a restricted system service. First power-up must use a current-limited supply. Stop immediately for odor, unstable 5 V rail, fan stall, connector heating or unexpected throttling.\n""",
         "safety-compliance-review.md": """# Safety and compliance review\n\nThis is a low-voltage prototype, not a certified product. Principal hazards are reversed fan pinout, 5 V short circuit, GPIO overvoltage, fan stall, inadequate heatsink contact, moving blades and unverified materials. Controls are keyed connector verification, PTC protection, 3.3 V tach pull-up, guarded fan, full-speed failsafe, current-limited bring-up and evidence-gated release. CE/FCC/RoHS or other market claims require the final assembly, suppliers, enclosure and intended market; none are claimed here.\n""",
         "manufacturing-readiness.md": """# Manufacturing readiness\n\nStatus: BLOCKED pending physical evidence.\n\n- [ ] Exact symbols, footprints and datasheets verified\n- [ ] Pi 5 mechanical keep-out and heatsink/fan fit verified\n- [ ] KiCad ERC and DRC pass\n- [ ] Fan current, PWM and tach measurements pass\n- [ ] Thermal soak meets REQ-004\n- [ ] Gerber, drill and placement files generated from reviewed revision\n- [ ] Independent QUENCH review accepts the evidence\n\nNo purchase, fabrication, publication or supplier contact was performed.\n""",
@@ -192,6 +210,58 @@ def create_pi5_cooling_hat_package(prompt: str, root: str | Path) -> dict:
         "status": review["result"],
         "artifact_count": len(artifact_records) + 1,
         "zip_sha256": _digest(zip_path),
+        "zip_bytes": zip_path.stat().st_size,
+        "download_url": f"/api/product-development/packages/{package_id}/ORCA-Pi5-Cooling-HAT.zip",
+        "manifest_url": f"/api/product-development/packages/{package_id}/MANIFEST.json",
+        "review": review,
+    }
+
+
+def quench_review_prompt(root: str | Path, package_id: str) -> str:
+    package = Path(root).resolve() / package_id
+    material = []
+    for name in ("README.md", "requirements.csv", "BOM.csv", "thermal-calculations.json",
+                 "verification-plan.md", "safety-compliance-review.md",
+                 "manufacturing-readiness.md", "MANIFEST.json"):
+        material.append(f"--- {name} ---\n{(package / name).read_text(encoding='utf-8')}")
+    return (
+        "Independently review this ORCA-generated Raspberry Pi 5 cooling HAT engineering "
+        "package. Check internal consistency, electrical and thermal claims, safety, missing "
+        "evidence, testability, and whether its release block is truthful. Do not claim physical "
+        "testing, certification, or manufacturing readiness. Return the required QUENCH JSON "
+        "contract with exact evidence and the next gate.\n\n" + "\n\n".join(material))[:24_000]
+
+
+def attach_quench_review(root: str | Path, package_id: str, output: dict) -> dict:
+    if not isinstance(output, dict) or not isinstance(output.get("summary"), str):
+        raise ValueError("QUENCH review output is invalid")
+    package = Path(root).resolve() / package_id
+    if not package.is_dir():
+        raise FileNotFoundError(package_id)
+    review_path = package / "QUENCH-REVIEW.json"
+    review_path.write_text(json.dumps(output, indent=2, sort_keys=True), encoding="utf-8")
+    review = json.loads((package / "REVIEW.json").read_text(encoding="utf-8"))
+    review["independent_authoring"] = True
+    review["independent_reviewer"] = "QUENCH"
+    review["quench_next_gate"] = output.get("next_gate")
+    review["result"] = "prototype_package_independently_reviewed_manufacturing_release_blocked"
+    (package / "REVIEW.json").write_text(json.dumps(review, indent=2), encoding="utf-8")
+    records = []
+    for path in sorted(package.iterdir()):
+        if path.is_file() and path.name not in {"MANIFEST.json", "ORCA-Pi5-Cooling-HAT.zip"}:
+            records.append({"name": path.name, "bytes": path.stat().st_size, "sha256": _digest(path)})
+    manifest = {"schema": 1, "package_id": package_id,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "status": review["result"], "artifacts": records}
+    (package / "MANIFEST.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    zip_path = package / "ORCA-Pi5-Cooling-HAT.zip"
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for path in sorted(package.iterdir()):
+            if path.is_file() and path != zip_path:
+                archive.write(path, path.name)
+    return {
+        "package_id": package_id, "status": review["result"],
+        "artifact_count": len(records) + 1, "zip_sha256": _digest(zip_path),
         "zip_bytes": zip_path.stat().st_size,
         "download_url": f"/api/product-development/packages/{package_id}/ORCA-Pi5-Cooling-HAT.zip",
         "manifest_url": f"/api/product-development/packages/{package_id}/MANIFEST.json",

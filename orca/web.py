@@ -589,9 +589,22 @@ class OrcaHandler(BaseHTTPRequestHandler):
                 if path == "/api/product-development/package":
                     if set(data) != {"prompt"}:
                         raise ValueError("product package creation requires one prompt")
-                    from .product_package import create_pi5_cooling_hat_package
-                    return self._json(create_pi5_cooling_hat_package(
-                        data["prompt"], self._product_artifact_root()), HTTPStatus.CREATED)
+                    from .product_package import (
+                        attach_quench_review,
+                        create_pi5_cooling_hat_package,
+                        quench_review_prompt,
+                    )
+                    result = create_pi5_cooling_hat_package(
+                        data["prompt"], self._product_artifact_root())
+                    if self.server.runtime_gateway is not None:
+                        independent = self.server.runtime_gateway.invoke(
+                            service_id="kiln_quench", bot_id="quench",
+                            prompt=quench_review_prompt(
+                                self._product_artifact_root(), result["package_id"]),
+                        )
+                        result = attach_quench_review(
+                            self._product_artifact_root(), result["package_id"], independent)
+                    return self._json(result, HTTPStatus.CREATED)
                 if path == "/api/solo-operator/action-plan":
                     if set(data) != {"signals"}:
                         raise ValueError("Action Center request has an invalid schema")

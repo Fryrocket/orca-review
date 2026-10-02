@@ -470,7 +470,10 @@ async function generateProductPackage(prompt) {
   const bubble = document.createElement('div'); bubble.className = 'bubble chat-image-result';
   const heading = document.createElement('h3'); heading.textContent = 'Verified ORCA product package';
   const note = document.createElement('p');
-  note.textContent = `ORCA created ${result.artifact_count} real artifacts and verified the package SHA-256 ${result.zip_sha256.slice(0, 16)}…. The engineering prototype is complete; manufacturing release remains blocked by ${result.review.blocking_evidence.join(', ')}.`;
+  const reviewLabel = result.review.independent_authoring
+    ? 'independently reviewed by QUENCH'
+    : 'deterministically checked; independent review unavailable';
+  note.textContent = `ORCA created ${result.artifact_count} real artifacts, ${reviewLabel}, and verified the package SHA-256 ${result.zip_sha256.slice(0, 16)}…. The engineering prototype is complete; manufacturing release remains blocked by ${result.review.blocking_evidence.join(', ')}.`;
   const download = document.createElement('button'); download.type = 'button';
   download.className = 'chat-image-download'; download.textContent = 'Download complete design package';
   download.addEventListener('click', () => downloadManualArtifact(result.download_url, 'ORCA-Pi5-Cooling-HAT.zip'));

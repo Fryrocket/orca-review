@@ -6,7 +6,7 @@ from urllib.request import Request, urlopen
 import zipfile
 
 from orca.control_plane import ControlPlane
-from orca.product_package import create_pi5_cooling_hat_package
+from orca.product_package import attach_quench_review, create_pi5_cooling_hat_package
 from orca.web import OrcaHTTPServer
 
 
@@ -28,6 +28,22 @@ def test_pi5_package_creates_real_checksum_verified_artifacts(tmp_path):
         assert bundle.testzip() is None
         manifest = json.loads(bundle.read("MANIFEST.json"))
         assert manifest["package_id"] == result["package_id"]
+
+
+def test_quench_review_is_embedded_and_rehashes_the_package(tmp_path):
+    initial = create_pi5_cooling_hat_package(PROMPT, tmp_path)
+    reviewed = attach_quench_review(tmp_path, initial["package_id"], {
+        "summary": "Prototype package is internally consistent but correctly blocked.",
+        "evidence": ["Physical test evidence is absent."],
+        "uncertainty": "Mechanical and thermal performance remain unproven.",
+        "next_gate": "blocked",
+    })
+    assert reviewed["review"]["independent_authoring"] is True
+    assert reviewed["review"]["independent_reviewer"] == "QUENCH"
+    assert reviewed["zip_sha256"] != initial["zip_sha256"]
+    with zipfile.ZipFile(tmp_path / initial["package_id"] / "ORCA-Pi5-Cooling-HAT.zip") as bundle:
+        assert "QUENCH-REVIEW.json" in bundle.namelist()
+        assert json.loads(bundle.read("REVIEW.json"))["independent_authoring"] is True
 
 
 def test_product_package_http_create_and_authenticated_download(tmp_path):
