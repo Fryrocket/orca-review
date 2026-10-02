@@ -19,6 +19,10 @@ MODULE_PATH = ROOT / "deploy/orca_studio_gateway.py"
 SPEC = importlib.util.spec_from_file_location("orca_studio_gateway", MODULE_PATH)
 gateway = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(gateway)
+CONVERTER_PATH = ROOT / "deploy/kiln/orca_manual_converter.py"
+CONVERTER_SPEC = importlib.util.spec_from_file_location("orca_manual_converter", CONVERTER_PATH)
+converter = importlib.util.module_from_spec(CONVERTER_SPEC)
+CONVERTER_SPEC.loader.exec_module(converter)
 
 
 def test_gateway_transport_boundary_is_loopback_or_tailnet_only():
@@ -60,8 +64,8 @@ def test_manual_export_uses_libreoffice_and_is_idempotent(tmp_path: Path):
         return SimpleNamespace(returncode=0, stdout="converted")
 
     content = "# Complete Manual\n\n" + ("A verified section of the manual.\n" * 8)
-    first = gateway.export_manual("ORCA User Manual", content, tmp_path, run=fake_run)
-    second = gateway.export_manual("ORCA User Manual", content, tmp_path, run=fake_run)
+    first = converter.export_manual("ORCA User Manual", content, tmp_path, run=fake_run)
+    second = converter.export_manual("ORCA User Manual", content, tmp_path, run=fake_run)
     assert first == second
     assert first["status"] == "verified"
     assert first["generator"] == "LibreOffice Writer on KILN"
@@ -76,21 +80,19 @@ def test_manual_export_rejects_bad_content_without_running_libreoffice(tmp_path:
         raise AssertionError("converter must not run")
 
     with pytest.raises(ValueError, match="100-64,000"):
-        gateway.export_manual("Manual", "too short", tmp_path, run=forbidden_run)
+        converter.export_manual("Manual", "too short", tmp_path, run=forbidden_run)
     with pytest.raises(ValueError, match="printable"):
-        gateway.export_manual("bad\nname", "x" * 200, tmp_path, run=forbidden_run)
+        converter.export_manual("bad\nname", "x" * 200, tmp_path, run=forbidden_run)
 
 
 def test_manual_html_escapes_untrusted_markup():
-    rendered = gateway.manual_html("Test <Manual>", "# Heading\n\n<script>alert(1)</script>\n\n- **safe**")
+    rendered = converter.manual_html("Test <Manual>", "# Heading\n\n<script>alert(1)</script>\n\n- **safe**")
     assert "<script>" not in rendered
     assert "&lt;script&gt;" in rendered
     assert "<strong>safe</strong>" in rendered
 
 
 def test_manual_routes_require_authenticated_orca_identity(tmp_path: Path):
-    original_root = gateway.Gateway.state_root
-    gateway.Gateway.state_root = tmp_path
     gateway.Gateway.identity_token = "server-token-" + "x" * 32
     server = ThreadingHTTPServer(("127.0.0.1", 0), gateway.Gateway)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -119,7 +121,6 @@ def test_manual_routes_require_authenticated_orca_identity(tmp_path: Path):
     finally:
         server.shutdown()
         server.server_close()
-        gateway.Gateway.state_root = original_root
 
 
 def test_gateway_token_file_must_be_owner_only(tmp_path: Path):
@@ -201,6 +202,8 @@ def test_gateway_replaces_client_identity_and_fails_closed():
 def test_production_units_remove_trusted_network_auth_and_root_media_parser():
     control = (ROOT / "deploy/forge/orca.service").read_text()
     gateway_unit = (ROOT / "deploy/kiln/orca-studio-gateway.service").read_text()
+    converter_unit = (ROOT / "deploy/kiln/orca-manual-converter.service").read_text()
+    converter_source = CONVERTER_PATH.read_text()
     media = (ROOT / "deploy/kiln/orca-image-broker.service").read_text()
     controller = (ROOT / "deploy/kiln/orca_media_control.py").read_text()
     controller_unit = (ROOT / "deploy/kiln/orca-media-control.service").read_text()
@@ -208,9 +211,13 @@ def test_production_units_remove_trusted_network_auth_and_root_media_parser():
     assert "--trusted-network-no-auth" not in control
     assert "--identity-token-file /var/lib/orca/identity-tokens.json" in control
     assert "--token-file /var/lib/orca-studio/gateway-token" in gateway_unit
-    assert "RuntimeDirectory=orca-studio-home" in gateway_unit
-    assert "BindPaths=/run/orca-studio-home:/home/fryrocket" in gateway_unit
     assert "ProtectHome=true" in gateway_unit
+    assert "orca-manual-converter.service" in gateway_unit
+    assert "User=orca-manual" in converter_unit
+    assert "ProtectHome=true" in converter_unit
+    assert "RestrictAddressFamilies=AF_UNIX" in converter_unit
+    assert "socket.SO_PEERCRED" in converter_source
+    assert '"/usr/bin/libreoffice"' in converter_source
     assert "User=orca-media" in media and "User=root" not in media
     assert set(gateway.MEDIA_PATHS) == gateway.MEDIA_GET_PATHS | gateway.MEDIA_POST_PATHS
     assert '"start-image"' in controller and '"stop-image"' in controller

@@ -1,0 +1,37 @@
+[Unit]
+Description=Local LibreOffice conversion broker for ORCA manuals
+After=local-fs.target
+
+[Service]
+Type=simple
+User=orca-manual
+Group=fryrocket
+UMask=0007
+StateDirectory=orca-manual
+StateDirectoryMode=0750
+RuntimeDirectory=orca-manual
+RuntimeDirectoryMode=0750
+ExecStart=/usr/bin/python3 /opt/orca-studio/orca_manual_converter.py --socket /run/orca-manual/converter.sock --state-dir /var/lib/orca-manual --allowed-peer fryrocket
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectKernelLogs=true
+ProtectHostname=true
+ProtectClock=true
+PrivateDevices=true
+RestrictNamespaces=true
+RestrictRealtime=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_UNIX
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target
