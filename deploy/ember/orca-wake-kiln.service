@@ -1,0 +1,20 @@
+[Unit]
+Description=ORCA wake and verify KILN from EMBER
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+ExecStart=/usr/bin/python3 /opt/orca-recovery/orca_wake_guard.py --target KILN --mac 08:bf:b8:d4:42:9b --broadcast 192.168.7.255 --tcp 192.168.4.28:22 --health-url http://100.97.193.39:8788/api/health --state-file /var/lib/orca-recovery/kiln.json --failures-before-wake 3 --retries 3 --retry-wait 30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/orca-recovery
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=CAP_NET_RAW
+

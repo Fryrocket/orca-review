@@ -134,6 +134,7 @@ class ControlPlane:
         self.notifications = NotificationOutbox()
         self.paused_lanes: set[str] = set()
         self.paused_nodes: set[str] = set()
+        self.node_pause_reasons: dict[str, set[str]] = {}
         self.node_health: dict[str, dict] = {
             node_id: {"state": "unproven", "last_verified": None, "detail": "no runtime probe"}
             for node_id in NODES
@@ -156,6 +157,7 @@ class ControlPlane:
             "notification_state": self.notifications.to_dict(),
             "paused_lanes": set(self.paused_lanes),
             "paused_nodes": set(self.paused_nodes),
+            "node_pause_reasons": deepcopy(self.node_pause_reasons),
             "paused_bots": set(self.bots.paused),
             "node_health": deepcopy(self.node_health),
             "node_enrollments": deepcopy(self.node_enrollments),
@@ -186,6 +188,8 @@ class ControlPlane:
         self.paused_lanes.update(saved["paused_lanes"])
         self.paused_nodes.clear()
         self.paused_nodes.update(saved["paused_nodes"])
+        self.node_pause_reasons.clear()
+        self.node_pause_reasons.update(deepcopy(saved["node_pause_reasons"]))
         self.bots.paused.clear()
         self.bots.paused.update(saved["paused_bots"])
         self.node_health.clear()
@@ -209,6 +213,11 @@ class ControlPlane:
         for field in ("paused_nodes",):
             saved[field] = [LEGACY_NODE_IDS.get(node_id, node_id)
                             for node_id in saved.get(field, [])]
+        pause_reasons = saved.get("node_pause_reasons", {})
+        for legacy_id, canonical_id in LEGACY_NODE_IDS.items():
+            if legacy_id in pause_reasons and canonical_id not in pause_reasons:
+                pause_reasons[canonical_id] = pause_reasons[legacy_id]
+            pause_reasons.pop(legacy_id, None)
         for field in ("node_health", "node_enrollments"):
             mapping = saved.get(field, {})
             for legacy_id, canonical_id in LEGACY_NODE_IDS.items():
@@ -251,6 +260,15 @@ class ControlPlane:
                 )
         self.paused_lanes = set(saved.get("paused_lanes", []))
         self.paused_nodes = set(saved.get("paused_nodes", []))
+        self.node_pause_reasons = {
+            node_id: set(reasons)
+            for node_id, reasons in saved.get("node_pause_reasons", {}).items()
+            if node_id in NODES and isinstance(reasons, list)
+        }
+        # Old snapshots did not record why a node was paused.  Treat those
+        # pauses as operator-controlled so a reboot can never clear them.
+        for node_id in self.paused_nodes:
+            self.node_pause_reasons.setdefault(node_id, {"legacy_or_operator"})
         self.bots.paused = set(saved.get("paused_bots", []))
         self.emergency_stop = bool(saved.get("emergency_stop", False))
         self.node_enrollments.update(saved.get("node_enrollments", {}))
@@ -272,6 +290,11 @@ class ControlPlane:
             "notification_state": self.notifications.to_dict(),
             "paused_lanes": sorted(self.paused_lanes),
             "paused_nodes": sorted(self.paused_nodes),
+            "node_pause_reasons": {
+                node_id: sorted(self.node_pause_reasons.get(
+                    node_id, {"legacy_or_operator"}))
+                for node_id in sorted(self.paused_nodes)
+            },
             "paused_bots": sorted(self.bots.paused),
             "node_health": self.node_health,
             "node_enrollments": self.node_enrollments,
@@ -1119,6 +1142,7 @@ class ControlPlane:
             raise ValueError(f"unknown fleet node: {node_id}")
         if paused:
             self.paused_nodes.add(node_id)
+            self.node_pause_reasons.setdefault(node_id, set()).add("operator")
             for job in self.jobs.values():
                 if (job.target_node == node_id
                         and job.status in {JobStatus.READY, JobStatus.RUNNING}):
@@ -1129,6 +1153,7 @@ class ControlPlane:
                 raise PermissionError(
                     "a node requires a fresh authenticated healthy heartbeat before resume")
             self.paused_nodes.discard(node_id)
+            self.node_pause_reasons.pop(node_id, None)
         self.evidence.append(
             correlation_id=new_id("corr"), actor=actor, lane=NODES[node_id].lane,
             kind="node.paused" if paused else "node.resumed",
@@ -1153,6 +1178,7 @@ class ControlPlane:
             "state": state, "last_verified": verified, "detail": redact_text(detail)}
         if state in {"degraded", "offline"}:
             self.paused_nodes.add(node_id)
+            self.node_pause_reasons.setdefault(node_id, set()).add("manual_health")
             for job in self.jobs.values():
                 if (job.target_node == node_id
                         and job.status in {JobStatus.READY, JobStatus.RUNNING}):
@@ -1187,6 +1213,7 @@ class ControlPlane:
                 "detail": "enrollment key rotated; awaiting authenticated heartbeat",
             }
             self.paused_nodes.add(node_id)
+            self.node_pause_reasons.setdefault(node_id, set()).add("key_rotation")
             for job in self.jobs.values():
                 if (job.target_node == node_id
                         and job.status in {JobStatus.READY, JobStatus.RUNNING}):
@@ -1220,11 +1247,29 @@ class ControlPlane:
         }
         if heartbeat.state in {"degraded", "offline"}:
             self.paused_nodes.add(heartbeat.node_id)
+            self.node_pause_reasons.setdefault(
+                heartbeat.node_id, set()).add("reported_health")
             for job in self.jobs.values():
                 if (job.target_node == heartbeat.node_id
                         and job.status in {JobStatus.READY, JobStatus.RUNNING}):
                     job.status = JobStatus.PAUSED
                     job.updated_at = utc_now()
+        elif heartbeat.state == "healthy" and heartbeat.node_id in self.paused_nodes:
+            reasons = self.node_pause_reasons.setdefault(
+                heartbeat.node_id, {"legacy_or_operator"})
+            recoverable = reasons & {"heartbeat_stale", "reported_health"}
+            if recoverable:
+                reasons.difference_update(recoverable)
+                if not reasons:
+                    self.paused_nodes.discard(heartbeat.node_id)
+                    self.node_pause_reasons.pop(heartbeat.node_id, None)
+                    self.evidence.append(
+                        correlation_id=new_id("corr"), actor="orca",
+                        lane=NODES[heartbeat.node_id].lane,
+                        kind="node.recovered_automatically",
+                        payload={"node_id": heartbeat.node_id,
+                                 "cleared_reasons": sorted(recoverable)},
+                    )
         self.evidence.append(
             correlation_id=new_id("corr"), actor=heartbeat.node_id,
             lane=NODES[heartbeat.node_id].lane, kind="node.heartbeat_verified",
@@ -1265,6 +1310,8 @@ class ControlPlane:
                     "detail": "authenticated heartbeat stale" if target != "unproven" else "awaiting first heartbeat",
                 }
                 self.paused_nodes.add(node_id)
+                self.node_pause_reasons.setdefault(
+                    node_id, set()).add("heartbeat_stale")
                 for job in self.jobs.values():
                     if (job.target_node == node_id
                             and job.status in {JobStatus.READY, JobStatus.RUNNING}):
@@ -1928,6 +1975,11 @@ class ControlPlane:
             "notification_outbox": self.notifications.to_dict(),
             "paused_lanes": sorted(self.paused_lanes),
             "paused_nodes": sorted(self.paused_nodes),
+            "node_pause_reasons": {
+                node_id: sorted(self.node_pause_reasons.get(
+                    node_id, {"legacy_or_operator"}))
+                for node_id in sorted(self.paused_nodes)
+            },
             "node_enrollments": {node_id: dict(record) for node_id, record in self.node_enrollments.items()},
             "emergency_stop": self.emergency_stop,
             "state_revision": self.state_revision,
@@ -1959,6 +2011,7 @@ class ControlPlane:
         data = asdict(NODES[node_id])
         data.update(self.node_health[node_id])
         data["paused"] = node_id in self.paused_nodes
+        data["pause_reasons"] = sorted(self.node_pause_reasons.get(node_id, set()))
         from .telemetry import decode_detail
         reading = decode_detail(data.get("detail"))
         data["telemetry"] = reading['metrics'] if reading else None

@@ -124,6 +124,44 @@ def test_loss_of_contact_degrades_then_offlines_and_pauses_node():
     assert cp.node_health["ember"]["state"] == "offline"
 
 
+def test_fresh_signed_heartbeat_clears_only_availability_pause():
+    cp = ControlPlane()
+    key = b"recovery-heartbeat-key-material-001"
+    cp.enroll_node("ember", actor="fry", key=key)
+    first = Heartbeat("ember", 1_000, 1, "healthy")
+    cp.accept_heartbeat(first, signature=sign_heartbeat(first, key), key=key, now=1_000)
+    cp.expire_stale_nodes(now=1_600)
+
+    assert cp.node_pause_reasons["ember"] == {"heartbeat_stale"}
+    recovered = Heartbeat("ember", 1_601, 2, "healthy")
+    cp.accept_heartbeat(
+        recovered, signature=sign_heartbeat(recovered, key), key=key, now=1_601)
+
+    assert "ember" not in cp.paused_nodes
+    assert "ember" not in cp.node_pause_reasons
+    assert cp.evidence.list(limit=2)[1]["kind"] == "node.recovered_automatically"
+
+
+def test_healthy_heartbeat_never_clears_operator_or_key_rotation_pause():
+    cp = ControlPlane()
+    first_key = b"first-recovery-key-material-00001"
+    second_key = b"second-recovery-key-material-0001"
+    cp.enroll_node("forge", actor="fry", key=first_key)
+    cp.set_node_pause("forge", actor="fry", paused=True, reason="maintenance")
+    first = Heartbeat("forge", 1_000, 1, "healthy")
+    cp.accept_heartbeat(first, signature=sign_heartbeat(first, first_key), key=first_key, now=1_000)
+    assert cp.node_pause_reasons["forge"] == {"operator"}
+
+    cp.enroll_node("forge", actor="fry", key=second_key)
+    replacement = Heartbeat("forge", 1_001, 1, "healthy")
+    cp.accept_heartbeat(
+        replacement, signature=sign_heartbeat(replacement, second_key),
+        key=second_key, now=1_001)
+
+    assert "forge" in cp.paused_nodes
+    assert cp.node_pause_reasons["forge"] == {"key_rotation", "operator"}
+
+
 @pytest.mark.parametrize("node_id", sorted(NODES))
 def test_every_registered_node_accepts_authentication_then_fails_closed_stale(node_id):
     cp = ControlPlane()

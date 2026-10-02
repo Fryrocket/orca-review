@@ -1,0 +1,19 @@
+[Unit]
+Description=ORCA read-only fleet recovery readiness verification
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+ExecStart=/usr/bin/python3 /opt/orca-recovery/orca_fleet_readiness.py --state-url http://100.97.193.39:8788/api/state --output /var/lib/orca-recovery/fleet-readiness.json --max-age 180
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/orca-recovery
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictSUIDSGID=true
+LockPersonality=true
+
