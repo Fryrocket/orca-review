@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from .inventory import InventoryReadError, analyze_inventory_snapshot
+from .review_panel import review_panel_plan
 from .edge_inference import edge_inference_blueprint, plan_edge_workflow
 from .vision_dataset import (
     plan_hailo_conversion,
@@ -326,10 +327,14 @@ class StudioReadTools:
             manifest=manifest, validation=validation,
             training_metrics=training_metrics, toolchain=toolchain)
 
+    def engineering_review_panel(self) -> dict:
+        return review_panel_plan()
+
     def handlers(self) -> dict:
         return {
             "studio.capabilities": self.capabilities,
             "studio.user_manual_source": self.user_manual_source,
+            "engineering.review_panel": self.engineering_review_panel,
             "inventory.search": self.inventory_search,
             "node.observe": self.node_observe,
             "temper.inference_capabilities": self.temper_inference_capabilities,

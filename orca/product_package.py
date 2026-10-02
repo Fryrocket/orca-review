@@ -10,6 +10,7 @@ import re
 import zipfile
 
 from .cad import create_kicad_pcb_draft
+from .review_panel import build_review_packet, review_panel_plan
 from .security import redact_text
 
 
@@ -20,7 +21,8 @@ _PROJECT_ID = re.compile(r"^orca_pi5_cooling_hat_[a-f0-9]{16}$")
 _PI5_TEMPLATE = Path(__file__).resolve().parent / "templates" / "pi5_cooling_hat"
 _REQUIRED_NETS = {
     "GND", "5V_IN", "5V_FUSED", "3V3", "GPIO18_PWM", "PWM_GATE",
-    "FAN_PWM_OD", "FAN_TACH", "GPIO17_TACH",
+    "FAN_PWM_OD", "FAN_TACH", "GPIO17_TACH", "ID_SD", "ID_SC",
+    "EEPROM_WP",
 }
 
 
@@ -54,6 +56,9 @@ def _functional_electronics_assets() -> tuple[dict[str, str], dict]:
         "schematic_has_symbols": schematic.count("(symbol ") >= 15,
         "schematic_has_connectivity_labels": schematic.count("(global_label ") >= 12,
         "pcb_has_required_footprints": board.count("(footprint ") >= 15,
+        "hat_id_eeprom_present": all(
+            marker in board for marker in ('"U1"', '"CAT24C32"', '"R5"', '"R6"', '"R7"', '"TP5"')
+        ),
         "pcb_is_routed": board.count("(segment") >= 40,
         "pcb_unconnected_items": "Found 0 unconnected pads" in pcb_report,
         "pcb_drc_errors": "; error" not in pcb_report,
@@ -61,7 +66,8 @@ def _functional_electronics_assets() -> tuple[dict[str, str], dict]:
         "gerbers_present": all(
             any(name.endswith(suffix) for name in fabrication)
             for suffix in ("F_Cu.gtl", "B_Cu.gbl", "F_Mask.gts", "B_Mask.gbs",
-                           "F_Silkscreen.gto", "Edge_Cuts.gm1", ".drl", ".gbrjob")
+                           "In1_Cu.g1", "In2_Cu.g2", "F_Silkscreen.gto",
+                           "Edge_Cuts.gm1", ".drl", ".gbrjob")
         ),
     }
     if not all(checks.values()):
@@ -204,7 +210,7 @@ def create_pi5_cooling_hat_package(prompt: str, root: str | Path) -> dict:
             pass
     design_assets, functional_checks = _functional_electronics_assets()
     files: dict[str, str] = {
-        "README.md": """# ORCA Pi 5 Active-Cooling HAT\n\nStatus: functional electrical design complete; physical validation and manufacturing release remain blocked.\n\nThis design powers a 5 V four-wire PWM fan from the Pi 5 V rail, uses GPIO18 through an open-drain 2N7000 stage for the fan PWM input, and returns the open-collector tach signal to GPIO17 with a 3.3 V pull-up. Software reads the Pi CPU thermal zone and fails to full fan speed if temperature sensing fails.\n\nUnlike the superseded concept starter, this package contains a connected KiCad schematic, assigned footprints, nine named nets, routed copper for every used pad, primary Gerbers, drill and placement files, reproducible generator sources, and KiCad ERC/DRC reports with zero electrical errors and zero unconnected items. Physical fit, connector pin order, current, PWM/tach waveforms and thermal performance must still be measured on real hardware before fabrication release.\n""",
+        "README.md": """# ORCA Pi 5 Active-Cooling HAT\n\nStatus: functional electrical design complete; physical validation and manufacturing release remain blocked.\n\nThis design powers a 5 V four-wire PWM fan from the Pi 5 V rail, uses GPIO18 through an open-drain 2N7000 stage for the fan PWM input, and returns the open-collector tach signal to GPIO17 with a 3.3 V pull-up. A CAT24C32-compatible HAT+ ID EEPROM uses the reserved ID_SD/ID_SC pins, 3.9 kOhm pull-ups and a 1 kOhm write-protect pull-up with test point. Software reads the Pi CPU thermal zone and fails to full fan speed if temperature sensing fails.\n\nUnlike the superseded concept starter, this package contains a connected KiCad schematic, assigned footprints, twelve named nets, routed four-layer copper for every used pad, primary Gerbers, drill and placement files, reproducible generator sources, and KiCad ERC/DRC reports with zero electrical errors and zero unconnected items. Physical fit, connector pin order, current, PWM/tach waveforms and thermal performance must still be measured on real hardware before fabrication release.\n""",
         "pi5-cooling-hat.kicad_pro": json.dumps({"board": {}, "cvpcb": {}, "erc": {}, "meta": {"filename": "pi5-cooling-hat.kicad_pro", "version": 1}, "net_settings": {}, "pcbnew": {}, "schematic": {}, "text_variables": {}}, indent=2),
         "BOM.csv": _csv([
             ["Ref", "Qty", "Description", "Manufacturer part number", "Alternative", "Verification"],
@@ -216,9 +222,13 @@ def create_pi5_cooling_hat_package(prompt: str, root: str | Path) -> dict:
             ["R2", 1, "100 kOhm axial", "Yageo MFR-25FBF52-100K", "1/4 W equivalent", "gate pulldown"],
             ["R3", 1, "10 kOhm axial", "Yageo MFR-25FBF52-10K", "1/4 W equivalent", "tach pull-up to 3V3"],
             ["R4", 1, "1 kOhm axial", "Yageo MFR-25FBF52-1K", "1/4 W equivalent", "GPIO17 tach series"],
-            ["D1", 1, "5 V TVS", "Littelfuse SMBJ5.0A", "SMBJ5.0A equivalent", "clamp/current suitability required"],
+            ["D1", 1, "6.8 V bidirectional TVS, axial", "Littelfuse 1.5KE6.8A", "Pin-compatible 1.5KE6.8A", "standoff/clamp/current suitability required"],
             ["C1", 1, "100 uF 10 V low-ESR", "Nichicon UWT1A101MCL1GS", "105 C low-ESR equivalent", "ripple/life required"],
             ["C2", 1, "100 nF 16 V X7R 0603", "Murata GRM188R71C104KA01D", "X7R equivalent", "local decoupling"],
+            ["U1", 1, "32-kbit HAT+ ID EEPROM, full WP pin", "onsemi CAT24C32WI-GT3", "24C32 compatible; 3.3 V, 16-bit addressing, no clock stretching", "HAT+ EEPROM requirements"],
+            ["R5,R6", 2, "3.9 kOhm ID_SD/ID_SC pull-up", "Yageo MFR-25FBF52-3K9", "1/4 W equivalent", "HAT+ ID bus pull-ups"],
+            ["R7", 1, "1 kOhm EEPROM WP pull-up", "Yageo MFR-25FBF52-1K", "1/4 W equivalent", "HAT+ WP/test requirement"],
+            ["C3", 1, "100 nF 16 V radial ceramic", "KEMET C315C104M5U5TA", "2.54 mm or 5 mm lead-spacing equivalent", "EEPROM decoupling"],
             ["FAN1", 1, "40x10 mm 5 V four-wire PWM fan", "Noctua NF-A4x10 5V PWM", "Verified 5 V four-wire fan", "airflow/current/connector required"],
         ]),
         "cost-estimate.csv": _csv([
@@ -257,9 +267,37 @@ def create_pi5_cooling_hat_package(prompt: str, root: str | Path) -> dict:
         "mechanical-fit.md": """# Mechanical fit and airflow\n\nBoard outline target: 65 x 56.5 mm with four 2.7 mm mounting holes on the Raspberry Pi HAT pattern. Confirm the exact Pi 5 connector datum, connector height, standoff height, camera/display connector access, PoE/fan header conflicts and the selected heatsink envelope against official mechanical drawings before fabrication. Place the 40 mm fan above the heatsink with a guard and at least 3 mm blade clearance. Airflow direction must be tested in the intended enclosure; recirculation or blocked exhaust invalidates the thermal estimate.\n""",
         "assembly-and-user-guide.md": """# Assembly and use\n\nDo not fabricate from this prototype until the verification plan passes. Mount a Pi 5 compatible heatsink first. Install the HAT on correctly sized standoffs with power removed. Mount the fan so airflow crosses the heatsink and does not foul cables. Confirm the exact fan connector pinout. Install `fan_control.py` with the `python3-lgpio` dependency as a restricted system service. First power-up must use a current-limited supply. Stop immediately for odor, unstable 5 V rail, fan stall, connector heating or unexpected throttling.\n""",
         "safety-compliance-review.md": """# Safety and compliance review\n\nThis is a low-voltage prototype, not a certified product. Principal hazards are reversed fan pinout, 5 V short circuit, GPIO overvoltage, fan stall, inadequate heatsink contact, moving blades and unverified materials. Controls are keyed connector verification, PTC protection, 3.3 V tach pull-up, guarded fan, full-speed failsafe, current-limited bring-up and evidence-gated release. CE/FCC/RoHS or other market claims require the final assembly, suppliers, enclosure and intended market; none are claimed here.\n""",
-        "manufacturing-readiness.md": """# Manufacturing readiness\n\nStatus: FUNCTIONAL DESIGN COMPLETE; FABRICATION BLOCKED pending physical evidence.\n\n- [x] Connected KiCad schematic, pin mapping and assigned footprints\n- [x] Routed PCB with nine named nets and zero unconnected items\n- [x] KiCad ERC/DRC has zero electrical errors (non-electrical silkscreen warnings recorded)\n- [x] Primary Gerber, drill, job and placement files generated from the routed revision\n- [ ] Exact supplier datasheets and fan connector keying verified against received parts\n- [ ] Pi 5 mechanical keep-out and heatsink/fan fit physically verified\n- [ ] Fan current, PWM and tach measurements pass\n- [ ] Thermal soak meets REQ-004\n- [ ] Independent QUENCH review accepts the physical evidence\n\nNo purchase, fabrication, publication or supplier contact was performed.\n""",
+        "manufacturing-readiness.md": """# Manufacturing readiness\n\nStatus: FUNCTIONAL DESIGN COMPLETE; FABRICATION BLOCKED pending physical evidence.\n\n- [x] Connected KiCad schematic, pin mapping and assigned footprints\n- [x] HAT+ ID EEPROM, reserved ID pins, pull-ups and write-protect test point\n- [x] Routed four-layer PCB with twelve named nets and zero unconnected items\n- [x] KiCad ERC/DRC has zero electrical errors (non-electrical silkscreen warnings recorded)\n- [x] Four copper Gerbers, drill, job and placement files generated from the routed revision\n- [ ] Exact supplier datasheets and fan connector keying verified against received parts\n- [ ] Pi 5 mechanical keep-out and heatsink/fan fit physically verified\n- [ ] Fan current, PWM and tach measurements pass\n- [ ] Thermal soak meets REQ-004\n- [ ] Independent review panel and QUENCH accept the evidence\n\nNo purchase, fabrication, publication or supplier contact was performed.\n""",
     }
     files.update(design_assets)
+    review_candidates = {
+        name: files[name] for name in (
+            "pi5-cooling-hat.kicad_sch", "pi5-cooling-hat.kicad_pcb",
+            "schematic-erc.rpt", "pcb-drc.rpt",
+            "design-source-generate-schematic.py",
+            "design-source-generate-board.py", "BOM.csv", "requirements.csv",
+            "thermal-calculations.json", "verification-plan.md",
+        )
+    }
+    independent_packet = build_review_packet(
+        project_id=f"orca_pi5_cooling_hat_{package_id[:16]}",
+        candidate_files=review_candidates,
+        claims=(
+            "The schematic, PCB, BOM and generator sources describe the same circuit and component set.",
+            "Every electrically used pad has a named net and every required net is routed in copper.",
+            "The design satisfies applicable Raspberry Pi HAT+ electrical, EEPROM and mechanical requirements.",
+            "The four-wire 5 V fan PWM and tachometer interfaces satisfy the applicable electrical requirements.",
+            "The checked-in deterministic generators reproduce the reported ERC, DRC and fabrication outputs.",
+        ),
+        public_sources=(
+            "https://datasheets.raspberrypi.com/hat/hat-plus-specification.pdf",
+            "https://www.intel.com/content/dam/doc/design-guide/core-2-pentium-celeron-dual-core-guide.pdf",
+        ),
+    )
+    files["INDEPENDENT-REVIEW-PACKET.json"] = json.dumps(
+        independent_packet, indent=2, sort_keys=True)
+    files["INDEPENDENT-REVIEW-PLAN.json"] = json.dumps(
+        review_panel_plan(), indent=2, sort_keys=True)
     initial_status = "functional_design_complete_physical_validation_blocked"
     project = _project_record(
         package_id, created_at=created_at, updated_at=now,
@@ -285,7 +323,10 @@ def create_pi5_cooling_hat_package(prompt: str, root: str | Path) -> dict:
             "physical_validation_claimed": False,
             "purchases_or_external_actions": 0,
         },
-        "blocking_evidence": ["mechanical fit", "bench electrical tests", "thermal soak", "independent QUENCH review"],
+        "blocking_evidence": [
+            "multi-reviewer evidence reconciliation", "mechanical fit",
+            "bench electrical tests", "thermal soak", "independent QUENCH review",
+        ],
     }
     (package_root / "REVIEW.json").write_text(json.dumps(review, indent=2), encoding="utf-8")
     artifact_records.append({"name": "REVIEW.json", "bytes": (package_root / "REVIEW.json").stat().st_size, "sha256": _digest(package_root / "REVIEW.json")})
@@ -354,7 +395,7 @@ def quench_review_prompt(root: str | Path, package_id: str) -> str:
         "exactly three evidence strings at most 240 characters each; uncertainty at most 240 "
         "characters; next_gate must be blocked. Return only the required QUENCH JSON contract.\n\n"
         + json.dumps(evidence, sort_keys=True, separators=(",", ":"), allow_nan=False)
-    )[:8_000]
+    )[:7_900]
 
 
 def attach_quench_review(root: str | Path, package_id: str, output: dict) -> dict:

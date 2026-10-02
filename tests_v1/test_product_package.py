@@ -39,12 +39,23 @@ def test_pi5_package_creates_real_checksum_verified_artifacts(tmp_path):
         assert {"pi5-cooling-hat.kicad_sch", "pi5-cooling-hat.kicad_pcb",
                 "BOM.csv", "fan_control.py", "MANIFEST.json", "PROJECT.json",
                 "REVIEW.json", "pcb-drc.rpt", "schematic-erc.rpt",
+                "INDEPENDENT-REVIEW-PACKET.json",
+                "INDEPENDENT-REVIEW-PLAN.json",
                 "fabrication-pi5-cooling-hat-F_Cu.gtl",
+                "fabrication-pi5-cooling-hat-In1_Cu.g1",
+                "fabrication-pi5-cooling-hat-In2_Cu.g2",
                 "fabrication-pi5-cooling-hat-B_Cu.gbl",
                 "fabrication-pi5-cooling-hat.drl"} <= names
         assert bundle.testzip() is None
         manifest = json.loads(bundle.read("MANIFEST.json"))
         assert manifest["package_id"] == result["package_id"]
+        packet = json.loads(bundle.read("INDEPENDENT-REVIEW-PACKET.json"))
+        plan = json.loads(bundle.read("INDEPENDENT-REVIEW-PLAN.json"))
+        assert packet["physical_results_claimed"] is False
+        assert len(packet["files"]) == 10
+        assert plan["free_only"] is True
+        assert plan["paid_fallback"] is False
+        assert "Flux AI" in plan["excluded"]
     assert result["project"]["project_id"].startswith("orca_pi5_cooling_hat_")
     assert list_product_projects(tmp_path) == [result["project"]]
 

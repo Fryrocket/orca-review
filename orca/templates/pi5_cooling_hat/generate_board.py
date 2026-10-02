@@ -9,6 +9,7 @@ if not FP_ROOT.is_dir():
     FP_ROOT = Path('/Applications/KiCad/KiCad.app/Contents/SharedSupport/footprints')
 
 board = pcbnew.BOARD()
+board.SetCopperLayerCount(4)
 
 def net(name):
     n = pcbnew.NETINFO_ITEM(board, name)
@@ -17,7 +18,8 @@ def net(name):
 
 nets = {name: net(name) for name in (
     'GND', '5V_IN', '5V_FUSED', '3V3', 'GPIO18_PWM', 'PWM_GATE',
-    'FAN_PWM_OD', 'FAN_TACH', 'GPIO17_TACH')}
+    'FAN_PWM_OD', 'FAN_TACH', 'GPIO17_TACH', 'ID_SD', 'ID_SC',
+    'EEPROM_WP')}
 
 def fp(lib, name, ref, value, x, y, rotation=0):
     item = pcbnew.FootprintLoad(str(FP_ROOT / f'{lib}.pretty'), name)
@@ -46,7 +48,7 @@ def assign(item, mapping):
 # Board origin 20,20; 65 x 56.5 mm.
 j1 = fp('Connector_PinHeader_2.54mm', 'PinHeader_2x20_P2.54mm_Vertical', 'J1', 'Raspberry Pi 5 GPIO', 27.0, 24.5)
 assign(j1, {1:'3V3', 2:'5V_IN', 4:'5V_IN', 6:'GND', 11:'GPIO17_TACH',
-            12:'GPIO18_PWM'})
+            12:'GPIO18_PWM', 17:'3V3', 27:'ID_SD', 28:'ID_SC'})
 j2 = fp('Connector_PinHeader_2.54mm', 'PinHeader_1x04_P2.54mm_Vertical', 'J2', '5V 4-wire PWM fan', 70.0, 37.2, 90)
 assign(j2, {1:'GND', 2:'5V_FUSED', 3:'FAN_TACH', 4:'FAN_PWM_OD'})
 
@@ -68,10 +70,20 @@ assign(c1, {1:'5V_FUSED', 2:'GND'})
 c2 = fp('Capacitor_THT', 'C_Disc_D5.0mm_W2.5mm_P5.00mm', 'C2', '100nF', 70.0, 27.0)
 assign(c2, {1:'5V_FUSED', 2:'GND'})
 
+u1 = fp('Package_DIP', 'DIP-8_W7.62mm', 'U1', 'CAT24C32', 60.0, 61.0)
+assign(u1, {1:'GND', 2:'GND', 3:'GND', 4:'GND', 5:'ID_SD', 6:'ID_SC',
+            7:'EEPROM_WP', 8:'3V3'})
+r5 = fp(*RFP, 'R5', '3.9k', 42.0, 61.0); assign(r5, {1:'3V3', 2:'ID_SD'})
+r6 = fp(*RFP, 'R6', '3.9k', 42.0, 65.0); assign(r6, {1:'3V3', 2:'ID_SC'})
+r7 = fp(*RFP, 'R7', '1k', 42.0, 69.0); assign(r7, {1:'3V3', 2:'EEPROM_WP'})
+c3 = fp('Capacitor_THT', 'C_Disc_D5.0mm_W2.5mm_P5.00mm', 'C3', '100nF', 72.0, 61.0)
+assign(c3, {1:'3V3', 2:'GND'})
+
 for i, (ref, val, net_name, x) in enumerate((
     ('TP1','5V_FUSED','5V_FUSED',62.0), ('TP2','GND','GND',77.0),
-    ('TP3','FAN_PWM_OD','FAN_PWM_OD',78.0), ('TP4','FAN_TACH','FAN_TACH',82.0))):
-    y = {'TP1':24.0,'TP2':30.0,'TP3':45.0,'TP4':47.0}[ref]
+    ('TP3','FAN_PWM_OD','FAN_PWM_OD',78.0), ('TP4','FAN_TACH','FAN_TACH',82.0),
+    ('TP5','EEPROM_WP','EEPROM_WP',77.0))):
+    y = {'TP1':24.0,'TP2':30.0,'TP3':45.0,'TP4':47.0,'TP5':69.0}[ref]
     t = fp('TestPoint', 'TestPoint_Plated_Hole_D2.0mm', ref, val, x, y)
     assign(t, {1:net_name})
 
@@ -125,6 +137,19 @@ route_points('FAN_TACH', [pad_xy(j2,3),(75.08,42.0),pad_xy(r4,2)])
 route_points('FAN_TACH', [pad_xy(r4,2),(46.0,42.0),(46.0,33.0),(52.16,33.0),pad_xy(r3,2)])
 route_points('FAN_TACH', [pad_xy(j2,3),(75.08,47.0),(82.0,47.0)])
 route_points('GPIO17_TACH', [pad_xy(j1,11),(23.0,37.2),(23.0,43.55),(33.0,43.55),pad_xy(r4,1)])
+route_points('ID_SD', [pad_xy(j1,27),(20.8,57.52),(20.8,75.0),(74.0,75.0),(74.0,68.62),pad_xy(u1,5)], layer=pcbnew.F_Cu)
+route_points('ID_SD', [pad_xy(r5,2),(54.0,61.0),(54.0,75.5),(74.0,75.5),(74.0,68.62)], layer=pcbnew.F_Cu)
+route_points('ID_SC', [pad_xy(j1,28),(31.5,57.52),(31.5,73.0),(70.0,73.0),(70.0,66.08),pad_xy(u1,6)], layer=pcbnew.In1_Cu)
+route_points('ID_SC', [pad_xy(r6,2),(56.0,65.0),(56.0,73.0)], layer=pcbnew.In1_Cu)
+route_points('EEPROM_WP', [pad_xy(r7,2),(54.0,69.0),(54.0,74.0),(72.0,74.0),(72.0,63.54),pad_xy(u1,7)], layer=pcbnew.In2_Cu)
+tp5 = next(t for t in board.GetFootprints() if t.GetReference() == 'TP5')
+route_points('EEPROM_WP', [(72.0,74.0),(77.0,74.0),pad_xy(tp5,1)], layer=pcbnew.In2_Cu)
+route_points('3V3', [pad_xy(j1,17),(25.5,44.82),(25.5,74.0),(38.0,74.0),(38.0,61.0),pad_xy(r5,1)], layer=pcbnew.B_Cu)
+route_points('3V3', [pad_xy(j1,17),(25.5,44.82),(25.5,24.5),pad_xy(j1,1)], layer=pcbnew.B_Cu)
+route_points('3V3', [pad_xy(r5,1),(38.0,61.0),(38.0,65.0),pad_xy(r6,1)], layer=pcbnew.B_Cu)
+route_points('3V3', [pad_xy(r6,1),(38.0,65.0),(38.0,69.0),pad_xy(r7,1)], layer=pcbnew.B_Cu)
+route_points('3V3', [pad_xy(r5,1),(42.0,59.0),(67.62,59.0),pad_xy(u1,8)], layer=pcbnew.B_Cu)
+route_points('3V3', [pad_xy(u1,8),pad_xy(c3,1)], layer=pcbnew.B_Cu)
 
 # Ground bus is isolated on B.Cu and connects the single used Pi ground pin to
 # every ground terminal. Other GPIO-header ground pins remain unused pads.
@@ -138,5 +163,11 @@ for x, y in ground_points:
         route_points('GND', [(x,y),(31.0,y),(31.0,32.0),(32.5,32.0)], 0.8, pcbnew.B_Cu)
     else:
         route_points('GND', [(x,y),(x,32.0)], 0.8, pcbnew.B_Cu)
+
+# The EEPROM address pins, VSS and local decoupling return on B.Cu;
+# ID_SD, ID_SC and WP occupy F.Cu and therefore cannot short these traces.
+route_points('GND', [pad_xy(u1,1), pad_xy(u1,2), pad_xy(u1,3), pad_xy(u1,4)], 0.5, pcbnew.B_Cu)
+route_points('GND', [pad_xy(u1,4),(58.0,68.62),(58.0,72.0),(78.0,72.0),(78.0,75.0),(84.2,75.0),(84.2,61.0),pad_xy(c3,2)], 0.5, pcbnew.B_Cu)
+route_points('GND', [pad_xy(c3,2),(84.2,61.0),(84.2,34.0),(77.0,32.0),pad_xy(tp2,1)], 0.5, pcbnew.B_Cu)
 
 pcbnew.SaveBoard('pi5-cooling-hat.kicad_pcb', board)

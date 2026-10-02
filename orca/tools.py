@@ -22,6 +22,10 @@ TOOL_CATALOG = {
     "math.scientific": ToolCapability("math.scientific", "math", "Bounded symbolic calculus, matrices, complex and scientific math", None, PermissionLevel.R0),
     "engineering.calculate": ToolCapability("engineering.calculate", "engineering", "Evaluate a documented SI engineering model", None, PermissionLevel.R0),
     "engineering.catalog": ToolCapability("engineering.catalog", "engineering", "List engineering models, inputs and assumptions", None, PermissionLevel.R0),
+    "engineering.review_panel": ToolCapability(
+        "engineering.review_panel", "engineering",
+        "Inspect the free-only independent engineering review panel, roles and A-to-Z gates",
+        None, PermissionLevel.R0),
     "math.calculate": ToolCapability("math.calculate", "math", "Calculate bounded decimal arithmetic", None, PermissionLevel.R0),
     "file.read": ToolCapability("file.read", "files", "Read a bounded workspace file", None, PermissionLevel.R0),
     "file.search": ToolCapability("file.search", "files", "Search bounded workspace paths", None, PermissionLevel.R0),
@@ -69,7 +73,7 @@ TOOL_CATALOG = {
 
 BOT_TOOL_MANIFESTS = {
     "orca": frozenset({
-        "math.scientific", "engineering.calculate", "engineering.catalog",
+        "math.scientific", "engineering.calculate", "engineering.catalog", "engineering.review_panel",
         "math.calculate",
         "file.read", "file.search", "repo.read", "web.search", "web.fetch",
         "terminal.inspect", "drive.read", "drive.search", "notion.read",
@@ -83,7 +87,7 @@ BOT_TOOL_MANIFESTS = {
         "temper.plan_hailo_conversion",
     }),
     "smith": frozenset({
-        "math.scientific", "engineering.calculate", "engineering.catalog",
+        "math.scientific", "engineering.calculate", "engineering.catalog", "engineering.review_panel",
         "math.calculate",
         "file.read", "file.search", "repo.read", "web.search", "web.fetch",
         "terminal.inspect", "drive.read", "drive.search", "notion.read",
@@ -97,7 +101,7 @@ BOT_TOOL_MANIFESTS = {
         "temper.plan_hailo_conversion",
     }),
     "quench": frozenset({
-        "math.scientific", "engineering.calculate", "engineering.catalog",
+        "math.scientific", "engineering.calculate", "engineering.catalog", "engineering.review_panel",
         "math.calculate",
         "file.read", "file.search", "repo.read", "web.search", "web.fetch",
         "terminal.inspect", "drive.read", "drive.search", "node.observe",
@@ -127,6 +131,7 @@ TOOL_ARGUMENT_SCHEMAS = {
         for key, value in ENGINEERING_CATALOG.items()),
         "values": "Object containing exactly that model's SI fields as QUOTED DECIMAL STRINGS, never JSON numbers. Preserve exponent digits: inertia 1e-8 m^4 becomes \"1e-8\"; Young modulus 200 GPa becomes \"200e9\" Pa. Never invent missing dimensions, properties or loads."},
     "engineering.catalog": {},
+    "engineering.review_panel": {},
     "math.calculate": {"expression": "Arithmetic with decimal numbers, + - * / ^, parentheses, sqrt(), abs(); numeric percent means /100. No variables or units."},
     "file.read": {"path": "workspace-relative file path"},
     "file.search": {"query": "text to find", "glob": "optional workspace glob"},
