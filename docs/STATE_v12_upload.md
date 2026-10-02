@@ -855,4 +855,46 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   and lane pause lists. The continuity automation now supervises this repaired
   unit and preserves the stopped-run evidence separately.
 
-END STATE.md — AS OF 2026-10-01
+## 2026-10-02 — Repaired final eight-hour soak complete
+
+- The repaired five-node soak completed its full planned duration from
+  2026-10-01 18:48:29 CDT through 2026-10-02 02:48:30 CDT. The systemd unit
+  exited successfully with status 0, no soak-service restarts, and stop reason
+  `duration_complete`. The authoritative report records **46,492 requests,
+  zero failures, a 0.0% failure rate, and PASS**.
+- Successful exercised work comprised 46,436 bounded ORCA reads, 48 model
+  probes across the governed AI paths, four image jobs and four approved
+  33-frame short-video jobs. All eight media jobs returned valid artifacts.
+  No 49-frame or 73-frame job was submitted.
+- End-to-end request latency was 1,333.47 ms mean, 1,377.99 ms p50,
+  3,460.56 ms p95 and 4,303.10 ms p99. The 340,308.59 ms maximum was an
+  intentionally bounded local video render, not a request failure.
+- KILN retained at least 29,113,511,936 bytes of available memory,
+  2,147,479,552 bytes of free swap and 198,621,323,264 bytes of free disk
+  throughout the recorded host samples. Supervised node telemetry remained
+  within its safety limits; the highest observed FORGE CPU package reading
+  during a video cycle was approximately 80.6 C and returned to the mid-60s
+  after load cleared.
+- ORCA and the evidence chain remained valid. ANVIL, FORGE, KILN, EMBER and
+  TEMPER all finished with fresh authenticated healthy telemetry and were
+  returned to active service; the final `paused_nodes` list is empty. Brief
+  fail-safe pauses during CRUCIBLE video load were honored and cleared only
+  after fresh healthy heartbeats.
+- Security Watch remained healthy as a hardened five-minute timer-driven
+  oneshot. Its final soak-time attestation reported the firewall active, no
+  findings, no secret-content read and no changes applied. The service is
+  correctly inactive between successful timer invocations while its timer
+  remains enabled and active.
+- Evidence is preserved under
+  `/var/lib/orca-soak/20261001-8h-rerun`: the 22,103,976-byte JSONL event log,
+  the final JSON report, four PNG images and four MP4 videos. The prior stopped
+  run remains preserved separately under `/var/lib/orca-soak/20261001-8h` and
+  is not included in the repaired run's pass metrics.
+- Linear FOR-25 and FOR-29, the existing ORCA/FORGE/KILN/TEMPER/EMBER Notion
+  records, and the canonical Google Drive state/security records must reflect
+  this completed result without duplicate artifacts. The next phase is the
+  isolated outside security audit against a frozen, sanitized, read-only
+  export; it has no production credentials, write authority or service-control
+  path and makes no live fixes during the audit.
+
+END STATE.md — AS OF 2026-10-02
