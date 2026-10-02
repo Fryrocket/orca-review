@@ -88,3 +88,5 @@ def test_chat_routes_complete_pi5_hat_requests_to_real_package():
     assert "manufacturing release remains blocked" in source
     assert "tracked project" in source
     assert "use_tool_broker=False" in Path("orca/web.py").read_text()
+    runtime = Path("orca/runtime.py").read_text()
+    assert 'else 2_048' in runtime

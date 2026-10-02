@@ -782,7 +782,13 @@ class ModelRuntimeGateway:
             # object in half on detailed requests, making both the first
             # attempt and the strict retry unparsable.  Keep enough bounded
             # room for the complete contract while retaining a hard limit.
-            max_output_tokens=2_048 if service_id == "kiln_codex" else 4_096 if service_id == "forge_qwen" else 512,
+            # QUENCH reviews can require more than 512 tokens to cite several
+            # independent findings and still close the strict JSON object.
+            # Keep the review bounded, but leave enough room for a complete
+            # contract instead of accepting or displaying truncated output.
+            max_output_tokens=(2_048 if service_id == "kiln_codex"
+                               else 4_096 if service_id == "forge_qwen"
+                               else 2_048),
         )
         try:
             return adapter.invoke(
