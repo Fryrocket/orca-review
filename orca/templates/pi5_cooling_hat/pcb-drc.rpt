@@ -1,0 +1,80 @@
+** Drc report for pi5-cooling-hat.kicad_pcb **
+** Created on 2026-10-02T12:56:31-0500 **
+
+** Found 19 DRC violations **
+[silk_edge_clearance]: Silkscreen clipped by board edge
+    Rule: board setup constraints silk; warning
+    @(20.0000 mm, 20.0000 mm): Segment on Edge.Cuts
+    @(81.5000 mm, 19.8500 mm): Reference field of H2
+[silk_edge_clearance]: Silkscreen clipped by board edge
+    Rule: board setup constraints silk; warning
+    @(20.0000 mm, 20.0000 mm): Segment on Edge.Cuts
+    @(23.5000 mm, 19.8500 mm): Reference field of H1
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(57.0000 mm, 22.2000 mm): PCB text 'ORCA Pi 5 PWM FAN HAT REV A' on F.Silkscreen
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(77.0000 mm, 27.5020 mm): Reference field of TP2
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(47.9000 mm, 38.1900 mm): Rectangle of R2 on F.Silkscreen
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(60.7498 mm, 25.1610 mm): Segment of C1 on F.Silkscreen
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(61.0648 mm, 24.8460 mm): Segment of C1 on F.Silkscreen
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(64.2500 mm, 27.0000 mm): Circle of C1 on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; warning
+    @(47.9000 mm, 38.1900 mm): Rectangle of R2 on F.Silkscreen
+    @(49.2700 mm, 37.2000 mm): Arc of Q1 on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; warning
+    @(62.0000 mm, 24.0000 mm): Circle of TP1 on F.Silkscreen
+    @(57.0000 mm, 22.2000 mm): PCB text 'ORCA Pi 5 PWM FAN HAT REV A' on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; warning
+    @(62.0000 mm, 24.0000 mm): Circle of TP1 on F.Silkscreen
+    @(60.7498 mm, 25.1610 mm): Segment of C1 on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; warning
+    @(62.0000 mm, 24.0000 mm): Circle of TP1 on F.Silkscreen
+    @(61.0648 mm, 24.8460 mm): Segment of C1 on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; warning
+    @(64.2500 mm, 27.0000 mm): Circle of C1 on F.Silkscreen
+    @(62.0000 mm, 24.0000 mm): Circle of TP1 on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; warning
+    @(62.0000 mm, 21.5020 mm): Reference field of TP1
+    @(57.0000 mm, 22.2000 mm): PCB text 'ORCA Pi 5 PWM FAN HAT REV A' on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; warning
+    @(57.0000 mm, 22.2000 mm): PCB text 'ORCA Pi 5 PWM FAN HAT REV A' on F.Silkscreen
+    @(64.2500 mm, 22.6000 mm): Reference field of C1
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; warning
+    @(49.2700 mm, 30.8800 mm): Segment of R2 on F.Silkscreen
+    @(43.8100 mm, 28.6300 mm): Rectangle of R3 on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; warning
+    @(49.2700 mm, 38.9600 mm): Segment of R2 on F.Silkscreen
+    @(47.4700 mm, 39.0500 mm): Segment of Q1 on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; warning
+    @(47.9000 mm, 38.1900 mm): Rectangle of R2 on F.Silkscreen
+    @(49.2700 mm, 37.2000 mm): Arc of Q1 on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; warning
+    @(46.9000 mm, 34.9200 mm): Reference field of R2
+    @(49.2700 mm, 37.2000 mm): Arc of Q1 on F.Silkscreen
+
+** Found 0 unconnected pads **
+
+** Found 0 Footprint errors **
+
+** End of Report **

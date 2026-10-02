@@ -1,0 +1,12 @@
+Ref,Val,Package,PosX,PosY,Rot,Side
+"C1","100uF 10V","CP_Radial_D6.3mm_P2.50mm",63.000000,-27.000000,0.000000,top
+"C2","100nF","C_Disc_D5.0mm_W2.5mm_P5.00mm",70.000000,-27.000000,0.000000,top
+"D1","1.5KE6.8A","D_DO-15_P10.16mm_Horizontal",50.000000,-27.000000,0.000000,top
+"F1","0.50A PTC","Fuse_1206_3216Metric_Pad1.42x1.75mm_HandSolder",35.000000,-24.500000,0.000000,top
+"J1","Raspberry Pi 5 GPIO","PinHeader_2x20_P2.54mm_Vertical",27.000000,-24.500000,0.000000,top
+"J2","5V 4-wire PWM fan","PinHeader_1x04_P2.54mm_Vertical",70.000000,-37.200000,90.000000,top
+"Q1","2N7000","TO-92_Inline",48.000000,-37.200000,0.000000,top
+"R1","100R","R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",33.000000,-37.200000,0.000000,top
+"R2","100k","R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",49.270000,-40.000000,90.000000,top
+"R3","10k","R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",42.000000,-30.000000,0.000000,top
+"R4","1k","R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal",33.000000,-42.000000,0.000000,top

@@ -26,12 +26,22 @@ def test_pi5_package_creates_real_checksum_verified_artifacts(tmp_path):
     assert archive.is_file()
     assert sha256(archive.read_bytes()).hexdigest() == result["zip_sha256"]
     assert result["review"]["checks"]["physical_validation_claimed"] is False
-    assert result["status"] == "prototype_package_complete_manufacturing_release_blocked"
+    assert result["status"] == "functional_design_complete_physical_validation_blocked"
+    gate = result["review"]["checks"]["functional_electronics_gate"]
+    assert gate["required_nets_present"] is True
+    assert gate["pcb_is_routed"] is True
+    assert gate["pcb_unconnected_items"] is True
+    assert gate["pcb_drc_errors"] is True
+    assert gate["schematic_erc_errors"] is True
+    assert gate["gerbers_present"] is True
     with zipfile.ZipFile(archive) as bundle:
         names = set(bundle.namelist())
         assert {"pi5-cooling-hat.kicad_sch", "pi5-cooling-hat.kicad_pcb",
                 "BOM.csv", "fan_control.py", "MANIFEST.json", "PROJECT.json",
-                "REVIEW.json"} <= names
+                "REVIEW.json", "pcb-drc.rpt", "schematic-erc.rpt",
+                "fabrication-pi5-cooling-hat-F_Cu.gtl",
+                "fabrication-pi5-cooling-hat-B_Cu.gbl",
+                "fabrication-pi5-cooling-hat.drl"} <= names
         assert bundle.testzip() is None
         manifest = json.loads(bundle.read("MANIFEST.json"))
         assert manifest["package_id"] == result["package_id"]
@@ -129,7 +139,7 @@ def test_http_single_prompt_chains_fabrication_readiness(tmp_path):
         assert created["status"] == "fabrication_readiness_prepared_physical_validation_blocked"
         # The unit server has no QUENCH runtime, so the independent review file
         # is the one live artifact intentionally absent here.
-        assert created["artifact_count"] == 27
+        assert created["artifact_count"] >= 41
         request = Request(
             f"http://127.0.0.1:{server.server_port}{created['download_url']}",
             headers={"X-ORCA-Operator-Token": token})
