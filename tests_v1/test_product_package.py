@@ -6,7 +6,11 @@ from urllib.request import Request, urlopen
 import zipfile
 
 from orca.control_plane import ControlPlane
-from orca.product_package import attach_quench_review, create_pi5_cooling_hat_package
+from orca.product_package import (
+    attach_quench_review,
+    create_pi5_cooling_hat_package,
+    list_product_projects,
+)
 from orca.web import OrcaHTTPServer
 
 
@@ -24,10 +28,13 @@ def test_pi5_package_creates_real_checksum_verified_artifacts(tmp_path):
     with zipfile.ZipFile(archive) as bundle:
         names = set(bundle.namelist())
         assert {"pi5-cooling-hat.kicad_sch", "pi5-cooling-hat.kicad_pcb",
-                "BOM.csv", "fan_control.py", "MANIFEST.json", "REVIEW.json"} <= names
+                "BOM.csv", "fan_control.py", "MANIFEST.json", "PROJECT.json",
+                "REVIEW.json"} <= names
         assert bundle.testzip() is None
         manifest = json.loads(bundle.read("MANIFEST.json"))
         assert manifest["package_id"] == result["package_id"]
+    assert result["project"]["project_id"].startswith("orca_pi5_cooling_hat_")
+    assert list_product_projects(tmp_path) == [result["project"]]
 
 
 def test_quench_review_is_embedded_and_rehashes_the_package(tmp_path):
@@ -40,6 +47,7 @@ def test_quench_review_is_embedded_and_rehashes_the_package(tmp_path):
     })
     assert reviewed["review"]["independent_authoring"] is True
     assert reviewed["review"]["independent_reviewer"] == "QUENCH"
+    assert reviewed["project"]["independently_reviewed"] is True
     assert reviewed["zip_sha256"] != initial["zip_sha256"]
     with zipfile.ZipFile(tmp_path / initial["package_id"] / "ORCA-Pi5-Cooling-HAT.zip") as bundle:
         assert "QUENCH-REVIEW.json" in bundle.namelist()
@@ -78,3 +86,5 @@ def test_chat_routes_complete_pi5_hat_requests_to_real_package():
     assert "'/api/product-development/package'" in source
     assert "Download complete design package" in source
     assert "manufacturing release remains blocked" in source
+    assert "tracked project" in source
+    assert "use_tool_broker=False" in Path("orca/web.py").read_text()

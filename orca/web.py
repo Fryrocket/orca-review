@@ -378,6 +378,18 @@ class OrcaHandler(BaseHTTPRequestHandler):
         if not self._host_allowed():
             return self._json({"error": "host header is not allowlisted"}, HTTPStatus.MISDIRECTED_REQUEST)
         path = urlparse(self.path).path
+        if path == "/api/product-development/projects":
+            try:
+                identity = self._authenticate_mutation()
+            except IdentityAuthenticationError as exc:
+                return self._json({"error": str(exc)}, HTTPStatus.UNAUTHORIZED)
+            except RuntimeError:
+                return self._json({"error": "project authentication is unavailable"}, HTTPStatus.SERVICE_UNAVAILABLE)
+            if identity != "fry":
+                return self._json({"error": "Only Fry may read product projects"}, HTTPStatus.FORBIDDEN)
+            from .product_package import list_product_projects
+            return self._json({"projects": list_product_projects(
+                self._product_artifact_root())})
         if path.startswith("/api/product-development/packages/"):
             try:
                 identity = self._authenticate_mutation()
@@ -601,6 +613,7 @@ class OrcaHandler(BaseHTTPRequestHandler):
                             service_id="kiln_quench", bot_id="quench",
                             prompt=quench_review_prompt(
                                 self._product_artifact_root(), result["package_id"]),
+                            use_tool_broker=False,
                         )
                         result = attach_quench_review(
                             self._product_artifact_root(), result["package_id"], independent)

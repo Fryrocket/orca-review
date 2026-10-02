@@ -473,7 +473,7 @@ async function generateProductPackage(prompt) {
   const reviewLabel = result.review.independent_authoring
     ? 'independently reviewed by QUENCH'
     : 'deterministically checked; independent review unavailable';
-  note.textContent = `ORCA created ${result.artifact_count} real artifacts, ${reviewLabel}, and verified the package SHA-256 ${result.zip_sha256.slice(0, 16)}…. The engineering prototype is complete; manufacturing release remains blocked by ${result.review.blocking_evidence.join(', ')}.`;
+  note.textContent = `ORCA created tracked project ${result.project.project_id} with ${result.artifact_count} real artifacts, ${reviewLabel}, and verified the package SHA-256 ${result.zip_sha256.slice(0, 16)}…. The engineering prototype is complete; manufacturing release remains blocked by ${result.review.blocking_evidence.join(', ')}.`;
   const download = document.createElement('button'); download.type = 'button';
   download.className = 'chat-image-download'; download.textContent = 'Download complete design package';
   download.addEventListener('click', () => downloadManualArtifact(result.download_url, 'ORCA-Pi5-Cooling-HAT.zip'));
@@ -482,7 +482,7 @@ async function generateProductPackage(prompt) {
   manifest.addEventListener('click', () => downloadManualArtifact(result.manifest_url, 'MANIFEST.json'));
   bubble.append(heading, note, download, manifest); item.append(bubble); $('#conversation').append(item);
   $('#conversation').scrollTop = $('#conversation').scrollHeight;
-  return `ORCA created and checksum-verified the Pi 5 cooling HAT engineering package (${result.artifact_count} artifacts; ${result.zip_sha256}). Manufacturing release remains blocked pending the recorded physical and independent-review evidence.`;
+  return `ORCA created tracked project ${result.project.project_id} and checksum-verified its Pi 5 cooling HAT engineering package (${result.artifact_count} artifacts; ${result.zip_sha256}). Manufacturing release remains blocked pending the recorded physical evidence.`;
 }
 async function generateChatPCB(prompt) {
   const boardPrompt = prompt.trim().replace(/^\/pcb\s+/i, '');

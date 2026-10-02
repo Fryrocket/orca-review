@@ -29,6 +29,26 @@ def _csv(rows: list[list[object]]) -> str:
     return stream.getvalue()
 
 
+def _project_record(package_id: str, *, created_at: str, updated_at: str,
+                    status: str, independently_reviewed: bool) -> dict:
+    """Return the durable ORCA project identity for this design package."""
+
+    return {
+        "schema": 1,
+        "project_id": f"orca_pi5_cooling_hat_{package_id[:16]}",
+        "name": "ORCA Raspberry Pi 5 Active-Cooling HAT",
+        "kind": "hardware_product_development",
+        "source": "ORCA Studio",
+        "lifecycle_state": "engineering_prototype",
+        "status": status,
+        "created_at": created_at,
+        "updated_at": updated_at,
+        "package_id": package_id,
+        "independently_reviewed": independently_reviewed,
+        "manufacturing_release": "blocked_pending_physical_evidence",
+    }
+
+
 def _schematic() -> str:
     # A bounded KiCad source artifact.  It is deliberately marked as an
     # engineering prototype until KiCad ERC and physical validation are run.
@@ -117,6 +137,17 @@ def create_pi5_cooling_hat_package(prompt: str, root: str | Path) -> dict:
     package_id = sha256(normalized.encode()).hexdigest()
     package_root = Path(root).resolve() / package_id
     package_root.mkdir(parents=True, exist_ok=True)
+    now = datetime.now(timezone.utc).isoformat()
+    created_at = now
+    existing_project = package_root / "PROJECT.json"
+    if existing_project.is_file():
+        try:
+            previous = json.loads(existing_project.read_text(encoding="utf-8"))
+            if (isinstance(previous, dict)
+                    and isinstance(previous.get("created_at"), str)):
+                created_at = previous["created_at"]
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            pass
     board = create_kicad_pcb_draft(
         "Create a .kicad_pcb for a Raspberry Pi 5 HAT with a 40 mm four-wire PWM cooling fan")
     files: dict[str, str] = {
@@ -175,6 +206,11 @@ def create_pi5_cooling_hat_package(prompt: str, root: str | Path) -> dict:
         "safety-compliance-review.md": """# Safety and compliance review\n\nThis is a low-voltage prototype, not a certified product. Principal hazards are reversed fan pinout, 5 V short circuit, GPIO overvoltage, fan stall, inadequate heatsink contact, moving blades and unverified materials. Controls are keyed connector verification, PTC protection, 3.3 V tach pull-up, guarded fan, full-speed failsafe, current-limited bring-up and evidence-gated release. CE/FCC/RoHS or other market claims require the final assembly, suppliers, enclosure and intended market; none are claimed here.\n""",
         "manufacturing-readiness.md": """# Manufacturing readiness\n\nStatus: BLOCKED pending physical evidence.\n\n- [ ] Exact symbols, footprints and datasheets verified\n- [ ] Pi 5 mechanical keep-out and heatsink/fan fit verified\n- [ ] KiCad ERC and DRC pass\n- [ ] Fan current, PWM and tach measurements pass\n- [ ] Thermal soak meets REQ-004\n- [ ] Gerber, drill and placement files generated from reviewed revision\n- [ ] Independent QUENCH review accepts the evidence\n\nNo purchase, fabrication, publication or supplier contact was performed.\n""",
     }
+    initial_status = "prototype_package_complete_manufacturing_release_blocked"
+    project = _project_record(
+        package_id, created_at=created_at, updated_at=now,
+        status=initial_status, independently_reviewed=False)
+    files["PROJECT.json"] = json.dumps(project, indent=2)
     for name, content in files.items():
         if not _ARTIFACT.fullmatch(name):
             raise ValueError("generated artifact name is unsafe")
@@ -186,7 +222,7 @@ def create_pi5_cooling_hat_package(prompt: str, root: str | Path) -> dict:
     review = {
         "reviewer": "ORCA deterministic evidence gate",
         "independent_authoring": False,
-        "result": "prototype_package_complete_manufacturing_release_blocked",
+        "result": initial_status,
         "checks": {
             "requested_artifacts_present": True,
             "all_files_nonempty": all(item["bytes"] > 0 for item in artifact_records),
@@ -213,6 +249,7 @@ def create_pi5_cooling_hat_package(prompt: str, root: str | Path) -> dict:
         "zip_bytes": zip_path.stat().st_size,
         "download_url": f"/api/product-development/packages/{package_id}/ORCA-Pi5-Cooling-HAT.zip",
         "manifest_url": f"/api/product-development/packages/{package_id}/MANIFEST.json",
+        "project": project,
         "review": review,
     }
 
@@ -246,6 +283,12 @@ def attach_quench_review(root: str | Path, package_id: str, output: dict) -> dic
     review["quench_next_gate"] = output.get("next_gate")
     review["result"] = "prototype_package_independently_reviewed_manufacturing_release_blocked"
     (package / "REVIEW.json").write_text(json.dumps(review, indent=2), encoding="utf-8")
+    prior_project = json.loads((package / "PROJECT.json").read_text(encoding="utf-8"))
+    project = _project_record(
+        package_id, created_at=prior_project["created_at"],
+        updated_at=datetime.now(timezone.utc).isoformat(),
+        status=review["result"], independently_reviewed=True)
+    (package / "PROJECT.json").write_text(json.dumps(project, indent=2), encoding="utf-8")
     records = []
     for path in sorted(package.iterdir()):
         if path.is_file() and path.name not in {"MANIFEST.json", "ORCA-Pi5-Cooling-HAT.zip"}:
@@ -265,8 +308,28 @@ def attach_quench_review(root: str | Path, package_id: str, output: dict) -> dic
         "zip_bytes": zip_path.stat().st_size,
         "download_url": f"/api/product-development/packages/{package_id}/ORCA-Pi5-Cooling-HAT.zip",
         "manifest_url": f"/api/product-development/packages/{package_id}/MANIFEST.json",
+        "project": project,
         "review": review,
     }
+
+
+def list_product_projects(root: str | Path) -> list[dict]:
+    """List bounded, durable ORCA product projects without exposing host paths."""
+
+    base = Path(root).resolve()
+    projects = []
+    if not base.is_dir():
+        return projects
+    for path in base.glob("*/PROJECT.json"):
+        try:
+            record = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            continue
+        if (isinstance(record, dict)
+                and isinstance(record.get("project_id"), str)
+                and isinstance(record.get("updated_at"), str)):
+            projects.append(record)
+    return sorted(projects, key=lambda item: item["updated_at"], reverse=True)
 
 
 def resolve_product_package_artifact(root: str | Path, package_id: str, artifact: str) -> Path:
