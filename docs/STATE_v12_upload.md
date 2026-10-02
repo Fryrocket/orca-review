@@ -1004,4 +1004,34 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   Wake-on-LAN and ANVIL's macOS administrator-only `autorestart` policy. No
   claim of 100% physical recovery is made until that controlled drill passes.
 
+## ORCA autonomous product-project acceptance — 2026-10-02
+
+- The black-box ORCA Studio acceptance run passed for a Raspberry Pi 5
+  active-cooling HAT. One owner request created durable tracked project
+  `orca_pi5_cooling_hat_b2df71f260b5a71a`, generated the real design package,
+  invoked QUENCH for an independent evidence-grounded review, verified the
+  archive, and returned working package and manifest download controls.
+- Final package SHA-256:
+  `d5b0a85371bc4a3b4d12065d1082bf4a084579e7a5881ff2de1fc51c745d13a7`.
+  The ZIP contains 19 manifest-tracked artifacts plus the manifest itself;
+  every recorded SHA-256 matched and the archive integrity test passed.
+- Delivered artifacts include the KiCad project, schematic and PCB, BOM,
+  planning cost and inventory maps, thermal calculations, fan-control code,
+  requirements, mechanical-fit and manufacturing-readiness records, test and
+  fixture plans, assembly/user guidance, project identity, deterministic
+  review, independent QUENCH review and checksum manifest.
+- External acceptance on KiCad 10 reported zero ERC errors, zero DRC
+  violations, zero unconnected pads and zero footprint errors. The fan-control
+  Python compiled successfully, and the BOM contains ten component rows.
+- The accepted live source is commit `9b098304a7af5ce18358649df5fc263bfc8637f1` in
+  `/opt/orca/releases/product-review-20261002-9b09830`. The full regression
+  passed **1,174/1,174** and live ORCA remained healthy with valid integrity and
+  zero service restarts after activation. The prior release is preserved for
+  rollback.
+- This passes the autonomous software/design-package acceptance test, not a
+  physical manufacturing release. Mechanical fit on the real Pi/heatsink/fan,
+  bench current/PWM/tach and fault tests, and a physical thermal soak remain
+  truthful hardware gates. No purchase, fabrication, publication or external
+  contact occurred.
+
 END STATE.md — AS OF 2026-10-02
