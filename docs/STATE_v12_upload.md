@@ -1034,4 +1034,27 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   truthful hardware gates. No purchase, fabrication, publication or external
   contact occurred.
 
+## ORCA fabrication-readiness continuation — 2026-10-02
+
+- A screen-level ORCA-only continuation test first exposed fabricated
+  `sandbox://` references and a generic-chat concurrency failure. Those results
+  were rejected and are not counted as evidence.
+- Commit `d7eaf3243e87e1c938f79b874b818f7da1854b34` added a dedicated,
+  authenticated continuation path for existing tracked projects. The complete
+  regression passed **1,175/1,175**.
+- Release `/opt/orca/releases/fabrication-readiness-20261002-d7eaf32` is live,
+  healthy and integrity-valid with zero service restarts. The previous product
+  release is preserved by `/var/lib/orca/previous-release`.
+- The repeated request was entered through ORCA Studio. ORCA updated project
+  `orca_pi5_cooling_hat_b2df71f260b5a71a` to 28 real artifacts, invoked QUENCH,
+  rebuilt the manifest/archive and returned functional package and manifest
+  controls. The new package SHA-256 begins `0e68bdb27e826026`.
+- Added readiness evidence covers mechanical fit, bench electrical/PWM/tach and
+  fault testing, thermal soak, instrumentation, stop conditions, acceptance
+  criteria, evidence hashing and the owner execution checklist. Every physical
+  result remains explicitly `PENDING`; no measurement was invented.
+- Software preparation is complete. Manufacturing release remains blocked on
+  the assembled HAT, physical mechanical measurements, instrumented bench
+  results and the controlled thermal soak.
+
 END STATE.md — AS OF 2026-10-02
