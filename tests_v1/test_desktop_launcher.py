@@ -140,12 +140,15 @@ def test_kiln_studio_recovers_when_gateway_starts_late():
     assert "It will retry automatically." in source
 
 
-def test_kiln_studio_autostarts_and_restarts_only_the_app():
-    autostart = Path("desktop/KILNStudio/kiln-studio-autostart.desktop").read_text()
+def test_kiln_studio_is_supervised_by_the_graphical_user_session():
+    service = Path("desktop/KILNStudio/kiln-studio.service").read_text()
     installer = Path("desktop/KILNStudio/install.sh").read_text()
-    assert "X-GNOME-Autostart-enabled=true" in autostart
-    assert "X-GNOME-AutoRestart=true" in autostart
-    assert "Exec=/home/fryrocket/.local/lib/kiln-studio/kiln-studio.py" in autostart
-    assert "gnome-shell" not in autostart
-    assert 'autostart_dir="${HOME}/.config/autostart"' in installer
-    assert 'kiln-studio-autostart.desktop' in installer
+    assert "PartOf=graphical-session.target" in service
+    assert "WantedBy=graphical-session.target" in service
+    assert "Restart=always" in service
+    assert "RestartSec=3" in service
+    assert "ExecStart=/home/fryrocket/.local/lib/kiln-studio/kiln-studio.py" in service
+    assert "gnome-shell" not in service
+    assert 'user_unit_dir="${HOME}/.config/systemd/user"' in installer
+    assert 'install -m 0644 "$root_dir/kiln-studio.service"' in installer
+    assert "systemctl --user enable kiln-studio.service" in installer
