@@ -128,6 +128,15 @@ def test_verified_product_workflow_routes_are_narrowly_allowlisted():
     assert gateway.allowed_request("POST", "/api/product-development/fabrication-readiness")
     assert not gateway.allowed_request("PUT", "/api/product-development/package")
     assert not gateway.allowed_request("POST", "/api/product-development/arbitrary")
+    digest = "a" * 64
+    assert gateway.allowed_request(
+        "GET", f"/api/product-development/packages/{digest}/ORCA-Pi5-Environmental-Status-HAT.zip")
+    assert gateway.allowed_request(
+        "GET", f"/api/product-development/packages/{digest}/MANIFEST.json")
+    assert not gateway.allowed_request(
+        "GET", f"/api/product-development/packages/{digest}/secrets.txt")
+    assert not gateway.allowed_request(
+        "DELETE", f"/api/product-development/packages/{digest}/MANIFEST.json")
 
 
 def test_gateway_token_file_must_be_owner_only(tmp_path: Path):

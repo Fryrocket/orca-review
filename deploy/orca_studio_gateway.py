@@ -60,6 +60,9 @@ POST_API_PATHS = {
     *MEDIA_POST_PATHS,
 }
 MANUAL_GET_PATTERN = re.compile(r"/api/manuals/([0-9a-f]{64})/manual\.(odt|pdf)")
+PRODUCT_PACKAGE_GET_PATTERN = re.compile(
+    r"/api/product-development/packages/[0-9a-f]{64}/(?:ORCA-[A-Za-z0-9.-]+\.zip|MANIFEST\.json)"
+)
 POST_API_PATTERNS = tuple(re.compile(pattern) for pattern in (
     r"/api/approvals/[A-Za-z0-9_.:-]+",
     r"/api/bots/[A-Za-z0-9_.:-]+/pause",
@@ -106,6 +109,7 @@ def allowed_request(method: str, path: str) -> bool:
     if method in {"GET", "HEAD"}:
         return (
             path == "/" or path in GET_API_PATHS or MANUAL_GET_PATTERN.fullmatch(path)
+            or PRODUCT_PACKAGE_GET_PATTERN.fullmatch(path)
             or not path.startswith("/api/")
         )
     if method != "POST":
