@@ -110,6 +110,22 @@ class OrcaHandler(BaseHTTPRequestHandler):
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "no-referrer")
 
+    def _product_artifact_root(self) -> Path:
+        database = self.server.control_plane.evidence.path
+        parent = Path(database).resolve().parent if database != ":memory:" else Path.cwd().resolve()
+        return parent / "orca-product-artifacts"
+
+    def _file(self, path: Path, mime: str) -> None:
+        body = path.read_bytes()
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", mime)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Content-Disposition", f'attachment; filename="{path.name}"')
+        self.send_header("Cache-Control", "no-store")
+        self._security_headers()
+        self.end_headers()
+        self.wfile.write(body)
+
     def _host_allowed(self) -> bool:
         supplied = self.headers.get("Host", "")
         if supplied.startswith("[") and "]" in supplied:
@@ -362,6 +378,26 @@ class OrcaHandler(BaseHTTPRequestHandler):
         if not self._host_allowed():
             return self._json({"error": "host header is not allowlisted"}, HTTPStatus.MISDIRECTED_REQUEST)
         path = urlparse(self.path).path
+        if path.startswith("/api/product-development/packages/"):
+            try:
+                identity = self._authenticate_mutation()
+            except IdentityAuthenticationError as exc:
+                return self._json({"error": str(exc)}, HTTPStatus.UNAUTHORIZED)
+            except RuntimeError:
+                return self._json({"error": "product artifact authentication is unavailable"}, HTTPStatus.SERVICE_UNAVAILABLE)
+            if identity != "fry":
+                return self._json({"error": "Only Fry may download product artifacts"}, HTTPStatus.FORBIDDEN)
+            parts = path.split("/")
+            if len(parts) != 6:
+                return self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)
+            try:
+                from .product_package import resolve_product_package_artifact
+                artifact = resolve_product_package_artifact(
+                    self._product_artifact_root(), parts[4], parts[5])
+            except (ValueError, FileNotFoundError):
+                return self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)
+            mime = "application/zip" if artifact.suffix == ".zip" else "application/json"
+            return self._file(artifact, mime)
         if path in {"/api/inbox", "/api/communications"}:
             try:
                 identity = self._authenticate_mutation()
@@ -536,7 +572,7 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     "nonce": heartbeat.nonce,
                     "status": "accepted",
                 }, HTTPStatus.OK)
-            if path in {"/api/inference", "/api/chat", "/api/memory", "/api/science", "/api/engineering", "/api/project/plan", "/api/cad/pcb-draft", "/api/temper/inventory-dataset/plan", "/api/business/muse/handoff", "/api/business/muse/email-handoff", "/api/solo-operator/action-plan", "/api/solo-operator/snapshot"}:
+            if path in {"/api/inference", "/api/chat", "/api/memory", "/api/science", "/api/engineering", "/api/project/plan", "/api/cad/pcb-draft", "/api/product-development/package", "/api/temper/inventory-dataset/plan", "/api/business/muse/handoff", "/api/business/muse/email-handoff", "/api/solo-operator/action-plan", "/api/solo-operator/snapshot"}:
                 try:
                     authenticated_identity = self._authenticate_mutation()
                 except IdentityAuthenticationError as exc:
@@ -550,6 +586,12 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     raise IdentityAuthorizationError(
                         "only Fry may initiate local model inference")
                 data = self._body()
+                if path == "/api/product-development/package":
+                    if set(data) != {"prompt"}:
+                        raise ValueError("product package creation requires one prompt")
+                    from .product_package import create_pi5_cooling_hat_package
+                    return self._json(create_pi5_cooling_hat_package(
+                        data["prompt"], self._product_artifact_root()), HTTPStatus.CREATED)
                 if path == "/api/solo-operator/action-plan":
                     if set(data) != {"signals"}:
                         raise ValueError("Action Center request has an invalid schema")

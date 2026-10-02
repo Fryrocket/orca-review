@@ -447,6 +447,40 @@ function wantsChatPCB(prompt) {
   return /^(?:generate|create|make|write|build|lay out)\b[^\n]{0,200}\b(?:\.kicad_pcb|kicad\s+(?:pcb|board)|pcb\s+(?:file|board|layout))\b/i.test(text)
     || /^\/pcb\s+\S/i.test(prompt.trim());
 }
+function wantsEndToEndProductPackage(prompt) {
+  if (typeof prompt !== 'string' || prompt.length > 12000) return false;
+  const text = prompt.trim().toLowerCase();
+  if (/\b(?:don't|do not|never)\s+(?:create|build|design|make)\b/.test(text)) return false;
+  return /\b(?:raspberry\s*pi\s*5|pi\s*5)\b/.test(text)
+    && /\b(?:hat|board)\b/.test(text) && /\b(?:fan|cooling)\b/.test(text)
+    && /\b(?:complete|completion|end[- ]to[- ]end|a[- ]to[- ]z|production[- ]ready|all\s+(?:tools|processes|tabs|workspaces))\b/.test(text);
+}
+
+async function generateProductPackage(prompt) {
+  const response = await fetch('/api/product-development/package', {
+    method: 'POST', headers: {'Content-Type': 'application/json',
+      'X-ORCA-Identity': studioAuth.identity, 'X-ORCA-Identity-Token': studioAuth.token},
+    body: JSON.stringify({prompt})
+  });
+  let result;
+  try { result = await response.json(); } catch { throw Error('Product Builder returned an unreadable response.'); }
+  if (!response.ok) throw Error(result.error || `Product package creation failed (${response.status})`);
+  $('#active-thinking')?.remove();
+  const item = document.createElement('div'); item.className = 'message assistant';
+  const bubble = document.createElement('div'); bubble.className = 'bubble chat-image-result';
+  const heading = document.createElement('h3'); heading.textContent = 'Verified ORCA product package';
+  const note = document.createElement('p');
+  note.textContent = `ORCA created ${result.artifact_count} real artifacts and verified the package SHA-256 ${result.zip_sha256.slice(0, 16)}…. The engineering prototype is complete; manufacturing release remains blocked by ${result.review.blocking_evidence.join(', ')}.`;
+  const download = document.createElement('button'); download.type = 'button';
+  download.className = 'chat-image-download'; download.textContent = 'Download complete design package';
+  download.addEventListener('click', () => downloadManualArtifact(result.download_url, 'ORCA-Pi5-Cooling-HAT.zip'));
+  const manifest = document.createElement('button'); manifest.type = 'button';
+  manifest.className = 'chat-image-download'; manifest.textContent = 'Download evidence manifest';
+  manifest.addEventListener('click', () => downloadManualArtifact(result.manifest_url, 'MANIFEST.json'));
+  bubble.append(heading, note, download, manifest); item.append(bubble); $('#conversation').append(item);
+  $('#conversation').scrollTop = $('#conversation').scrollHeight;
+  return `ORCA created and checksum-verified the Pi 5 cooling HAT engineering package (${result.artifact_count} artifacts; ${result.zip_sha256}). Manufacturing release remains blocked pending the recorded physical and independent-review evidence.`;
+}
 async function generateChatPCB(prompt) {
   const boardPrompt = prompt.trim().replace(/^\/pcb\s+/i, '');
   const response = await fetch('/api/cad/pcb-draft', {
@@ -567,20 +601,26 @@ async function generateChatVideo(prompt) {
 async function runPrompt(prompt, mode = activeMode) {
   if (inferencePending || !prompt.trim()) return;
   inferencePending = true;
-  const pcbRequest = wantsChatPCB(prompt);
-  const videoRequest = !pcbRequest && wantsChatVideo(prompt, mode);
-  const imageRequest = !pcbRequest && !videoRequest && mode !== 'auto' && wantsChatImage(prompt, mode);
-  let route = routes[pcbRequest ? 'engineer' : videoRequest ? 'video' : imageRequest ? 'photo' : mode];
+  const productPackageRequest = wantsEndToEndProductPackage(prompt);
+  const pcbRequest = !productPackageRequest && wantsChatPCB(prompt);
+  const videoRequest = !productPackageRequest && !pcbRequest && wantsChatVideo(prompt, mode);
+  const imageRequest = !productPackageRequest && !pcbRequest && !videoRequest && mode !== 'auto' && wantsChatImage(prompt, mode);
+  let route = routes[productPackageRequest || pcbRequest ? 'engineer' : videoRequest ? 'video' : imageRequest ? 'photo' : mode];
   const history = boundedHistory(conversationHistory);
   const businessWorkflow = globalThis.ORCABusinessWorkflow?.take?.(prompt.trim()) || null;
   let businessJob = null;
   let verifiedHandoff = '';
   let memoryRequestID = null;
   appendUserMessage(prompt.trim());
-  appendThinking(pcbRequest ? 'ORCA is creating an editable KiCad board draft…' : videoRequest ? 'CRUCIBLE is generating your video…' : imageRequest ? 'CRUCIBLE is generating your image…' : 'ORCA is working');
+  appendThinking(productPackageRequest ? 'ORCA is building and verifying the complete product package…' : pcbRequest ? 'ORCA is creating an editable KiCad board draft…' : videoRequest ? 'CRUCIBLE is generating your video…' : imageRequest ? 'CRUCIBLE is generating your image…' : 'ORCA is working');
   try {
     memoryRequestID = await beginConversationTurn(prompt.trim());
     if (businessWorkflow) businessJob = await startBusinessWorkflow(businessWorkflow);
+    if (productPackageRequest) {
+      const memory = await generateProductPackage(prompt.trim());
+      await rememberConversation(prompt.trim(), memory, memoryRequestID);
+      return;
+    }
     if (pcbRequest) {
       const memory = await generateChatPCB(prompt);
       await rememberConversation(prompt.trim(), memory, memoryRequestID);
