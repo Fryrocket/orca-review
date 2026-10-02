@@ -273,6 +273,10 @@ def quench_review_prompt(root: str | Path, package_id: str) -> str:
         "requirements": (package / "requirements.csv").read_text(encoding="utf-8")[:1_600],
         "thermal_calculations": json.loads(
             (package / "thermal-calculations.json").read_text(encoding="utf-8")),
+        "verification_plan": (package / "verification-plan.md").read_text(
+            encoding="utf-8")[:1_300],
+        "test_fixture_plan": (package / "test-fixture.md").read_text(
+            encoding="utf-8")[:1_100],
         "safety_review": (package / "safety-compliance-review.md").read_text(
             encoding="utf-8")[:900],
         "manufacturing_gate": (package / "manufacturing-readiness.md").read_text(
@@ -283,7 +287,9 @@ def quench_review_prompt(root: str | Path, package_id: str) -> str:
         "package from the compact, checksum-bound evidence below. Check internal consistency, "
         "electrical and thermal claims, safety, missing evidence, testability, and whether its "
         "release block is truthful. Do not claim physical testing, certification, or manufacturing "
-        "readiness. Be concise so the structured result completes: summary at most 400 characters; "
+        "readiness. Artifact filenames in the evidence are checksum-verified proof that those files "
+        "exist; distinguish an existing test plan or fixture plan from absent physical test results. "
+        "Be concise so the structured result completes: summary at most 400 characters; "
         "exactly three evidence strings at most 240 characters each; uncertainty at most 240 "
         "characters; next_gate must be blocked. Return only the required QUENCH JSON contract.\n\n"
         + json.dumps(evidence, sort_keys=True, separators=(",", ":"), allow_nan=False)

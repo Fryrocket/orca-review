@@ -44,6 +44,8 @@ def test_quench_review_is_embedded_and_rehashes_the_package(tmp_path):
     assert len(prompt) < 8_000
     assert "checksum-bound evidence" in prompt
     assert '"thermal_calculations"' in prompt
+    assert '"test_fixture_plan"' in prompt
+    assert "distinguish an existing test plan" in prompt
     reviewed = attach_quench_review(tmp_path, initial["package_id"], {
         "summary": "Prototype package is internally consistent but correctly blocked.",
         "evidence": ["Physical test evidence is absent."],
