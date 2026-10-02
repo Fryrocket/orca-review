@@ -208,6 +208,9 @@ def test_production_units_remove_trusted_network_auth_and_root_media_parser():
     assert "--trusted-network-no-auth" not in control
     assert "--identity-token-file /var/lib/orca/identity-tokens.json" in control
     assert "--token-file /var/lib/orca-studio/gateway-token" in gateway_unit
+    assert "RuntimeDirectory=orca-studio-home" in gateway_unit
+    assert "BindPaths=/run/orca-studio-home:/home/fryrocket" in gateway_unit
+    assert "ProtectHome=true" in gateway_unit
     assert "User=orca-media" in media and "User=root" not in media
     assert set(gateway.MEDIA_PATHS) == gateway.MEDIA_GET_PATHS | gateway.MEDIA_POST_PATHS
     assert '"start-image"' in controller and '"stop-image"' in controller
