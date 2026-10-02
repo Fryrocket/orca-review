@@ -49,6 +49,13 @@ def test_pi5_package_creates_real_checksum_verified_artifacts(tmp_path):
     assert list_product_projects(tmp_path) == [result["project"]]
 
 
+def test_pi5_package_accepts_active_cooling_hat_wording(tmp_path):
+    result = create_pi5_cooling_hat_package(
+        "Create a complete functional Raspberry Pi 5 active-cooling HAT.", tmp_path)
+    assert result["status"] == "functional_design_complete_physical_validation_blocked"
+    assert result["review"]["checks"]["functional_electronics_gate"]["pcb_is_routed"] is True
+
+
 def test_quench_review_is_embedded_and_rehashes_the_package(tmp_path):
     initial = create_pi5_cooling_hat_package(PROMPT, tmp_path)
     prompt = quench_review_prompt(tmp_path, initial["package_id"])

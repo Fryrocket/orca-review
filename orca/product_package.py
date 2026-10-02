@@ -184,7 +184,9 @@ def create_pi5_cooling_hat_package(prompt: str, root: str | Path) -> dict:
     if redact_text(prompt) != prompt:
         raise ValueError("product package request contains secret-shaped data")
     normalized = " ".join(prompt.casefold().split())
-    if not ("pi" in normalized and "fan" in normalized and ("hat" in normalized or "cool" in normalized)):
+    if not ("pi" in normalized
+            and ("fan" in normalized or "cool" in normalized)
+            and ("hat" in normalized or "board" in normalized)):
         raise ValueError("this verified package workflow currently supports the Pi 5 cooling HAT")
     package_id = sha256(normalized.encode()).hexdigest()
     package_root = Path(root).resolve() / package_id
