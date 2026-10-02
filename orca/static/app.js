@@ -1330,5 +1330,23 @@ document.addEventListener('click', async event => {
   catch (error) { result.textContent = `Control failed: ${error.message}`; }
 });
 
+const clockDateFormatter = new Intl.DateTimeFormat(undefined, {
+  weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+});
+const clockTimeFormatter = new Intl.DateTimeFormat(undefined, {
+  hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true
+});
+const clockZoneFormatter = new Intl.DateTimeFormat(undefined, { timeZoneName: 'short' });
+
+function updateWorkspaceClock() {
+  const now = new Date();
+  const zonePart = clockZoneFormatter.formatToParts(now).find(part => part.type === 'timeZoneName');
+  $('#workspace-date').textContent = clockDateFormatter.format(now);
+  $('#workspace-time').textContent = clockTimeFormatter.format(now);
+  $('#workspace-time-zone').textContent = zonePart?.value || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local';
+}
+
+updateWorkspaceClock();
+setInterval(updateWorkspaceClock, 1000);
 refresh();
 setInterval(refresh, 8000);

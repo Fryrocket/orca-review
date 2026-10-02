@@ -151,6 +151,19 @@ def test_bright_twilight_forest_background_is_served_as_an_image():
         server.server_close()
 
 
+def test_workspace_header_shows_local_twelve_hour_clock_and_time_zone():
+    html = (STATIC_ROOT / "index.html").read_text()
+    js = (STATIC_ROOT / "app.js").read_text()
+    css = (STATIC_ROOT / "app.css").read_text()
+    assert 'id="workspace-date"' in html
+    assert 'id="workspace-time"' in html
+    assert 'id="workspace-time-zone"' in html
+    assert "hour12: true" in js
+    assert "timeZoneName: 'short'" in js
+    assert "setInterval(updateWorkspaceClock, 1000)" in js
+    assert ".workspace-clock" in css
+
+
 def test_chat_keyboard_hints_and_safety_guards():
     html = (STATIC_ROOT / "index.html").read_text()
     js = (STATIC_ROOT / "app.js").read_text()
