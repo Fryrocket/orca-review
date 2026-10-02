@@ -3,9 +3,13 @@ from pathlib import Path
 import importlib.util
 from http.client import HTTPConnection
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import json
 import os
 import pytest
+import subprocess
 import threading
+from types import SimpleNamespace
+import zipfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,9 +36,75 @@ def test_gateway_route_and_method_allowlist_fails_closed():
     assert gateway.allowed_request("GET", "/api/images/health")
     assert not gateway.allowed_request("POST", "/api/images/health")
     assert gateway.allowed_request("POST", "/api/images/generate")
+    assert gateway.allowed_request("POST", "/api/manuals/export")
+    assert gateway.allowed_request("GET", "/api/manuals/" + "a" * 64 + "/manual.pdf")
+    assert not gateway.allowed_request("GET", "/api/manuals/../../etc/passwd")
     assert not gateway.allowed_request("GET", "/api/images/generate")
     assert not gateway.allowed_request("POST", "/api/unknown-mutation")
     assert not gateway.allowed_request("DELETE", "/api/jobs/job-1")
+
+
+def test_manual_export_uses_libreoffice_and_is_idempotent(tmp_path: Path):
+    calls = []
+
+    def fake_run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        output = Path(argv[argv.index("--outdir") + 1]) / f"manual.{argv[argv.index('--convert-to') + 1]}"
+        if output.suffix == ".odt":
+            with zipfile.ZipFile(output, "w") as archive:
+                archive.writestr("mimetype", "application/vnd.oasis.opendocument.text")
+        else:
+            output.write_bytes(b"%PDF-1.7\n" + b"verified" * 20)
+        return SimpleNamespace(returncode=0, stdout="converted")
+
+    content = "# Complete Manual\n\n" + ("A verified section of the manual.\n" * 8)
+    first = gateway.export_manual("ORCA User Manual", content, tmp_path, run=fake_run)
+    second = gateway.export_manual("ORCA User Manual", content, tmp_path, run=fake_run)
+    assert first == second
+    assert first["status"] == "verified"
+    assert first["generator"] == "LibreOffice Writer on KILN"
+    assert len(calls) == 2
+    assert all(call[0][0] == "/usr/bin/libreoffice" for call in calls)
+    assert all(call[1]["stdin"] is subprocess.DEVNULL for call in calls)
+    assert (tmp_path / "manuals" / first["id"] / "manual.pdf").read_bytes().startswith(b"%PDF-")
+
+
+def test_manual_export_rejects_bad_content_without_running_libreoffice(tmp_path: Path):
+    def forbidden_run(*_args, **_kwargs):
+        raise AssertionError("converter must not run")
+
+    with pytest.raises(ValueError, match="100-64,000"):
+        gateway.export_manual("Manual", "too short", tmp_path, run=forbidden_run)
+    with pytest.raises(ValueError, match="printable"):
+        gateway.export_manual("bad\nname", "x" * 200, tmp_path, run=forbidden_run)
+
+
+def test_manual_html_escapes_untrusted_markup():
+    rendered = gateway.manual_html("Test <Manual>", "# Heading\n\n<script>alert(1)</script>\n\n- **safe**")
+    assert "<script>" not in rendered
+    assert "&lt;script&gt;" in rendered
+    assert "<strong>safe</strong>" in rendered
+
+
+def test_manual_routes_require_authenticated_orca_identity(tmp_path: Path):
+    original_root = gateway.Gateway.state_root
+    gateway.Gateway.state_root = tmp_path
+    gateway.Gateway.identity_token = "server-token-" + "x" * 32
+    server = ThreadingHTTPServer(("127.0.0.1", 0), gateway.Gateway)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        body = json.dumps({"title": "Manual", "content": "x" * 200})
+        connection = HTTPConnection("127.0.0.1", server.server_port, timeout=3)
+        connection.request("POST", "/api/manuals/export", body=body, headers={"Content-Type": "application/json"})
+        response = connection.getresponse()
+        assert response.status == 401
+        response.read()
+        connection.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        gateway.Gateway.state_root = original_root
 
 
 def test_gateway_token_file_must_be_owner_only(tmp_path: Path):

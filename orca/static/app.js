@@ -343,6 +343,73 @@ function appendAssistant(result, route, error = false, sourcePrompt = '') {
   }
   $('#conversation').append(item);
   $('#conversation').scrollTop = $('#conversation').scrollHeight;
+  return item;
+}
+
+function wantsManualDocument(prompt) {
+  if (typeof prompt !== 'string' || prompt.length > 12000) return false;
+  const text = prompt.trim();
+  if (/\b(?:don't|do not|never)\s+(?:create|write|generate|produce|build|make|draft|prepare|update|revise)\b/i.test(text)) return false;
+  return /\b(?:create|write|generate|produce|build|make|draft|prepare|update|revise)\b[^\n]{0,240}\bmanual\b/i.test(text)
+    || /\bmanual\b[^\n]{0,120}\b(?:create|written|generated|produced|built|drafted|prepared|updated|revised)\b/i.test(text);
+}
+
+function manualDocumentTitle(content) {
+  const first = String(content || '').split(/\r?\n/).map(line => line.trim())
+    .find(line => line && !/^```/.test(line));
+  const cleaned = (first || 'ORCA Manual').replace(/^#{1,6}\s*/, '').replace(/[*_`]/g, '').trim();
+  return cleaned.slice(0, 160) || 'ORCA Manual';
+}
+
+async function downloadManualArtifact(url, filename) {
+  const response = await fetch(url, {headers: {
+    'X-ORCA-Identity': studioAuth.identity,
+    'X-ORCA-Identity-Token': studioAuth.token,
+  }});
+  if (!response.ok) throw Error(`Download failed (${response.status})`);
+  const blob = await response.blob();
+  const objectURL = URL.createObjectURL(blob);
+  chatImageURLs.add(objectURL);
+  const anchor = document.createElement('a');
+  anchor.href = objectURL; anchor.download = filename;
+  document.body.append(anchor); anchor.click(); anchor.remove();
+}
+
+async function exportManualDocument(prompt, content, item) {
+  if (!wantsManualDocument(prompt)) return null;
+  const bubble = item?.querySelector('.bubble');
+  const status = document.createElement('p');
+  status.className = 'manual-export-status';
+  status.textContent = 'ORCA is formatting this manual in LibreOffice Writer on KILN…';
+  bubble?.append(status);
+  try {
+    const response = await fetch('/api/manuals/export', {
+      method: 'POST', headers: {
+        'Content-Type': 'application/json',
+        'X-ORCA-Identity': studioAuth.identity,
+        'X-ORCA-Identity-Token': studioAuth.token,
+      },
+      body: JSON.stringify({title: manualDocumentTitle(content), content})
+    });
+    let result;
+    try { result = await response.json(); } catch { throw Error('KILN returned an unreadable export response.'); }
+    if (!response.ok) throw Error(result.error || `LibreOffice export failed (${response.status})`);
+    status.textContent = `Verified PDF created by ${result.generator} · SHA-256 ${result.sha256.slice(0, 12)}…`;
+    const pdf = document.createElement('button');
+    pdf.type = 'button'; pdf.textContent = 'Download verified PDF'; pdf.className = 'chat-image-download';
+    pdf.addEventListener('click', () => downloadManualArtifact(result.pdf_url, 'ORCA-Manual.pdf'));
+    const editable = document.createElement('button');
+    editable.type = 'button'; editable.textContent = 'Download editable LibreOffice document';
+    editable.className = 'chat-image-download';
+    editable.addEventListener('click', () => downloadManualArtifact(result.odt_url, 'ORCA-Manual.odt'));
+    bubble?.append(pdf, editable);
+    $('#conversation').scrollTop = $('#conversation').scrollHeight;
+    return result;
+  } catch (error) {
+    status.textContent = `The manual remains saved in ORCA chat, but LibreOffice export did not complete: ${error.message}`;
+    status.classList.add('error');
+    return null;
+  }
 }
 
 const chatImageURLs = new Set();
@@ -609,8 +676,9 @@ async function runPrompt(prompt, mode = activeMode) {
       const memory = await generateChatImage(imagePrompt);
       await rememberConversation(prompt.trim(), memory, memoryRequestID);
     } else {
-      appendAssistant(result, route, false, prompt.trim());
+      const item = appendAssistant(result, route, false, prompt.trim());
       await rememberConversation(prompt.trim(), result.summary, memoryRequestID);
+      await exportManualDocument(prompt.trim(), result.summary, item);
     }
   }
   catch (error) { appendAssistant(error.message, route, true); }
