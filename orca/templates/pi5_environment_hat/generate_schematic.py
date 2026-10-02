@@ -8,7 +8,10 @@ def part(lib, name, ref, value, footprint):
 j1=part("Connector_Generic","Conn_02x20_Odd_Even","J1","Raspberry Pi 5 GPIO","Connector_PinHeader_2.54mm:PinHeader_2x20_P2.54mm_Vertical")
 u1=part("Sensor_Humidity","SHT31-DIS","U1","SHT31-DIS-B2.5kS","Sensor_Humidity:Sensirion_DFN-8-1EP_2.5x2.5mm_P0.5mm_EP1.1x1.7mm")
 d1=part("Device","LED_KRBG","D1","L-154A4SURKQBDZGW","LED_THT:LED_D5.0mm-4_RGB_Wide_Pins")
-q1=part("Transistor_FET","Q_NMOS_GSD","Q1","2N7000","Package_TO_SOT_THT:TO-92_Inline")
+# The selected through-hole 2N7000 is Source-Gate-Drain on pins 1-2-3.
+# Keep the symbol pin order aligned with the physical footprint so the
+# schematic-to-PCB transfer cannot silently exchange source and gate.
+q1=part("Transistor_FET","Q_NMOS_SGD","Q1","2N7000","Package_TO_SOT_THT:TO-92_Inline")
 j2=part("Connector_Generic","Conn_01x02","J2","ALARM_OD_GND","Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
 u2=part("Memory_EEPROM","24LC32","U2","CAT24C32","Package_DIP:DIP-8_W7.62mm")
 rfp="Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P5.08mm_Horizontal"

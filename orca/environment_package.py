@@ -63,6 +63,10 @@ def _assets() -> tuple[dict[str, str], dict[str, bool]]:
         "pcb_has_required_footprints": board.count("(footprint ") >= 20,
         "hat_id_eeprom_present": all(marker in board for marker in ('"U2"', '"CAT24C32"', '"ID_SD"', '"ID_SC"', '"EEPROM_WP"')),
         "sensor_present": all(marker in board for marker in ('"U1"', '"SHT31-DIS-B2.5kS"', '"I2C_SDA"', '"I2C_SCL"')),
+        "alarm_pinout_matches_2n7000": (
+            '"Transistor_FET:Q_NMOS_SGD"' in schematic
+            and 'assign(q1, {1:"GND", 2:"ALARM_GATE", 3:"ALARM_OD"})' in assets["design-source-generate-board.py"]
+        ),
         "pcb_is_routed": board.count("(segment") >= 55,
         "pcb_unconnected_items": "Found 0 unconnected pads" in assets["pcb-drc.rpt"],
         "pcb_drc_errors": "Found 0 DRC violations" in assets["pcb-drc.rpt"] and "; error" not in assets["pcb-drc.rpt"],
@@ -117,14 +121,27 @@ def _firmware() -> str:
     return '''#!/usr/bin/env python3
 """Reference controller for the ORCA Pi 5 Environmental Status HAT."""
 import time
-from smbus2 import SMBus
+from smbus2 import SMBus, i2c_msg
 
 ADDRESS = 0x44
 
+def crc8(data):
+    crc = 0xFF
+    for value in data:
+        crc ^= value
+        for _ in range(8):
+            crc = ((crc << 1) ^ 0x31) & 0xFF if crc & 0x80 else (crc << 1) & 0xFF
+    return crc
+
 def read_environment(bus):
-    bus.write_i2c_block_data(ADDRESS, 0x24, [0x00])
+    # SHT31 single-shot, high-repeatability, clock-stretching disabled.
+    bus.i2c_rdwr(i2c_msg.write(ADDRESS, [0x24, 0x00]))
     time.sleep(0.02)
-    raw = bus.read_i2c_block_data(ADDRESS, 0x00, 6)
+    message = i2c_msg.read(ADDRESS, 6)
+    bus.i2c_rdwr(message)
+    raw = list(message)
+    if crc8(raw[0:2]) != raw[2] or crc8(raw[3:5]) != raw[5]:
+        raise IOError("SHT31 CRC validation failed")
     temperature_c = -45 + 175 * ((raw[0] << 8) | raw[1]) / 65535
     humidity_percent = 100 * ((raw[3] << 8) | raw[4]) / 65535
     return temperature_c, humidity_percent
