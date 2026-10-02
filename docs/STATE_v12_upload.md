@@ -1082,4 +1082,24 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   instrumented bench testing and thermal soak remain evidence-gated because no
   assembled HAT was present; ORCA did not invent results.
 
+## Engineering re-review correction — 2026-10-02
+
+- The prior black-box workflow/package result is **not** an A-to-Z functioning
+  board pass. It proves artifact creation, packaging, review routing and
+  downloads only.
+- Direct inspection of the delivered KiCad sources found that the 95-line PCB
+  contains only the outline, four mounting holes and the 40-pin header. It has
+  no fan/control footprints, assigned nets, copper tracks, vias or routing and
+  explicitly labels itself an unrouted concept starter.
+- The 74-line schematic contains symbol labels but no wires, junctions, pin
+  mapping or assigned footprints. Consequently, a zero-error ERC/DRC result is
+  non-probative: there is no complete electrical design for KiCad to verify.
+- QUENCH correctly reports every physical acceptance row as pending and the
+  manufacturing gate as blocked, but the ORCA acceptance layer incorrectly
+  presented documentation completeness as an A-to-Z product completion.
+- A-to-Z acceptance is revoked. The next required repair must produce a real
+  connected schematic, complete footprints and pin map, routed PCB with power
+  and ground design, fabrication outputs, and independent electrical/design
+  review before any physical prototype and bench/thermal validation.
+
 END STATE.md — AS OF 2026-10-02
