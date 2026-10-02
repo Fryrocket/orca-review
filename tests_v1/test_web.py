@@ -170,6 +170,8 @@ def test_chat_keyboard_hints_and_safety_guards():
     html = (STATIC_ROOT / "index.html").read_text()
     js = (STATIC_ROOT / "app.js").read_text()
     assert "Enter to send · Shift+Enter for a new line" in html
+    assert 'id="send-prompt"' not in html
+    assert "$('#send-prompt')" not in js
     assert "!event.shiftKey && !event.isComposing && event.keyCode !== 229" in js
     assert "if (!event.repeat && !inferencePending)" in js
     submit = js.split("$('#prompt-form').addEventListener('submit'", 1)[1].split("});", 1)[0]

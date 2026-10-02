@@ -500,7 +500,6 @@ async function generateChatVideo(prompt) {
 async function runPrompt(prompt, mode = activeMode) {
   if (inferencePending || !prompt.trim()) return;
   inferencePending = true;
-  $('#send-prompt').disabled = true;
   const pcbRequest = wantsChatPCB(prompt);
   const videoRequest = !pcbRequest && wantsChatVideo(prompt, mode);
   const imageRequest = !pcbRequest && !videoRequest && mode !== 'auto' && wantsChatImage(prompt, mode);
@@ -616,7 +615,7 @@ async function runPrompt(prompt, mode = activeMode) {
   }
   catch (error) { appendAssistant(error.message, route, true); }
   finally {
-    inferencePending = false; $('#send-prompt').disabled = false;
+    inferencePending = false;
     if (businessJob) await refresh();
   }
 }

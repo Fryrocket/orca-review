@@ -170,10 +170,6 @@ input:focus, textarea:focus, select:focus {
 .mode-picker { display: flex; gap: 4px; flex-wrap: wrap; }
 .mode-picker button { border: 0; background: transparent; color: var(--muted); padding: 6px 9px; border-radius: 8px; font-size: 11px; }
 .mode-picker button.active { color: var(--mint); background: var(--mint-soft); }
-.send-button { border: 0; background: var(--mint); color: #06110d; padding: 9px 12px; border-radius: 9px; font-weight: 800; display: flex; align-items: center; gap: 9px; }
-.send-button:disabled { opacity: .5; cursor: wait; }
-kbd { opacity: .65; font: 9px ui-monospace, monospace; }
-
 .context-rail { display: flex; flex-direction: column; gap: 12px; }
 .context-card { padding: 16px; }
 .context-card.subtle { margin-top: auto; background: rgb(22 47 49 / .72); }
