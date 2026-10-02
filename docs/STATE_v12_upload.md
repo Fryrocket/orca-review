@@ -1057,4 +1057,29 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   the assembled HAT, physical mechanical measurements, instrumented bench
   results and the controlled thermal soak.
 
+## ORCA clean one-request A-to-Z rerun — 2026-10-02
+
+- The first clean rerun correctly exposed an orchestration gap: ORCA created a
+  valid 20-artifact project but did not automatically enter the explicitly
+  requested fabrication-readiness phase. That run was rejected as incomplete.
+- Commit `bf54791` chained project creation, fabrication-readiness preparation,
+  two bounded QUENCH evidence reviews, manifest rebuilding and final download
+  controls within one ORCA request. The full regression passed
+  **1,176/1,176**.
+- Release `/opt/orca/releases/autonomous-project-20261002-bf54791` is live,
+  healthy and integrity-valid with zero service restarts. Release
+  `/opt/orca/releases/fabrication-readiness-20261002-d7eaf32` is retained as
+  rollback.
+- A brand-new ORCA Studio room received one A-to-Z request and no follow-up.
+  ORCA autonomously created tracked project
+  `orca_pi5_cooling_hat_df797c42422a96ba`, generated 28 real artifacts,
+  completed the fabrication-readiness stage, invoked QUENCH, rebuilt and
+  checksum-verified the archive, and returned working package and manifest
+  controls with no browser errors.
+- Final package SHA-256:
+  `5c1edf3f19abd148831de701fd78c8ed16ff4143946bf778f4a5aafc1fc77964`.
+- The clean black-box autonomous software/design test passes. Physical fit,
+  instrumented bench testing and thermal soak remain evidence-gated because no
+  assembled HAT was present; ORCA did not invent results.
+
 END STATE.md — AS OF 2026-10-02
