@@ -50,9 +50,9 @@ def _quote(value: str) -> str:
 
 
 def _mounting_hole(reference: str, x: float, y: float) -> str:
-    return f'''  (footprint "MountingHole:{reference}" (layer "F.Cu") (at {x:.2f} {y:.2f})
-    (property "Reference" "{reference}" (at 0 -4 0) (layer "F.SilkS")
-      (effects (font (size 1 1) (thickness 0.15))))
+    return f'''  (footprint "MountingHole:MountingHole_2.7mm" (layer "F.Cu") (at {x:.2f} {y:.2f})
+    (property "Reference" "{reference}" (at 0 -2 0) (layer "F.SilkS")
+      (effects (font (size 0.6 0.6) (thickness 0.1))))
     (property "Value" "M2.5" (at 0 4 0) (layer "F.Fab") hide
       (effects (font (size 1 1) (thickness 0.15))))
     (fp_circle (center 0 0) (end 3 0) (stroke (width 0.3) (type default)) (fill none) (layer "F.CrtYd"))
@@ -71,7 +71,8 @@ def _pin_header(reference: str, columns: int, rows: int, x: float, y: float) -> 
                 f'(size 1.7 1.7) (drill 1.0) (layers "*.Cu" "*.Mask"))')
             number += 1
     width, height = max(2.54, (columns - 1) * 2.54 + 2.54), max(2.54, (rows - 1) * 2.54 + 2.54)
-    return f'''  (footprint "Connector_PinHeader_2.54mm:{reference}" (layer "F.Cu") (at {x:.2f} {y:.2f})
+    footprint = f"PinHeader_{columns}x{rows:02d}_P2.54mm_Vertical"
+    return f'''  (footprint "Connector_PinHeader_2.54mm:{footprint}" (layer "F.Cu") (at {x:.2f} {y:.2f})
     (property "Reference" "{reference}" (at {width / 2:.2f} -2.5 0) (layer "F.SilkS")
       (effects (font (size 1 1) (thickness 0.15))))
     (property "Value" "{columns}x{rows} Pin Header" (at {width / 2:.2f} {height + 2.5:.2f} 0) (layer "F.Fab")
@@ -127,9 +128,9 @@ def create_kicad_pcb_draft(prompt: str) -> dict:
   (setup (pad_to_mask_clearance 0))
   (gr_rect (start {x0:.2f} {y0:.2f}) (end {x1:.2f} {y1:.2f})
     (stroke (width 0.25) (type default)) (fill none) (layer "Edge.Cuts"))
-  (gr_text "ORCA DRAFT — VERIFY SCHEMATIC, NETS, FOOTPRINTS, CLEARANCES & STACKUP"
-    (at {(x0+x1)/2:.2f} {y1-2.0:.2f}) (layer "F.SilkS")
-    (effects (font (size 1.0 1.0) (thickness 0.16))))
+  (gr_text "ORCA DRAFT"
+    (at {x1-11.0:.2f} {y1-5.0:.2f}) (layer "F.SilkS")
+    (effects (font (size 0.7 0.7) (thickness 0.12))))
 {chr(10).join(footprints)}
 )
 '''
