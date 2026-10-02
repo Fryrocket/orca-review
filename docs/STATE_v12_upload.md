@@ -1102,4 +1102,41 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   and ground design, fabrication outputs, and independent electrical/design
   review before any physical prototype and bench/thermal validation.
 
+## Functional electronics acceptance restored — 2026-10-02
+
+- ORCA's acceptance model now rejects electronics packages that merely contain
+  files or an empty KiCad project. A package must prove a connected schematic,
+  required named nets, assigned footprints, routed copper, zero unconnected
+  items, fabrication outputs, and clean electrical ERC/DRC results before the
+  functional software gate can pass.
+- The Raspberry Pi 5 active-cooling HAT reference design now contains 31
+  schematic symbol instances, 19 PCB footprints, nine named electrical nets
+  and 58 routed copper segments. The design includes the Pi header, 5 V PWM fan
+  connector, resettable fuse, 2N7000 open-drain PWM stage, gate and tach
+  resistors, TVS protection, bulk and local decoupling, test points and mounting
+  holes.
+- KiCad independently reports zero unconnected items and zero electrical DRC
+  errors. The remaining 19 DRC findings are non-electrical silkscreen
+  overlap/edge/clipping warnings and are retained for fabrication cleanup rather
+  than hidden. ERC reports zero errors; library/environment warnings remain
+  visible in the evidence.
+- A clean, one-message ORCA Studio black-box run completed unattended as tracked
+  project `orca_pi5_cooling_hat_21c7336e46df5941`. ORCA produced 41
+  manifest-tracked artifacts plus the downloadable ZIP, invoked QUENCH, and
+  returned working package and manifest controls. ZIP integrity verification
+  passed.
+- Final package SHA-256:
+  `dc7dadabbb64519f2aa3013c5f000669844b20f9a47f903cf43c7f7d695e472f`.
+- The complete regression passed **1,177/1,177**. Live release
+  `/opt/orca/releases/functional-design-20261002-267e29a` is healthy and
+  integrity-valid with zero ORCA service restarts. Release
+  `/opt/orca/releases/functional-design-20261002-0c73e28` is preserved for
+  rollback.
+- Status is `functional_design_independently_reviewed_physical_validation_blocked`.
+  This restores the functional electrical/software acceptance, not physical
+  fabrication approval. Exact Pi/heatsink/enclosure fit, received-part pinout
+  and keying, bench power/PWM/tach/fault behavior, and thermal soak remain
+  mandatory physical evidence gates. No claim that manufactured hardware works
+  is made until those tests pass.
+
 END STATE.md — AS OF 2026-10-02
