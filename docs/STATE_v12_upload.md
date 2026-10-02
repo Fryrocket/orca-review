@@ -1139,4 +1139,40 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   mandatory physical evidence gates. No claim that manufactured hardware works
   is made until those tests pass.
 
+## Free engineering review panel and Pi HAT repair — 2026-10-02
+
+- Commit `12cd391` passed the complete **1,180/1,180** regression suite and is
+  live on FORGE as
+  `/opt/orca/releases/review-panel-20261002-12cd391`. Activation health and
+  integrity passed with zero automatic service restarts. The prior release
+  `/opt/orca/releases/functional-design-20261002-267e29a` is preserved as the
+  rollback target.
+- ORCA now exposes `engineering.review_panel` to ORCA, SMITH and QUENCH. The
+  registered free-only panel is local Qwen, QUENCH and ANVIL plus optional
+  Gemini Free, Claude Free and Copilot Free reviewers. Flux and every paid
+  fallback are excluded. Only QUENCH may recommend software release, and no AI
+  may approve physical fabrication without deterministic and physical evidence.
+- Review packets are bounded, sanitized and checksum-addressed. Findings must
+  contain a source or reproducible check, are deterministically deduplicated,
+  and remain pending QUENCH disposition. Unsupported readiness claims are
+  rejected rather than promoted to evidence.
+- Autonomous authorization is explicit: local reviewers require no external
+  sign-in; API-capable reviewers must use a named credential supplied by the
+  approved keychain broker. Browser-only sessions cannot be truthfully
+  guaranteed to remain signed in. Every run preflights authorization and quota;
+  an unavailable external reviewer is marked `degraded`, reported, and cannot
+  silently block or falsely approve the local evidence path. Gemini, Claude and
+  Copilot remain **configured but not authenticated** until the owner performs
+  their one-time account authorization.
+- The Pi 5 cooling HAT candidate was repaired with a CAT24C32-compatible HAT+
+  ID EEPROM path, ID_SD/ID_SC pull-ups, write-protect test point, decoupling and
+  aligned component values/footprints. The PCB is now four-layer and includes
+  the internal-copper fabrication outputs. KiCad reports zero electrical DRC
+  errors and zero unconnected pads; ERC reports zero electrical errors. The
+  remaining findings are non-electrical silkscreen/library-environment warnings
+  and are retained visibly.
+- This is a deterministic functional-design result, not proof of manufactured
+  hardware. Exact fit, received-part pinout/keying, bench power/PWM/tach/fault
+  behavior and thermal soak remain mandatory physical gates.
+
 END STATE.md — AS OF 2026-10-02
