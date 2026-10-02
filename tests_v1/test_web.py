@@ -144,6 +144,8 @@ def test_bright_twilight_forest_background_is_served_as_an_image():
             assert response.read(8) == b"\x89PNG\r\n\x1a\n"
         css = (STATIC_ROOT / "app.css").read_text()
         assert "url('/moonlit-forest-twilight-bright.png')" in css
+        assert "--text: #f8fcfc" in css
+        assert "--mint: #83e4d4" in css
     finally:
         server.shutdown()
         server.server_close()
