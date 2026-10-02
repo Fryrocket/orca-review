@@ -749,7 +749,12 @@ class ModelRuntimeGateway:
             endpoint=endpoint,
             allowed_models=(model,),
             transport=bounded_json_transport,
-            max_output_tokens=2_048 if service_id == "kiln_codex" else 1_024 if service_id == "forge_qwen" else 512,
+            # Qwen is the unattended fallback when the KILN Codex bridge is
+            # reconnecting.  A 1,024-token ceiling could cut a valid JSON
+            # object in half on detailed requests, making both the first
+            # attempt and the strict retry unparsable.  Keep enough bounded
+            # room for the complete contract while retaining a hard limit.
+            max_output_tokens=2_048 if service_id == "kiln_codex" else 4_096 if service_id == "forge_qwen" else 512,
         )
         try:
             return adapter.invoke(
@@ -769,7 +774,7 @@ class ModelRuntimeGateway:
             return SandboxedOpenAIAdapter(
                 endpoint=fallback_endpoint, allowed_models=(fallback_model,),
                 transport=bounded_json_transport,
-                max_output_tokens=1_024 if fallback == "forge_qwen" else 512,
+                max_output_tokens=4_096 if fallback == "forge_qwen" else 512,
             ).invoke(
                 bot_id=bot_id, model=fallback_model, prompt=prompt,
                 tool_broker=self.tool_broker if use_tool_broker else None,

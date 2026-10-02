@@ -283,6 +283,29 @@ def test_model_runtime_gateway_is_service_and_identity_allowlisted(monkeypatch):
         ModelRuntimeGateway({"cloud"})
 
 
+def test_forge_qwen_contract_has_room_to_finish_detailed_json(monkeypatch):
+    calls = []
+    valid = {
+        "summary": "Detailed response completed inside the JSON contract",
+        "evidence": ["bounded local fallback"],
+        "uncertainty": "none",
+        "next_gate": "none",
+    }
+    monkeypatch.setattr(
+        "orca.runtime.bounded_json_transport",
+        lambda url, payload, timeout: calls.append((url, payload, timeout)) or {
+            "choices": [{"message": {"content": __import__("json").dumps(valid)}}]
+        },
+    )
+
+    gateway = ModelRuntimeGateway({"forge_qwen"})
+    assert gateway.invoke(
+        service_id="forge_qwen", bot_id="orca",
+        prompt="Draft a detailed ORCA user manual with examples.",
+    ) == valid
+    assert calls[0][1]["max_tokens"] == 4_096
+
+
 def test_read_only_broker_executes_bounded_workspace_and_terminal_tools(tmp_path):
     (tmp_path / "notes.txt").write_text("alpha\nbeta\n")
     tools = WorkspaceReadTools(tmp_path)
