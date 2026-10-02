@@ -191,6 +191,8 @@ class KilnStudio(Gtk.Application):
         self.window = None
         self.web_view = None
         self.browser_windows = []
+        self.fullscreen_enabled = True
+        self.retry_source_id = None
 
     def do_activate(self) -> None:
         if self.window is not None:
@@ -215,6 +217,7 @@ class KilnStudio(Gtk.Application):
         background.parse("#0b211a")
         self.web_view.set_background_color(background)
         self.web_view.connect("decide-policy", self._decide_policy)
+        self.web_view.connect("load-changed", self._studio_load_changed)
         self.web_view.connect("load-failed", self._load_failed)
 
         self.window = Gtk.ApplicationWindow(application=self)
@@ -234,12 +237,36 @@ class KilnStudio(Gtk.Application):
                                                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         self.window.add(self.web_view)
         self.window.show_all()
+        self.window.fullscreen()
         self.web_view.load_uri(STUDIO_URL)
 
         reload_action = Gio.SimpleAction.new("reload", None)
         reload_action.connect("activate", lambda *_: self.web_view.reload_bypass_cache())
         self.add_action(reload_action)
         self.set_accels_for_action("app.reload", ["<Primary>r"])
+
+        fullscreen_action = Gio.SimpleAction.new("toggle-fullscreen", None)
+        fullscreen_action.connect("activate", self._toggle_fullscreen)
+        self.add_action(fullscreen_action)
+        self.set_accels_for_action("app.toggle-fullscreen", ["F11"])
+
+    def _toggle_fullscreen(self, *_args) -> None:
+        if self.fullscreen_enabled:
+            self.window.unfullscreen()
+        else:
+            self.window.fullscreen()
+        self.fullscreen_enabled = not self.fullscreen_enabled
+
+    def _studio_load_changed(self, _view, event) -> None:
+        if event == WebKit2.LoadEvent.FINISHED and self.retry_source_id is not None:
+            GLib.source_remove(self.retry_source_id)
+            self.retry_source_id = None
+
+    def _retry_studio(self) -> bool:
+        self.retry_source_id = None
+        if self.web_view is not None:
+            self.web_view.load_uri(STUDIO_URL)
+        return GLib.SOURCE_REMOVE
 
     @staticmethod
     def _is_studio_uri(uri: str) -> bool:
@@ -435,12 +462,14 @@ class KilnStudio(Gtk.Application):
 
     def _load_failed(self, _view, _event, _uri, error) -> bool:
         detail = GLib.markup_escape_text(error.message)
+        if self.retry_source_id is None:
+            self.retry_source_id = GLib.timeout_add_seconds(5, self._retry_studio)
         self.web_view.load_html(
             f"""<!doctype html><meta charset="utf-8"><style>
             body{{margin:0;background:#081012;color:#e8f3ef;font:16px system-ui;display:grid;place-items:center;height:100vh}}
             main{{max-width:520px;text-align:center;padding:44px}}h1{{font-size:42px;margin:0 0 12px}}p{{color:#9bb0a9;line-height:1.55}}
             button{{background:#ff9d45;border:0;border-radius:12px;padding:12px 20px;font-weight:700;cursor:pointer}}
-            </style><main><h1>KILN is waking up</h1><p>KILN Studio is not ready yet.</p>
+            </style><main><h1>KILN is waking up</h1><p>KILN Studio is not ready yet. It will retry automatically.</p>
             <p>{detail}</p><button onclick="location.href='{STUDIO_URL}'">Try again</button></main>""",
             STUDIO_URL,
         )

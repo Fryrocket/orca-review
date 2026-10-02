@@ -6,8 +6,9 @@ app_dir="${HOME}/.local/lib/kiln-studio"
 launcher_dir="${HOME}/.local/share/applications"
 icon_dir="${HOME}/.local/share/icons/hicolor/scalable/apps"
 desktop_dir="${HOME}/Desktop"
+autostart_dir="${HOME}/.config/autostart"
 
-install -d -m 0755 "$app_dir" "$launcher_dir" "$icon_dir" "$desktop_dir"
+install -d -m 0755 "$app_dir" "$launcher_dir" "$icon_dir" "$desktop_dir" "$autostart_dir"
 install -m 0755 "$root_dir/kiln-studio.py" "$app_dir/kiln-studio.py"
 install -m 0644 "$root_dir/project_builder.py" "$app_dir/project_builder.py"
 install -m 0755 "$root_dir/kicad10-launch" "$app_dir/kicad10-launch"
@@ -16,6 +17,7 @@ install -m 0644 "$root_dir/orca-chrome.desktop" "$launcher_dir/orca-chrome.deskt
 install -m 0644 "$root_dir/kiln-studio.svg" "$icon_dir/kiln-studio.svg"
 install -m 0755 "$root_dir/kiln-studio.desktop" "$launcher_dir/kiln-studio.desktop"
 install -m 0755 "$root_dir/kiln-studio.desktop" "$desktop_dir/KILN Studio.desktop"
+install -m 0644 "$root_dir/kiln-studio-autostart.desktop" "$autostart_dir/kiln-studio.desktop"
 for launcher in "$root_dir"/kicad10/*.desktop; do
   install -m 0644 "$launcher" "$launcher_dir/$(basename "$launcher")"
 done

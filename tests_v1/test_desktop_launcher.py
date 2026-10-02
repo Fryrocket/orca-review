@@ -125,3 +125,27 @@ def test_chat_cad_drafts_are_bounded_before_native_save():
     assert '1_000_000' in method
     assert 'startswith("(kicad_pcb ")' in method
     assert 'PROJECT_ROOT / "Chat CAD"' in source
+
+
+def test_kiln_studio_is_fullscreen_without_modifying_gnome_shell():
+    source = Path("desktop/KILNStudio/kiln-studio.py").read_text()
+    assert "self.window.fullscreen()" in source
+    assert 'self.set_accels_for_action("app.toggle-fullscreen", ["F11"])' in source
+    assert "gnome-shell" not in source
+
+
+def test_kiln_studio_recovers_when_gateway_starts_late():
+    source = Path("desktop/KILNStudio/kiln-studio.py").read_text()
+    assert "GLib.timeout_add_seconds(5, self._retry_studio)" in source
+    assert "It will retry automatically." in source
+
+
+def test_kiln_studio_autostarts_and_restarts_only_the_app():
+    autostart = Path("desktop/KILNStudio/kiln-studio-autostart.desktop").read_text()
+    installer = Path("desktop/KILNStudio/install.sh").read_text()
+    assert "X-GNOME-Autostart-enabled=true" in autostart
+    assert "X-GNOME-AutoRestart=true" in autostart
+    assert "Exec=/home/fryrocket/.local/lib/kiln-studio/kiln-studio.py" in autostart
+    assert "gnome-shell" not in autostart
+    assert 'autostart_dir="${HOME}/.config/autostart"' in installer
+    assert 'kiln-studio-autostart.desktop' in installer
