@@ -1325,4 +1325,31 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   restarts, the Notion/Linear/Drive browser unit remains active, and both direct
   FORGE and KILN gateway health checks return healthy with valid integrity.
 
+## Master Developer durable reply completion — 2026-10-03
+
+- The first long catch-up request exposed two live reliability failures: full
+  connector and workspace results were being returned unbounded to the next
+  planning pass, and a provider exception could leave a durable session stuck
+  in `planning`. Commit `5dfe350` bounds iterative planning evidence, records a
+  durable failed reply on provider errors and orders sessions by newest update.
+- A rerun proved the worker and health check no longer froze, but also exposed
+  a bounded-loop defect: the planner could spend all six iterations requesting
+  more read-only evidence and finish with only a generic ceiling message.
+  Commit `733dc6b` makes the sixth pass a response-only synthesis contract, so
+  it must return one evidence-qualified reply and label inaccessible sources
+  instead of requesting another tool.
+- Focused repair tests passed 5/5 and the complete regression passed
+  **1,226/1,226** with local socket access. Both commits are pushed to GitHub
+  and Gitea on `agent/orca-rebuild-v1` and `main`.
+- Live FORGE release is `/opt/orca/releases/master-final-733dc6b`; rollback is
+  `/opt/orca/releases/master-reply-5dfe350`. ORCA restarted healthy with valid
+  integrity.
+- Black-box proof used the physical KILN Master Developer input. Durable
+  session `master_d93e16d2a0374ed089d206aa` completed the catch-up audit,
+  returned to `idle`, and produced a consolidated checkpoint and ordered task
+  list. A second ordinary follow-up also returned directly in one pass. This
+  proves durable multi-turn replies after the repair. The catch-up correctly
+  labels Drive/Notion/Linear and other unavailable evidence as unproven rather
+  than inventing access or completion.
+
 END STATE.md — AS OF 2026-10-03
