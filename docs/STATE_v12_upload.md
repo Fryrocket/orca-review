@@ -33,6 +33,32 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   signed evidence. They are excluded from live snapshots, routing, adapters
   and services and cannot receive or execute new work.
 
+## MASTER DEVELOPER DETERMINISTIC ACCEPTANCE REPAIR — LIVE 2026-10-03
+
+- The first KILN screen-driven readiness-probe challenge passed focused tests,
+  full regression and a fresh final diff with exactly three scoped candidate
+  files and no deployment.
+- Its clean confirmation run exposed a real controller defect: after focused
+  tests passed, ORCA unnecessarily re-entered the reasoning provider to choose
+  the already-deterministic full-suite step. That provider call exhausted its
+  five-minute allowance, so the durable session failed honestly rather than
+  recording a false success.
+- The controller now advances focused -> full -> final diff -> verified summary
+  without another provider call once acceptance has begun. A regression test
+  proves a provider that fails on any second call cannot strand the ordered
+  evidence sequence.
+- The repair passed the focused Master Developer suite (**28/28**) and the full
+  ORCA regression suite (**1,249/1,249**) both locally and against the immutable
+  FORGE candidate. Release
+  `/opt/orca/releases/master-deterministic-20261003-1` is live with health and
+  integrity valid and zero ORCA restart failures. Rollback is preserved at
+  `/opt/orca/releases/master-exact-d1b94d7`.
+- A fresh identical KILN screen-driven confirmation is in progress. It remains
+  **unproven** until the durable session records the ordered focused/full/diff
+  evidence and verified summary. Studio's misleading two-minute 502 display for
+  longer durable work remains a separate staged repair; the underlying session
+  continues and must be recovered rather than treated as failed.
+
 ## VERIFIED LIVE CONNECTIONS
 
 - ANVIL: `192.168.4.20`; Apple M4 MacBook Pro, 10 CPU/GPU cores, 16 GB memory.

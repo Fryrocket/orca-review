@@ -565,6 +565,41 @@ def test_acceptance_turn_overrides_out_of_order_planner_action(monkeypatch, tmp_
     assert "Acceptance passed" in result["messages"][-1]["content"]
 
 
+def test_acceptance_sequence_does_not_reenter_provider_after_focused(monkeypatch, tmp_path):
+    source = tmp_path / "source"
+    (source / "tests").mkdir(parents=True)
+    (source / "tests_v1").mkdir()
+    (source / "tests" / "test_old.py").write_text("def test_old(): assert True\n")
+    (source / "tests_v1" / "test_new.py").write_text("def test_new(): assert True\n")
+    monkeypatch.setenv("ORCA_MASTER_SOURCE_ROOT", str(source))
+    monkeypatch.setenv("ORCA_MASTER_WORKSPACE", str(tmp_path / "workspace"))
+    monkeypatch.setenv("ORCA_MASTER_TEST_PYTHON", sys.executable)
+    store = MasterDeveloperSessionStore(tmp_path / "artifacts")
+    session = store.create()
+
+    class OneShotGateway:
+        tool_broker = None
+
+        def __init__(self):
+            self.calls = 0
+
+        def master_developer_plan(self, **_payload):
+            self.calls += 1
+            if self.calls > 1:
+                raise RuntimeError("provider must not be reentered")
+            return {"reason": "start acceptance", "actions": [
+                {"name": "tests.run", "arguments": {"target": "focused"}}]}
+
+    gateway = OneShotGateway()
+    result = master_developer_turn(
+        store, gateway, tmp_path / "artifacts", session["session_id"],
+        "Run focused and full regression and inspect the final diff.")
+
+    assert result["state"] == "idle"
+    assert gateway.calls == 1
+    assert "Acceptance passed" in result["messages"][-1]["content"]
+
+
 def test_acceptance_turn_allows_implementation_before_tests(monkeypatch, tmp_path):
     source = tmp_path / "source"
     (source / "tests").mkdir(parents=True)

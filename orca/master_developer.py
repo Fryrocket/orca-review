@@ -754,9 +754,30 @@ def master_developer_turn(store: MasterDeveloperSessionStore, runtime_gateway,
     audit_request = any(phrase in prompt.casefold() for phrase in (
         "catch yourself up", "ecosystem audit", "reconcile all"))
     for _iteration in range(10):
+        # Once the bounded acceptance sequence has started, ORCA already knows
+        # the only safe next step.  Do not spend another provider turn asking a
+        # model to rediscover focused -> full -> final diff, because a slow or
+        # unavailable provider must not strand completed test evidence.
+        verified_summary = _acceptance_summary(prompt, evidence)
+        if verified_summary is not None:
+            store.append(session_id, "assistant", verified_summary,
+                         evidence=_planner_evidence(evidence))
+            return store.set_state(session_id, "idle")
+        deterministic_followup = _acceptance_followup(prompt, evidence)
+        if (deterministic_followup is not None
+                and any(item.get("name") == "tests.run" for item in evidence)):
+            plan = {
+                "reason": (
+                    "The deterministic acceptance controller selected the next "
+                    "required ordered evidence step."
+                ),
+                "actions": [deterministic_followup],
+            }
+            planning_error = None
+        else:
+            plan, planning_error = None, None
         planning_evidence = _planner_evidence(evidence)
-        plan, planning_error = None, None
-        for attempt in range(2):
+        for attempt in range(2) if plan is None else ():
             retry_note = (
                 "\n\nContract retry: return only one valid action-plan JSON object matching "
                 "the supplied schema; do not add prose outside it."
