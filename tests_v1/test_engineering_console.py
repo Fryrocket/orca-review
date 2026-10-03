@@ -74,13 +74,14 @@ def test_administrator_is_left_of_chatgpt_and_has_no_shell_controls():
     orca = html.index('class="conversation-panel"')
     chatgpt = html.index('class="chatgpt-console"')
     assert administrator < orca < chatgpt
-    assert 'aria-label="Core Developer"' in html
+    assert 'aria-label="Administrator"' in html
     assert 'aria-label="ORCA"' in html
-    assert 'aria-label="ChatGPT"' in html
-    assert "<h2>Core Developer</h2>" in html
+    assert 'aria-label="Master Developer"' in html
+    assert "<h2>Administrator</h2>" in html
+    assert "<h2>Master Developer</h2>" in html
     assert "Enter to send · Shift+Enter for a new line" in html
     core_developer = html[administrator:orca]
     assert 'type="submit"' not in core_developer
-    assert "ChatGPT with ORCA/FORGE tools" in html
+    assert "CHATGPT · ORCA/FORGE TOOLS" in html
     assert "/api/administrator-screen/runs" in script
     assert "shell" not in html[administrator:chatgpt]

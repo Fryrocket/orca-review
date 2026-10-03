@@ -143,7 +143,7 @@ function renderAdministratorSession(session) {
   const messages = (session.messages || []).map(message =>
     `<article class="administrator-message ${esc(message.role)}">${esc(message.content)}<time>${esc(new Date(message.created_at).toLocaleString())}</time></article>`
   ).join('');
-  $('#administrator-conversation').innerHTML = messages || '<div class="administrator-welcome"><strong>ChatGPT with ORCA/FORGE tools</strong><p>Talk naturally. Technical actions, progress, and verified results appear here as they happen.</p></div>';
+  $('#administrator-conversation').innerHTML = messages || '<div class="administrator-welcome"><strong>Administrator</strong><p>ChatGPT with ORCA/FORGE tools. Technical actions, progress, and verified results appear here as they happen.</p></div>';
   $('#administrator-conversation').scrollTop = $('#administrator-conversation').scrollHeight;
 }
 
@@ -224,7 +224,7 @@ function renderChatGPTSession(session) {
   const messages = (session.messages || []).map(message =>
     `<article class="administrator-message ${esc(message.role)}">${esc(message.content)}<time>${esc(new Date(message.created_at).toLocaleString())}</time></article>`
   ).join('');
-  $('#chatgpt-conversation').innerHTML = messages || '<div class="administrator-welcome"><strong>ChatGPT</strong><p>A separate persistent conversation through KILN’s authenticated OpenAI bridge.</p></div>';
+  $('#chatgpt-conversation').innerHTML = messages || '<div class="administrator-welcome"><strong>Master Developer</strong><p>A separate persistent ChatGPT conversation through KILN’s authenticated OpenAI bridge.</p></div>';
   $('#chatgpt-conversation').scrollTop = $('#chatgpt-conversation').scrollHeight;
 }
 
