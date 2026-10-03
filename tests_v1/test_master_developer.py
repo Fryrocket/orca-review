@@ -8,6 +8,7 @@ from orca.master_developer import (
     MasterDeveloperBroker, MasterDeveloperSessionStore, _acceptance_followup,
     _acceptance_summary,
     master_developer_turn)
+from orca.runtime import ModelRuntimeGateway
 
 
 class PlanningGateway:
@@ -18,6 +19,25 @@ class PlanningGateway:
 
     def master_developer_plan(self, **_payload):
         return self.plans.pop(0)
+
+
+def test_master_planner_prioritizes_named_code_before_acceptance(monkeypatch):
+    captured = {}
+
+    def transport(_endpoint, payload, _timeout):
+        captured.update(payload)
+        return {"choices": [{"message": {"content": json.dumps({
+            "reason": "inspect target", "actions": [{
+                "name": "file.read", "arguments_json": '{"path":"sample.py"}'}],
+        })}}]}
+
+    monkeypatch.setattr("orca.runtime.bounded_json_transport", transport)
+    gateway = ModelRuntimeGateway(enabled_services={"kiln_codex"})
+    gateway._definitions["kiln_codex"] = ("http://example.invalid", "test", {"orca"})
+    gateway.master_developer_plan(prompt="Extend sample.py")
+    system = captured["messages"][0]["content"]
+    assert "prioritize the named implementation" in system
+    assert "file.write to implement it before testing" in system
 
 
 def test_master_developer_message_authorizes_write_test_and_response(monkeypatch, tmp_path):
