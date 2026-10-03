@@ -224,6 +224,7 @@ class MasterDeveloperBroker:
     def _operator(self, name: str, arguments: dict) -> dict:
         request_dir = self.workspace.parent / "master-operator-requests"
         request_dir.mkdir(parents=True, exist_ok=True)
+        request_dir.chmod(0o770)
         request_id = f"request-{uuid4().hex}.json"
         target = request_dir / request_id
         target.write_text(json.dumps({"action": name, "arguments": arguments,
