@@ -24,7 +24,8 @@ from orca.models import ModelRoute, ModelRouter
 
 
 def test_prompt_contracts_are_versioned_and_complete():
-    assert set(PROMPT_CONTRACTS) == {"orca", "gemini", "smith", "quench", "security_gate"}
+    assert set(PROMPT_CONTRACTS) == {"chatgpt", "orca", "gemini", "smith", "quench", "security_gate"}
+    assert PROMPT_CONTRACTS["chatgpt"].version == "1.0.0"
     assert PROMPT_CONTRACTS["orca"].version == "1.4.0"
     assert PROMPT_CONTRACTS["gemini"].version == "1.0.0"
     assert PROMPT_CONTRACTS["smith"].version == "retired-compatibility"

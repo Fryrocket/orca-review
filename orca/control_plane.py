@@ -1931,6 +1931,7 @@ class ControlPlane:
             if service["runtime_enabled"]
         }
         runtime_services_by_bot = {
+            "chatgpt": {"kiln_codex"},
             "orca": {"kiln_codex", "forge_qwen"},
             "gemini": {"gemini_free"},
             "quench": {"kiln_quench"},

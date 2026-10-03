@@ -72,6 +72,9 @@ TOOL_CATALOG = {
 
 
 BOT_TOOL_MANIFESTS = {
+    # The right-hand ChatGPT pane is conversational. Tool-bearing technical
+    # work belongs to the separate Administrator ChatGPT session.
+    "chatgpt": frozenset(),
     # Gemini is an external free-tier provider. It receives sanitized prompts
     # only and never inherits repository, file, connector or terminal reads.
     "gemini": frozenset(),

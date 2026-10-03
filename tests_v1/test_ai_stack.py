@@ -140,7 +140,9 @@ def test_runtime_activation_is_explicit_and_crucible_evidence_gated(
     assert stack["services"]["gemini_free"]["runtime_enabled"] is True
     assert stack["services"]["kiln_quench"]["runtime_enabled"] is True
     bots = {row["id"]: row for row in ControlPlane().snapshot()["bots"]}
-    assert all(bot["runtime_enabled"] for bot in bots.values())
+    assert bots["chatgpt"]["runtime_enabled"] is False
+    assert all(bot["runtime_enabled"] for bot_id, bot in bots.items()
+               if bot_id != "chatgpt")
 
     path.write_text("{}")
     stack = ladder_snapshot()

@@ -244,8 +244,9 @@ def test_node_health_is_explicit_and_remote_execution_stays_disabled():
 def test_core_bot_registry_is_definition_only_and_routes_work():
     cp = ControlPlane()
     bots = {b["id"]: b for b in cp.snapshot()["bots"]}
-    assert set(bots) == {"orca", "gemini", "quench", "security_gate"}
+    assert set(bots) == {"chatgpt", "orca", "gemini", "quench", "security_gate"}
     assert all(not bot["runtime_enabled"] for bot in bots.values())
+    assert not bots["chatgpt"]["may_execute_tools"]
     assert bots["orca"]["may_execute_tools"]
     assert bots["quench"]["may_execute_tools"]
     assert not bots["gemini"]["may_execute_tools"]

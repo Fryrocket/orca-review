@@ -235,9 +235,9 @@ const routes = {
     node: 'FORGE · Wan 2.2', context: 'Text-to-video + image-to-video'
   },
   reason: {
-    service_id: 'kiln_codex', bot_id: 'orca', label: 'Codex · KILN',
-    name: 'ORCA · Codex', duty: 'Conversation, explanations, research planning and hard reasoning through the governed KILN bridge.',
-    node: 'KILN · OpenAI', context: 'ORCA memory + approvals'
+    service_id: 'kiln_codex', bot_id: 'chatgpt', label: 'ChatGPT · OpenAI',
+    name: 'ChatGPT', duty: 'General conversation, explanations, planning, writing, and hard reasoning through the authenticated KILN OpenAI bridge.',
+    node: 'KILN · OpenAI', context: 'Persistent conversation memory'
   },
   frontier: {
     service_id: 'gemini_free', bot_id: 'orca', label: 'Frontier Free · Gemini',

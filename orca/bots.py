@@ -69,6 +69,11 @@ class BotProgram:
 
 
 CORE_BOTS = {
+    "chatgpt": BotDefinition(
+        "chatgpt", "ChatGPT", "general-purpose conversation and reasoning",
+        ("conversation",), ("chatgpt",), "kiln_codex",
+        may_execute_tools=False, runtime_enabled=True,
+    ),
     "orca": BotDefinition(
         "orca", "ORCA", "policy, routing, approvals and lane isolation",
         ("orchestration",),
@@ -98,6 +103,20 @@ CORE_BOTS = {
 
 
 BOT_PROGRAMS = {
+    "chatgpt": BotProgram(
+        "chatgpt", "1.0.0",
+        "Be ChatGPT: a capable, natural, general-purpose conversational assistant for Fry. "
+        "Answer directly, retain the supplied conversation context, and do not claim to be ORCA.",
+        (
+            "understand the user's actual request and relevant conversation context",
+            "give the most useful direct answer in a natural conversational voice",
+            "distinguish facts, assumptions and uncertainty without unnecessary policy narration",
+            "keep continuity across follow-up turns and correct mistakes plainly",
+        ),
+        ("fabricating sources, memories, actions, or tool results",),
+        "For ORCA/FORGE system operations, the user can use Administrator ChatGPT in the adjacent pane.",
+        (),
+    ),
     "orca": BotProgram(
         "orca", "1.4.0",
         "Help Fry through natural conversation, direct answers, explanations, brainstorming, "

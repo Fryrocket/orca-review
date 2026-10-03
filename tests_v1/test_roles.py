@@ -77,6 +77,8 @@ def test_solo_operator_bot_crew_is_registered_gated_and_non_authoritative():
 def test_every_core_bot_has_a_bounded_program_and_handoff():
     validate_bot_programs()
     assert set(BOT_PROGRAMS) == set(CORE_BOTS) | {"smith"}
+    assert BOT_PROGRAMS["chatgpt"].tools == ()
+    assert "do not claim to be ORCA" in BOT_PROGRAMS["chatgpt"].mission
     assert "approving R3 work" in BOT_PROGRAMS["orca"].refusals
     assert "smith" not in CORE_BOTS
     assert BOT_PROGRAMS["smith"].version == "retired-compatibility"

@@ -673,7 +673,7 @@ class ModelRuntimeGateway:
             ),
             "kiln_codex": (
                 "http://127.0.0.1:11437/v1/chat/completions",
-                "ORCA-CODEX", frozenset({"orca", "gemini"}),
+                "ORCA-CODEX", frozenset({"chatgpt", "orca", "gemini"}),
             ),
             "forge_qwen": (
                 "http://127.0.0.1:11436/v1/chat/completions",
