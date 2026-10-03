@@ -1292,4 +1292,31 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   and returned an evidence-qualified capability report without editing,
   restarting or deploying.
 
+## Master Developer connected services — 2026-10-03
+
+- Google Drive read access is now live and proven through the visible Master
+  Developer pane. The original rclone adapter used an unsupported backend
+  query and the first compatibility repair returned too much unfiltered Drive
+  metadata for ORCA's bounded response envelope. Commits `05d3308` and
+  `11a1694` replace that path with an owner-only, filename-filtered and bounded
+  Drive listing while preserving read-only behavior.
+- The final black-box proof asked Master Developer to locate
+  `00_INDEX_AI_START_HERE.md`. `drive.search` completed and reported one real
+  matching file with its Drive ID, type, size and modification time; no file
+  was edited and results were not truncated.
+- Commit `558c776` connects completed `browser.open` actions to the native KILN
+  Studio launcher. Each audited tool message can open its HTTPS target once in
+  KILN's dedicated persistent ORCA Chrome profile; reloads and rerenders cannot
+  repeatedly reopen the same request.
+- Notion, Linear and Google Drive were opened on KILN in that dedicated profile.
+  The profile contains no existing Notion, Linear or Google browser-session
+  cookies, so Notion and Linear remain `browser_open_owner_sign_in_required`,
+  not falsely marked authenticated. Google Drive's separate rclone connection
+  remains authenticated and proven. ORCA cannot copy credentials out of Codex
+  connectors or bypass provider sign-in.
+- JavaScript validation, focused connector/browser tests and the complete
+  regression passed **1,223/1,223**. Live FORGE release is
+  `/opt/orca/releases/connect-558c776`; health and integrity are valid and the
+  previous immutable releases remain available for rollback.
+
 END STATE.md — AS OF 2026-10-03
