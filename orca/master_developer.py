@@ -25,20 +25,35 @@ def _now() -> str:
 
 def _planner_evidence(evidence: list[dict]) -> list[dict]:
     """Keep iterative model context bounded while preserving durable full evidence."""
+    keyed = {}
+    for index, item in enumerate(evidence):
+        key = item.get("name", "unknown")
+        output = item.get("output")
+        if isinstance(output, dict):
+            nested = output.get("output") if isinstance(output.get("output"), dict) else output
+            path = nested.get("path") if isinstance(nested, dict) else None
+            if isinstance(path, str):
+                key = f"{key}:{path}"
+        keyed[key] = (index, item)
+    selected = [item for _index, item in sorted(keyed.values())[-18:]]
     compact = []
-    for item in evidence[-12:]:
+    budget = 0
+    for item in selected:
         raw = json.dumps(item, sort_keys=True, separators=(",", ":"),
                          ensure_ascii=False, allow_nan=False)
-        if len(raw) <= 4_000:
+        if len(raw) <= 6_000 and budget + len(raw) <= 32_000:
             compact.append(item)
+            budget += len(raw)
             continue
-        compact.append({
+        bounded = {
             "name": item.get("name"),
             "status": item.get("status"),
             "truncated_for_planning": True,
             "original_chars": len(raw),
-            "evidence_excerpt": redact_text(raw[:1_900] + "\n...[bounded]...\n" + raw[-1_900:]),
-        })
+            "evidence_excerpt": redact_text(raw[:1_450] + "\n...[bounded]...\n" + raw[-1_450:]),
+        }
+        compact.append(bounded)
+        budget += len(json.dumps(bounded))
     return compact
 
 
@@ -166,6 +181,14 @@ class MasterDeveloperBroker:
             except (OSError, json.JSONDecodeError):
                 continue
             messages = value.get("messages") if isinstance(value.get("messages"), list) else []
+            recent = []
+            for message in messages:
+                if message.get("role") not in {"user", "assistant"}:
+                    continue
+                content = message.get("content")
+                if isinstance(content, str):
+                    recent.append({"role": message.get("role"),
+                                   "content_excerpt": content[:500]})
             items.append({
                 "session_id": value.get("session_id"),
                 "created_at": value.get("created_at"),
@@ -173,6 +196,7 @@ class MasterDeveloperBroker:
                 "state": value.get("state"),
                 "message_count": len(messages),
                 "last_role": messages[-1].get("role") if messages else None,
+                "recent_conversation": recent[-2:],
             })
         items.sort(key=lambda item: item.get("updated_at") or "", reverse=True)
         return {"count": len(items), "sessions": items[:limit],
@@ -233,7 +257,32 @@ class MasterDeveloperBroker:
             try:
                 result = broker.execute(
                     bot_id="orca", requests=[ToolRequest(name, arguments)])[0]
-                snapshot[key] = result.output
+                output = result.output
+                if key == "fleet" and isinstance(output, dict):
+                    output = {
+                        "evidence_chain_valid": output.get("evidence_chain_valid"),
+                        "emergency_stop": output.get("emergency_stop"),
+                        "paused_nodes": output.get("paused_nodes", []),
+                        "paused_lanes": output.get("paused_lanes", []),
+                        "nodes": [{field: node.get(field) for field in (
+                            "id", "name", "state", "last_verified", "paused",
+                            "pause_reasons", "detail", "remote_execution_enabled")}
+                            for node in output.get("nodes", []) if isinstance(node, dict)],
+                    }
+                if key == "studio" and isinstance(output, dict):
+                    tools = output.get("read_tools", {})
+                    connectors = output.get("connectors", [])
+                    output = {
+                        "read_tools": sorted(tools) if isinstance(tools, dict) else tools,
+                        "connectors": [{
+                            "connector": connector.get("connector"),
+                            "operations": connector.get("operations", []),
+                            "writes_enabled": connector.get("writes_enabled"),
+                        } for connector in connectors if isinstance(connector, dict)],
+                        "governance": output.get("governance"),
+                        "core_authority": output.get("core_authority"),
+                    }
+                snapshot[key] = output
             except Exception as exc:
                 snapshot[key] = {"status": "unavailable", "error": type(exc).__name__}
         external_path = "cc-bridge/CC_ORCA_external_records_2026-10-03.md"

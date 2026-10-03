@@ -159,6 +159,11 @@ def test_audit_snapshot_exposes_release_session_and_external_record_evidence(
     assert snapshot["sessions"]["master"]["count"] == 1
     assert snapshot["releases"]["current"]["path"] == "/opt/orca/current"
     assert snapshot["mutated"] is False
+    assert snapshot["fleet"]["nodes"][0] == {
+        "id": "forge", "name": None, "state": "healthy", "last_verified": None,
+        "paused": None, "pause_reasons": None, "detail": None,
+        "remote_execution_enabled": None}
+    assert snapshot["studio"]["read_tools"] == ["drive.read"]
 
 
 def test_planner_contract_failure_retries_before_failing(tmp_path):
