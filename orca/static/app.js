@@ -481,6 +481,12 @@ function selectMode(mode) {
 }
 $$('[data-mode]').forEach(button => button.addEventListener('click', () => selectMode(button.dataset.mode)));
 
+$$('[data-studio-pane]').forEach(button => button.addEventListener('click', () => {
+  const pane = button.dataset.studioPane;
+  $('.studio-grid').dataset.pane = pane;
+  $$('[data-studio-pane]').forEach(item => item.classList.toggle('active', item === button));
+}));
+
 function appendUserMessage(prompt) {
   $('.welcome-card')?.remove();
   const item = document.createElement('div');

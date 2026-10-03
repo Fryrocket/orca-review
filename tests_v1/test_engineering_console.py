@@ -79,6 +79,10 @@ def test_administrator_is_left_of_chatgpt_and_has_no_shell_controls():
     assert 'aria-label="Master Developer"' in html
     assert "<h2>Administrator</h2>" in html
     assert "<h2>Master Developer</h2>" in html
+    assert 'class="studio-grid" data-pane="orca"' in html
+    assert 'data-studio-pane="administrator"' in html
+    assert 'data-studio-pane="orca"' in html
+    assert 'data-studio-pane="master"' in html
     assert "Enter to send · Shift+Enter for a new line" in html
     core_developer = html[administrator:orca]
     assert 'type="submit"' not in core_developer
