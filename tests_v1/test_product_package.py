@@ -34,10 +34,12 @@ def test_pi5_package_creates_real_checksum_verified_artifacts(tmp_path):
     assert gate["pcb_drc_errors"] is True
     assert gate["schematic_erc_errors"] is True
     assert gate["gerbers_present"] is True
+    assert gate["firmware_tests_passed"] is True
     with zipfile.ZipFile(archive) as bundle:
         names = set(bundle.namelist())
         assert {"pi5-cooling-hat.kicad_sch", "pi5-cooling-hat.kicad_pcb",
-                "BOM.csv", "fan_control.py", "MANIFEST.json", "PROJECT.json",
+                "BOM.csv", "fan_control.py", "test_fan_control.py",
+                "firmware-test-results.txt", "MANIFEST.json", "PROJECT.json",
                 "REVIEW.json", "pcb-drc.rpt", "schematic-erc.rpt",
                 "INDEPENDENT-REVIEW-PACKET.json",
                 "INDEPENDENT-REVIEW-PLAN.json",
@@ -47,12 +49,14 @@ def test_pi5_package_creates_real_checksum_verified_artifacts(tmp_path):
                 "fabrication-pi5-cooling-hat-B_Cu.gbl",
                 "fabrication-pi5-cooling-hat.drl"} <= names
         assert bundle.testzip() is None
+        assert "Ran 4 tests" in bundle.read("firmware-test-results.txt").decode()
+        assert "OK" in bundle.read("firmware-test-results.txt").decode()
         manifest = json.loads(bundle.read("MANIFEST.json"))
         assert manifest["package_id"] == result["package_id"]
         packet = json.loads(bundle.read("INDEPENDENT-REVIEW-PACKET.json"))
         plan = json.loads(bundle.read("INDEPENDENT-REVIEW-PLAN.json"))
         assert packet["physical_results_claimed"] is False
-        assert len(packet["files"]) == 10
+        assert len(packet["files"]) == 12
         assert plan["free_only"] is True
         assert plan["paid_fallback"] is False
         assert "Flux AI" in plan["excluded"]
@@ -65,6 +69,25 @@ def test_pi5_package_accepts_active_cooling_hat_wording(tmp_path):
         "Create a complete functional Raspberry Pi 5 active-cooling HAT.", tmp_path)
     assert result["status"] == "functional_design_complete_physical_validation_blocked"
     assert result["review"]["checks"]["functional_electronics_gate"]["pcb_is_routed"] is True
+
+
+def test_pi5_package_ignores_hidden_metadata_in_fabrication_template(tmp_path, monkeypatch):
+    from orca import product_package
+
+    template = tmp_path / "template"
+    fabrication = template / "fabrication"
+    fabrication.mkdir(parents=True)
+    for source in product_package._PI5_TEMPLATE.iterdir():
+        if source.is_file():
+            (template / source.name).write_bytes(source.read_bytes())
+    for source in (product_package._PI5_TEMPLATE / "fabrication").iterdir():
+        if source.is_file():
+            (fabrication / source.name).write_bytes(source.read_bytes())
+    (fabrication / "._metadata").write_bytes(b"\x00\x05\x16\x07binary metadata")
+    monkeypatch.setattr(product_package, "_PI5_TEMPLATE", template)
+
+    result = create_pi5_cooling_hat_package(PROMPT, tmp_path / "packages")
+    assert result["review"]["checks"]["functional_electronics_gate"]["gerbers_present"] is True
 
 
 def test_quench_review_is_embedded_and_rehashes_the_package(tmp_path):

@@ -7,6 +7,8 @@ import io
 import json
 from pathlib import Path
 import re
+import subprocess
+import sys
 import zipfile
 
 from .cad import create_kicad_pcb_draft
@@ -40,7 +42,7 @@ def _functional_electronics_assets() -> tuple[dict[str, str], dict]:
     fabrication = {
         "fabrication-" + path.name: path
         for path in (_PI5_TEMPLATE / "fabrication").iterdir()
-        if path.is_file()
+        if path.is_file() and not path.name.startswith(".")
     }
     paths.update(fabrication)
     if any(not path.is_file() for path in paths.values()):
@@ -149,7 +151,6 @@ def _firmware() -> str:
     return '''#!/usr/bin/env python3
 """Fail-safe Pi 5 fan controller for ORCA's active-cooling HAT prototype."""
 import time
-import lgpio
 
 PWM_GPIO = 18
 FREQUENCY_HZ = 25_000
@@ -168,19 +169,57 @@ def duty_for(temp):
             return lo_d + (hi_d - lo_d) * (temp - lo_t) / (hi_t - lo_t)
     return 100.0
 
-chip = lgpio.gpiochip_open(0)
-try:
-    while True:
-        try:
-            temp = temperature_c()
-            duty = duty_for(temp)
-        except Exception:
-            duty = 100.0  # sensor/read failure is full-speed safe
-        lgpio.tx_pwm(chip, PWM_GPIO, FREQUENCY_HZ, duty)
-        time.sleep(2)
-finally:
-    lgpio.tx_pwm(chip, PWM_GPIO, FREQUENCY_HZ, 100.0)
-    lgpio.gpiochip_close(chip)
+def main():
+    import lgpio
+
+    chip = lgpio.gpiochip_open(0)
+    try:
+        while True:
+            try:
+                temp = temperature_c()
+                duty = duty_for(temp)
+            except Exception:
+                duty = 100.0  # sensor/read failure is full-speed safe
+            lgpio.tx_pwm(chip, PWM_GPIO, FREQUENCY_HZ, duty)
+            time.sleep(2)
+    finally:
+        lgpio.tx_pwm(chip, PWM_GPIO, FREQUENCY_HZ, 100.0)
+        lgpio.gpiochip_close(chip)
+
+if __name__ == "__main__":
+    main()
+'''
+
+
+def _firmware_tests() -> str:
+    return '''#!/usr/bin/env python3
+"""Deterministic software tests for the packaged ORCA fan controller."""
+import unittest
+
+import fan_control
+
+
+class FanCurveTests(unittest.TestCase):
+    def test_stopped_below_lower_threshold(self):
+        self.assertEqual(fan_control.duty_for(20.0), 0.0)
+        self.assertEqual(fan_control.duty_for(45.0), 0.0)
+
+    def test_interpolates_each_curve_segment(self):
+        self.assertAlmostEqual(fan_control.duty_for(50.0), 17.5)
+        self.assertAlmostEqual(fan_control.duty_for(60.0), 45.0)
+        self.assertAlmostEqual(fan_control.duty_for(70.0), 65.0)
+        self.assertAlmostEqual(fan_control.duty_for(78.5), 87.5)
+
+    def test_full_speed_at_and_above_upper_threshold(self):
+        self.assertEqual(fan_control.duty_for(82.0), 100.0)
+        self.assertEqual(fan_control.duty_for(120.0), 100.0)
+
+    def test_import_does_not_open_gpio_or_enter_control_loop(self):
+        self.assertTrue(callable(fan_control.main))
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
 '''
 
 
@@ -254,6 +293,7 @@ def create_pi5_cooling_hat_package(prompt: str, root: str | Path) -> dict:
             "limitations": ["Airflow-to-junction thermal resistance requires the selected heatsink, enclosure and measured workload.", "The HAT fan cools a heatsink; it does not replace correct thermal-interface material."],
         }, indent=2),
         "fan_control.py": _firmware(),
+        "test_fan_control.py": _firmware_tests(),
         "requirements.csv": _csv([
             ["ID", "Requirement", "Verification", "Status"],
             ["REQ-001", "Fit Raspberry Pi 5 HAT 65 x 56.5 mm envelope and 2x20 GPIO", "mechanical overlay and fit test", "pending physical evidence"],
@@ -277,6 +317,7 @@ def create_pi5_cooling_hat_package(prompt: str, root: str | Path) -> dict:
             "design-source-generate-schematic.py",
             "design-source-generate-board.py", "BOM.csv", "requirements.csv",
             "thermal-calculations.json", "verification-plan.md",
+            "fan_control.py", "test_fan_control.py",
         )
     }
     independent_packet = build_review_packet(
@@ -307,6 +348,18 @@ def create_pi5_cooling_hat_package(prompt: str, root: str | Path) -> dict:
         if not _ARTIFACT.fullmatch(name):
             raise ValueError("generated artifact name is unsafe")
         (package_root / name).write_text(content, encoding="utf-8")
+    firmware_test = subprocess.run(
+        [sys.executable, "-m", "unittest", "-v", "test_fan_control.py"],
+        cwd=package_root, capture_output=True, text=True, timeout=15,
+        check=False,
+    )
+    firmware_output = (firmware_test.stdout + firmware_test.stderr).strip() + "\n"
+    if firmware_test.returncode != 0 or "OK" not in firmware_output:
+        raise RuntimeError("packaged fan controller tests failed")
+    files["firmware-test-results.txt"] = firmware_output
+    (package_root / "firmware-test-results.txt").write_text(
+        firmware_output, encoding="utf-8")
+    functional_checks["firmware_tests_passed"] = True
     artifact_records = [
         {"name": name, "bytes": (package_root / name).stat().st_size,
          "sha256": _digest(package_root / name)} for name in sorted(files)

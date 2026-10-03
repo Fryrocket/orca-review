@@ -103,6 +103,61 @@ async function archiveMessages(requestID, messages) {
     body: JSON.stringify({request_id: requestID, messages})});
   if (!response.ok) throw Error('Conversation archive unavailable');
 }
+
+function renderEngineeringRun(run) {
+  if (!run) return;
+  const badge = $('#engineering-console-state');
+  badge.textContent = run.state.replaceAll('_', ' ').toUpperCase();
+  badge.className = `engineering-state ${run.state}`;
+  $('#engineering-run-id').textContent = run.run_id;
+  $('#engineering-run-iteration').textContent = `Iteration ${run.iteration} / ${run.max_iterations}`;
+  $('#engineering-rollback-state').textContent = `${run.rollback?.state || 'unknown'} · ${run.rollback?.activation || 'unknown'}`;
+  $('#engineering-console-events').innerHTML = (run.events || []).map(event =>
+    `<article class="engineering-event ${esc(event.state)}"><strong>${esc(event.state)} · ${esc(event.step)}</strong><p>${esc(event.detail)}</p></article>`
+  ).join('') || '<p class="muted">No events recorded.</p>';
+  $('#engineering-console-events').scrollTop = $('#engineering-console-events').scrollHeight;
+  $('#engineering-console-artifacts').innerHTML = (run.artifacts || []).map(artifact =>
+    `<a href="${esc(artifact.href)}" title="SHA-256 ${esc(artifact.sha256)}">${esc(artifact.kind)} · ${esc(artifact.sha256.slice(0, 12))}…</a>`
+  ).join('');
+}
+
+async function engineeringConsoleRequest(url, options = {}) {
+  const response = await fetch(url, { ...options, headers: {
+    'Content-Type': 'application/json', 'X-ORCA-Identity': studioAuth.identity,
+    'X-ORCA-Identity-Token': studioAuth.token, ...(options.headers || {})
+  }});
+  let body;
+  try { body = await response.json(); } catch { throw Error(`Engineering console returned unreadable evidence (${response.status})`); }
+  if (!response.ok) throw Error(body.error || `Engineering console failed (${response.status})`);
+  return body;
+}
+
+$('#engineering-console-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const prompt = $('#engineering-console-prompt').value.trim();
+  if (!prompt) return;
+  const button = event.currentTarget.querySelector('button');
+  button.disabled = true;
+  renderEngineeringRun({run_id: 'creating tracked project…', state: 'running', iteration: 0,
+    max_iterations: 3, events: [{state: 'running', step: 'project', detail: 'Creating durable run before execution'}],
+    artifacts: [], rollback: {state: 'preserved', activation: 'not_requested'}});
+  try {
+    renderEngineeringRun(await engineeringConsoleRequest('/api/administrator-screen/runs', {
+      method: 'POST', body: JSON.stringify({prompt})
+    }));
+  } catch (error) {
+    renderEngineeringRun({run_id: 'request_failed', state: 'failed', iteration: 0,
+      max_iterations: 3, events: [{state: 'failed', step: 'transport', detail: error.message}],
+      artifacts: [], rollback: {state: 'preserved', activation: 'not_requested'}});
+  } finally { button.disabled = false; }
+});
+
+async function loadLatestEngineeringRun() {
+  try {
+    const result = await engineeringConsoleRequest('/api/administrator-screen/runs');
+    if (result.runs?.length) renderEngineeringRun(result.runs[0]);
+  } catch { /* Console remains honest and empty until authentication is ready. */ }
+}
 let inventory = { items: [], locations: [], categories: [], units: [] };
 let inventoryAnalysis = null;
 let inventoryCountRows = [];
@@ -1525,4 +1580,5 @@ function updateWorkspaceClock() {
 updateWorkspaceClock();
 setInterval(updateWorkspaceClock, 1000);
 refresh();
+setTimeout(loadLatestEngineeringRun, 1200);
 setInterval(refresh, 8000);

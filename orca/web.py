@@ -378,6 +378,24 @@ class OrcaHandler(BaseHTTPRequestHandler):
         if not self._host_allowed():
             return self._json({"error": "host header is not allowlisted"}, HTTPStatus.MISDIRECTED_REQUEST)
         path = urlparse(self.path).path
+        if path == "/api/administrator-screen/runs" or path.startswith("/api/administrator-screen/runs/"):
+            try:
+                identity = self._authenticate_mutation()
+            except IdentityAuthenticationError as exc:
+                return self._json({"error": str(exc)}, HTTPStatus.UNAUTHORIZED)
+            except RuntimeError:
+                return self._json({"error": "Administrator Screen authentication is unavailable"},
+                                  HTTPStatus.SERVICE_UNAVAILABLE)
+            if identity != "fry":
+                return self._json({"error": "Only Fry may read engineering runs"},
+                                  HTTPStatus.FORBIDDEN)
+            from .engineering_console import list_runs, read_run
+            if path == "/api/administrator-screen/runs":
+                return self._json({"runs": list_runs(self._product_artifact_root())})
+            try:
+                return self._json(read_run(self._product_artifact_root(), path.rsplit("/", 1)[-1]))
+            except (ValueError, FileNotFoundError):
+                return self._json({"error": "engineering run not found"}, HTTPStatus.NOT_FOUND)
         if path == "/api/product-development/projects":
             try:
                 identity = self._authenticate_mutation()
@@ -584,7 +602,7 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     "nonce": heartbeat.nonce,
                     "status": "accepted",
                 }, HTTPStatus.OK)
-            if path in {"/api/inference", "/api/chat", "/api/memory", "/api/science", "/api/engineering", "/api/project/plan", "/api/cad/pcb-draft", "/api/product-development/package", "/api/product-development/fabrication-readiness", "/api/temper/inventory-dataset/plan", "/api/business/muse/handoff", "/api/business/muse/email-handoff", "/api/solo-operator/action-plan", "/api/solo-operator/snapshot"}:
+            if path in {"/api/inference", "/api/chat", "/api/memory", "/api/science", "/api/engineering", "/api/project/plan", "/api/cad/pcb-draft", "/api/product-development/package", "/api/product-development/fabrication-readiness", "/api/administrator-screen/runs", "/api/temper/inventory-dataset/plan", "/api/business/muse/handoff", "/api/business/muse/email-handoff", "/api/solo-operator/action-plan", "/api/solo-operator/snapshot"}:
                 try:
                     authenticated_identity = self._authenticate_mutation()
                 except IdentityAuthenticationError as exc:
@@ -598,6 +616,12 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     raise IdentityAuthorizationError(
                         "only Fry may initiate local model inference")
                 data = self._body()
+                if path == "/api/administrator-screen/runs":
+                    if set(data) != {"prompt"}:
+                        raise ValueError("engineering acceptance requires one prompt")
+                    from .engineering_console import run_acceptance
+                    return self._json(run_acceptance(
+                        data["prompt"], self._product_artifact_root()), HTTPStatus.CREATED)
                 if path == "/api/product-development/package":
                     if set(data) != {"prompt"}:
                         raise ValueError("product package creation requires one prompt")
