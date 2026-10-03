@@ -639,6 +639,12 @@ def _acceptance_summary(prompt: str, evidence: list[dict]) -> str | None:
     )
 
 
+def _prompt_requires_workspace_write(prompt: str) -> bool:
+    normalized = prompt.casefold()
+    return any(token in normalized for token in (
+        "implement ", "extend ", "harden ", "repair ", "add "))
+
+
 def _deterministic_audit_checkpoint(evidence: list[dict]) -> str:
     snapshot = _completed_output(evidence, "audit.snapshot")
     repository = _completed_output(evidence, "repository.inspect")
@@ -832,6 +838,25 @@ def master_developer_turn(store: MasterDeveloperSessionStore, runtime_gateway,
             acceptance_requested = any(
                 action.get("name") in {"tests.run", "respond"}
                 for action in plan["actions"])
+            write_required = _prompt_requires_workspace_write(prompt)
+            write_completed = any(
+                item.get("name") == "file.write" and item.get("status") == "completed"
+                for item in evidence)
+            if write_required and not write_completed and acceptance_requested:
+                evidence.append({
+                    "name": "acceptance.guard", "status": "blocked",
+                    "error": (
+                        "The explicit implementation request has no completed file.write "
+                        "evidence. Inspect and implement the requested change before testing "
+                        "or responding."
+                    ),
+                })
+                store.append(
+                    session_id, "activity",
+                    "Acceptance was deferred because the requested implementation has not "
+                    "been written yet.", activity_state="planned")
+                store.set_state(session_id, "planning")
+                continue
             if required is not None and (acceptance_started or acceptance_requested):
                 selected = [
                     action for action in plan["actions"]

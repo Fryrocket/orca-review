@@ -6,7 +6,7 @@ import pytest
 
 from orca.master_developer import (
     MasterDeveloperBroker, MasterDeveloperSessionStore, _acceptance_followup,
-    _acceptance_summary,
+    _acceptance_summary, _prompt_requires_workspace_write,
     master_developer_turn)
 from orca.runtime import ModelRuntimeGateway
 
@@ -569,4 +569,47 @@ def test_acceptance_turn_allows_implementation_before_tests(monkeypatch, tmp_pat
              if message.get("role") == "tool" and message.get("content", "").startswith("Running")]
     assert tools == ["file.write", "tests.run", "tests.run", "git.diff"]
     assert (tmp_path / "workspace" / "sample.py").read_text() == "VALUE = 2\n"
+    assert result["state"] == "idle"
+
+
+def test_explicit_change_prompt_requires_a_workspace_write():
+    assert _prompt_requires_workspace_write("Harden the parser and add tests") is True
+    assert _prompt_requires_workspace_write("Verify the parser without changes") is False
+
+
+def test_acceptance_turn_defers_tests_until_explicit_change_is_written(monkeypatch, tmp_path):
+    source = tmp_path / "source"
+    (source / "tests").mkdir(parents=True)
+    (source / "tests_v1").mkdir()
+    (source / "tests" / "test_old.py").write_text("def test_old(): assert True\n")
+    (source / "tests_v1" / "test_new.py").write_text("def test_new(): assert True\n")
+    (source / "sample.py").write_text("VALUE = 1\n")
+    monkeypatch.setenv("ORCA_MASTER_SOURCE_ROOT", str(source))
+    monkeypatch.setenv("ORCA_MASTER_WORKSPACE", str(tmp_path / "workspace"))
+    monkeypatch.setenv("ORCA_MASTER_TEST_PYTHON", sys.executable)
+    store = MasterDeveloperSessionStore(tmp_path / "artifacts")
+    session = store.create()
+    gateway = PlanningGateway([
+        {"reason": "Premature test", "actions": [
+            {"name": "tests.run", "arguments": {"target": "focused"}}]},
+        {"reason": "Implement after guard", "actions": [
+            {"name": "file.write", "arguments": {
+                "path": "sample.py", "content": "VALUE = 2\n"}}]},
+        {"reason": "Start acceptance", "actions": [
+            {"name": "tests.run", "arguments": {"target": "focused"}}]},
+        {"reason": "Continue", "actions": [
+            {"name": "file.search", "arguments": {"query": "VALUE"}}]},
+        {"reason": "Continue", "actions": [
+            {"name": "file.search", "arguments": {"query": "VALUE"}}]},
+        {"reason": "Finish", "actions": [
+            {"name": "respond", "arguments": {"message": "done"}}]},
+    ])
+    result = master_developer_turn(
+        store, gateway, tmp_path / "artifacts", session["session_id"],
+        "Harden sample, run focused and full regression, and inspect the final diff.")
+    tools = [message.get("tool_name") for message in result["messages"]
+             if message.get("role") == "tool" and message.get("content", "").startswith("Running")]
+    assert tools == ["file.write", "tests.run", "tests.run", "git.diff"]
+    assert any(item.get("name") == "acceptance.guard"
+               for item in result["messages"][-1]["evidence"])
     assert result["state"] == "idle"
