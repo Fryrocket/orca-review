@@ -388,11 +388,38 @@ def master_developer_turn(store: MasterDeveloperSessionStore, runtime_gateway,
     evidence = []
     for _iteration in range(6):
         planning_evidence = _planner_evidence(evidence)
-        try:
-            plan = runtime_gateway.master_developer_plan(
-                prompt=prompt, history=prior, evidence=planning_evidence,
-                final=_iteration == 5)
-        except Exception as exc:
+        plan, planning_error = None, None
+        for attempt in range(2):
+            retry_note = (
+                "\n\nContract retry: return only one valid action-plan JSON object matching "
+                "the supplied schema; do not add prose outside it."
+                if attempt else ""
+            )
+            try:
+                plan = runtime_gateway.master_developer_plan(
+                    prompt=prompt + retry_note, history=prior,
+                    evidence=planning_evidence, final=_iteration == 5)
+                break
+            except Exception as exc:
+                planning_error = exc
+        if plan is None and not evidence and _iteration == 0 and any(
+                phrase in prompt.casefold() for phrase in (
+                    "catch yourself up", "ecosystem audit", "reconcile all")):
+            plan = {
+                "reason": (
+                    "The model planning contract failed twice before evidence collection; "
+                    "start the requested read-only ecosystem audit through the deterministic "
+                    "bounded evidence actions."
+                ),
+                "actions": [
+                    {"name": "audit.snapshot", "arguments": {}},
+                    {"name": "repository.inspect", "arguments": {}},
+                    {"name": "sessions.inspect", "arguments": {
+                        "kind": "all", "limit": 12}},
+                ],
+            }
+        elif plan is None:
+            exc = planning_error
             store.append(
                 session_id, "assistant",
                 "Master Developer could not complete the next planning pass. "

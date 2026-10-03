@@ -159,3 +159,63 @@ def test_audit_snapshot_exposes_release_session_and_external_record_evidence(
     assert snapshot["sessions"]["master"]["count"] == 1
     assert snapshot["releases"]["current"]["path"] == "/opt/orca/current"
     assert snapshot["mutated"] is False
+
+
+def test_planner_contract_failure_retries_before_failing(tmp_path):
+    calls = []
+
+    class Gateway:
+        tool_broker = None
+
+        def master_developer_plan(self, **payload):
+            calls.append(payload["prompt"])
+            if len(calls) == 1:
+                raise ValueError("malformed contract")
+            return {"reason": "Answer after contract retry", "actions": [
+                {"name": "respond", "arguments": {"message": "Recovered reply."}}]}
+
+    store = MasterDeveloperSessionStore(tmp_path / "artifacts")
+    session = store.create()
+    result = master_developer_turn(
+        store, Gateway(), tmp_path / "artifacts", session["session_id"], "Status.")
+    assert result["state"] == "idle"
+    assert result["messages"][-1]["content"] == "Recovered reply."
+    assert len(calls) == 2
+    assert "Contract retry" in calls[1]
+
+
+def test_audit_uses_deterministic_read_only_start_after_two_contract_failures(
+        monkeypatch, tmp_path):
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "state.md").write_text("state\n", encoding="utf-8")
+    monkeypatch.setenv("ORCA_MASTER_SOURCE_ROOT", str(source))
+    monkeypatch.setenv("ORCA_MASTER_WORKSPACE", str(tmp_path / "workspace"))
+    plans = []
+
+    class Result:
+        output = {}
+
+    class ToolBroker:
+        def execute(self, **_kwargs): return [Result()]
+
+    class Gateway:
+        tool_broker = ToolBroker()
+
+        def master_developer_plan(self, **payload):
+            plans.append(payload)
+            if len(plans) <= 2:
+                raise ValueError("malformed contract")
+            return {"reason": "Report collected evidence", "actions": [
+                {"name": "respond", "arguments": {"message": "Audit evidence collected."}}]}
+
+    store = MasterDeveloperSessionStore(tmp_path / "artifacts")
+    session = store.create()
+    result = master_developer_turn(
+        store, Gateway(), tmp_path / "artifacts", session["session_id"],
+        "Catch yourself up and reconcile all available records.")
+    assert result["state"] == "idle"
+    tool_names = [item.get("tool_name") for item in result["messages"]]
+    assert "audit.snapshot" in tool_names
+    assert "repository.inspect" in tool_names
+    assert "sessions.inspect" in tool_names
