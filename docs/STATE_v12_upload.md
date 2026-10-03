@@ -1352,4 +1352,39 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   labels Drive/Notion/Linear and other unavailable evidence as unproven rather
   than inventing access or completion.
 
+## Master Developer complete catch-up recovery — 2026-10-03
+
+- Commits `ff50355` and `447509b` are live on FORGE as immutable release
+  `/opt/orca/releases/master-audit-recovery-447509b`; rollback is preserved at
+  `/opt/orca/releases/master-workspace-ff50355`. ORCA is active with zero
+  automatic restarts, and `/api/health` reports healthy with valid integrity.
+- `ff50355` adds a baseline manifest for the Master Developer workspace. A
+  provably untouched stale workspace is archived and refreshed from the active
+  immutable release; any workspace containing developer or owner changes is
+  preserved untouched. The legacy workspace was archived, not deleted. Drive
+  filename search now uses the bounded rclone fast-list path.
+- `447509b` adds an autonomous deterministic audit recovery. If the KILN Codex
+  provider repeatedly emits malformed action-plan JSON, ORCA completes the
+  catch-up through registered read-only actions instead of failing, looping or
+  claiming success. The recovery inspects `audit.snapshot`, repository and
+  session state, `docs/STATE_v12_upload.md`, the timestamped Drive external
+  record, ORCA health and signed fleet observations, then produces one
+  evidence-qualified checkpoint.
+- Focused repair tests passed 10/10 and the complete regression passed
+  **1,231/1,231**. Both commits are pushed to GitHub and private Gitea on
+  `main` and `agent/orca-rebuild-v1`.
+- Final black-box proof was performed from the physical KILN Studio Master
+  Developer field using the original full ORCA/FORGE catch-up prompt. Durable
+  session `master_d93e16d2a0374ed089d206aa` returned to `idle`; all seven
+  read-only actions completed: `audit.snapshot`, `repository.inspect`,
+  `sessions.inspect`, `file.read`, `drive.read`, `health.check` and
+  `node.observe`.
+- The returned checkpoint proved `workspace_differs=false`, STATE and external
+  Drive records read successfully, GitHub `main` and the working branch both
+  at `447509b`, and all five nodes (ANVIL, FORGE, KILN, EMBER and TEMPER)
+  healthy and unpaused with fresh signed observations. Direct Gitea inspection
+  from FORGE remains a truthful topology limitation; the timestamped external
+  push record is the corroborating evidence. Physical hardware and owner-only
+  acceptance gates remain explicit and were not bypassed.
+
 END STATE.md — AS OF 2026-10-03
