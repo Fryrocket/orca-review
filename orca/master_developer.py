@@ -443,7 +443,8 @@ class MasterDeveloperBroker:
             path.parent.mkdir(parents=True, exist_ok=True)
             temporary = path.with_suffix(path.suffix + ".tmp")
             temporary.write_text(content, encoding="utf-8"); temporary.replace(path)
-            (self.workspace / ".master-test.json").unlink(missing_ok=True)
+            (self.artifact_root / "master-test-receipts" / "latest.json").unlink(
+                missing_ok=True)
             return {"path": str(path.relative_to(self.workspace)), "bytes": len(content.encode()),
                     "rollback": "preserved"}
         if name == "git.diff":
@@ -461,11 +462,13 @@ class MasterDeveloperBroker:
                                     env=self._test_environment())
             output = {"passed": result.returncode == 0, "returncode": result.returncode,
                       "output": (result.stdout + result.stderr)[-64_000:],
-                      "runner": str(test_python)}
+                      "runner": str(test_python), "target": target}
             if output["passed"]:
-                (self.workspace / ".master-test.json").write_text(json.dumps({
-                    "passed": True, "completed_at": _now(), "target": target}) + "\n",
-                    encoding="utf-8")
+                receipts = self.artifact_root / "master-test-receipts"
+                receipts.mkdir(parents=True, exist_ok=True)
+                (receipts / "latest.json").write_text(json.dumps({
+                    "passed": True, "completed_at": _now(), "target": target,
+                    "workspace": str(self.workspace)}) + "\n", encoding="utf-8")
             return output
         if name == "health.check":
             with urlopen("http://127.0.0.1:8787/api/health", timeout=10) as response:

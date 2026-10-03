@@ -349,3 +349,26 @@ def test_master_developer_test_environment_is_isolated(monkeypatch, tmp_path):
     assert environment["PYTHONPATH"] == str(broker.workspace)
     assert environment["PYTHONDONTWRITEBYTECODE"] == "1"
     assert "no:cacheprovider" in environment["PYTEST_ADDOPTS"]
+
+
+def test_test_receipt_is_labeled_and_kept_outside_workspace(monkeypatch, tmp_path):
+    source = tmp_path / "source"
+    (source / "tests_v1").mkdir(parents=True)
+    (source / "tests_v1" / "test_ok.py").write_text(
+        "def test_ok(): assert True\n", encoding="utf-8")
+    workspace = tmp_path / "workspace"
+    artifacts = tmp_path / "artifacts"
+    monkeypatch.setenv("ORCA_MASTER_SOURCE_ROOT", str(source))
+    monkeypatch.setenv("ORCA_MASTER_WORKSPACE", str(workspace))
+    monkeypatch.setenv("ORCA_MASTER_TEST_PYTHON", sys.executable)
+
+    class Gateway:
+        tool_broker = None
+
+    broker = MasterDeveloperBroker(Gateway(), artifacts)
+    result = broker.execute("tests.run", {"target": "focused"})
+    assert result["passed"] is True
+    assert result["target"] == "focused"
+    assert not (workspace / ".master-test.json").exists()
+    receipt = json.loads((artifacts / "master-test-receipts" / "latest.json").read_text())
+    assert receipt["target"] == "focused"
