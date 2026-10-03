@@ -82,7 +82,7 @@ def test_count_session_requires_approval_applies_atomically_and_routes_review():
         observations=observations(), reason="Scheduled physical inventory",
         evidence="COUNT-100", requested_by="fry")
     assert proposal["job"]["status"] == "waiting_approval"
-    assert proposal["job"]["assigned_to"] == "smith"
+    assert proposal["job"]["assigned_to"] == "gemini"
     control.decide(
         proposal["job"]["approval_id"], actor="fry", approve=True,
         note="Count sheet checked")

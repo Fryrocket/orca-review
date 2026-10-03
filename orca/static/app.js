@@ -137,10 +137,20 @@ const routes = {
     name: 'ORCA · Codex', duty: 'Conversation, explanations, research planning and hard reasoning through the governed KILN bridge.',
     node: 'KILN · OpenAI', context: 'ORCA memory + approvals'
   },
+  frontier: {
+    service_id: 'gemini_free', bot_id: 'orca', label: 'Frontier Free · Gemini',
+    name: 'ORCA · Gemini 3.8 Flash', duty: 'Zero-cost frontier chat and reasoning through a bounded free-tier bridge. No paid fallback.',
+    node: 'FORGE · Google AI', context: 'Free quota · sanitized prompts only'
+  },
+  muse: {
+    service_id: 'muse_spark', bot_id: 'orca', label: 'Muse Spark · Meta',
+    name: 'ORCA · Muse Spark 1.3', duty: 'Owner-selected long-context reasoning through the bounded Meta Model API bridge.',
+    node: 'FORGE · Meta Model API', context: 'Single-provider turn · local fallback'
+  },
   code: {
-    service_id: 'kiln_codex', bot_id: 'smith', label: 'Codex · Code',
-    name: 'Codex + Qwen fallback', duty: 'Coding, implementation, documentation and repository-scale synthesis under ORCA controls.',
-    node: 'KILN + FORGE', context: 'Read-only until approved'
+    service_id: 'gemini_free', bot_id: 'gemini', label: 'Gemini · Code',
+    name: 'Gemini 3.8 Flash', duty: 'Sanitized coding and documentation proposals under ORCA controls.',
+    node: 'FORGE · Google AI', context: 'Free quota · no private tools'
   },
   review: {
     service_id: 'kiln_quench', bot_id: 'quench', label: 'QUENCH · BILLOWS',
@@ -148,9 +158,9 @@ const routes = {
     node: 'KILN · CUDA', context: '4K context'
   },
   engineer: {
-    service_id: 'kiln_codex', bot_id: 'smith', label: 'Codex · Engineering',
-    name: 'Codex Engineer', duty: 'Tradeoffs, calculations, mechanisms, circuits and failure analysis with deterministic ORCA tools.',
-    node: 'KILN + FORGE', context: 'Verified calculators'
+    service_id: 'gemini_free', bot_id: 'gemini', label: 'Gemini · Engineering',
+    name: 'Gemini 3.8 Flash Engineer', duty: 'Sanitized tradeoffs, mechanisms, circuits and failure-analysis proposals.',
+    node: 'FORGE · Google AI', context: 'Free quota · no private tools'
   },
   visual: {
     service_id: 'kiln_codex', bot_id: 'orca', label: 'Codex · Visual Direction',
@@ -867,6 +877,10 @@ function eventRow(event) {
   return `<div class="row"><div class="row-top"><h3>${esc(event.kind)}</h3><span class="state">${esc(event.actor)}</span></div><p>${esc(event.lane)} · ${esc(event.correlation_id)}</p><div class="meta">${esc(event.timestamp)}</div></div>`;
 }
 function render() {
+  const museReady = state.ai_stack?.services?.muse_spark?.runtime_enabled === true;
+  const museButton = $('[data-mode="muse"]');
+  if (museButton) museButton.hidden = !museReady;
+  if (activeMode === 'muse' && !museReady) activeMode = 'auto';
   const pending = state.approvals.filter(approval => approval.status === 'pending');
   $('#approval-banner').classList.toggle('hidden', !pending.length);
   $('#approval-count').textContent = `${pending.length} approval${pending.length === 1 ? '' : 's'} waiting`;
@@ -991,8 +1005,9 @@ function renderActions() {
 }
 function renderCoderStack() {
   const services = state.ai_stack?.services || {};
-  const ids = ['kiln_codex', 'forge_qwen', 'kiln_quench'];
-  $('#coder-stack').innerHTML = ids.map(id => { const service = services[id] || {}; return `<div class="specialist-row"><div><strong>${esc(id === 'kiln_codex' ? 'Codex on KILN' : id === 'forge_qwen' ? 'Qwen Local Fallback' : 'QUENCH')}</strong><div class="meta">${esc(service.model || 'loading')}</div></div><span class="state ${service.runtime_enabled ? 'complete' : 'failed'}">${service.runtime_enabled ? 'READY' : 'GATED'}</span></div>`; }).join('');
+  const ids = ['kiln_codex', 'gemini_free', 'muse_spark', 'forge_qwen', 'kiln_quench'];
+  const labels = {kiln_codex:'Codex on KILN',gemini_free:'Gemini Free',muse_spark:'Muse Spark',forge_qwen:'Qwen Local Fallback',kiln_quench:'QUENCH'};
+  $('#coder-stack').innerHTML = ids.map(id => { const service = services[id] || {}; return `<div class="specialist-row"><div><strong>${esc(labels[id])}</strong><div class="meta">${esc(service.model || 'loading')}</div></div><span class="state ${service.runtime_enabled ? 'complete' : 'failed'}">${service.runtime_enabled ? 'READY' : 'GATED'}</span></div>`; }).join('');
 }
 
 async function refresh() {

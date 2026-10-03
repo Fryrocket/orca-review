@@ -67,7 +67,7 @@ def test_large_cpu_inference_uses_forge_while_large_gpu_remains_blocked():
     recommendation = recommend_placement("large_inference")
     assert recommendation["status"] == "recommended"
     assert recommendation["selected_node"] == "forge"
-    assert "30.5B" in recommendation["reason"]
+    assert "Gemini 3.8 Flash" in recommendation["reason"]
 
     recommendation = recommend_placement("large_gpu_inference")
     assert recommendation["status"] == "blocked"

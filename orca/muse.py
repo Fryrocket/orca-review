@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from hashlib import sha256
 import json
+import os
 import re
 from typing import Any
 
@@ -30,6 +31,10 @@ def _bounded_text(value: object, name: str, maximum: int) -> str:
 def integration_status() -> dict[str, Any]:
     """Describe supported lanes without implying external authorization."""
 
+    spark_enabled = "muse_spark" in {
+        value.strip() for value in os.environ.get(
+            "ORCA_ENABLED_MODEL_SERVICES", "").split(",") if value.strip()
+    }
     return {
         "status": "staged",
         "personal_muse": {
@@ -46,8 +51,9 @@ def integration_status() -> dict[str, Any]:
         "muse_spark": {
             "mode": "optional_openai_compatible_model_provider",
             "documentation": MUSE_MODEL_API_DOCS,
-            "available": False,
-            "reason": "owner credential, cost approval, and egress acceptance are not configured",
+            "available": spark_enabled,
+            "reason": ("enabled through the bounded ORCA bridge" if spark_enabled else
+                       "owner credential, cost approval, and egress acceptance are not configured"),
             "external_actions_allowed": False,
         },
         "return_contract": "cited_candidate_pack_v1",

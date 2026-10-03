@@ -37,12 +37,12 @@ def test_missing_read_file_is_explicit_failed_evidence_not_a_server_crash():
 
 
 @pytest.mark.parametrize('mode,service,bot', [
-    ('reason', 'forge_qwen', 'orca'), ('code', 'forge_qwen', 'smith'),
-    ('review', 'kiln_quench', 'quench'), ('engineer', 'forge_qwen', 'smith'),
-    ('visual', 'forge_qwen', 'orca'),
+    ('reason', 'gemini_free', 'orca'), ('code', 'gemini_free', 'gemini'),
+    ('review', 'kiln_quench', 'quench'), ('engineer', 'gemini_free', 'gemini'),
+    ('visual', 'gemini_free', 'orca'),
 ])
 def test_auto_routes_only_to_existing_specialists(monkeypatch, mode, service, bot):
-    gateway = ModelRuntimeGateway({'forge_qwen', 'forge_smith', 'kiln_quench'})
+    gateway = ModelRuntimeGateway({'forge_qwen', 'gemini_free', 'kiln_quench'})
     history = [{'role': 'user', 'content': 'My project is named Cedar.'}]
     calls = []
     monkeypatch.setattr('orca.runtime.bounded_json_transport',
@@ -98,7 +98,7 @@ def test_clear_tool_free_conversation_uses_one_direct_pass(monkeypatch, prompt):
 
 
 def test_codex_is_preferred_for_direct_conversation_when_enabled(monkeypatch):
-    gateway = ModelRuntimeGateway({'kiln_codex', 'forge_qwen', 'forge_smith'})
+    gateway = ModelRuntimeGateway({'kiln_codex', 'forge_qwen', 'gemini_free'})
     calls = []
     monkeypatch.setattr(gateway, 'invoke', lambda **kwargs:
                         calls.append(kwargs) or {'summary': 'Codex reply'})
@@ -122,6 +122,115 @@ def test_codex_transport_failure_falls_back_to_local_qwen(monkeypatch):
                           prompt='hello', use_tool_broker=False) == valid
     assert calls == ['http://127.0.0.1:11437/v1/chat/completions',
                      'http://127.0.0.1:11436/v1/chat/completions']
+
+
+def test_codex_transport_failure_prefers_free_frontier_then_local(monkeypatch):
+    calls = []
+    valid = {'summary': 'free fallback', 'evidence': ['Gemini Free'],
+             'uncertainty': 'free quota applies', 'next_gate': 'none'}
+    def transport(url, payload, timeout):
+        calls.append(url)
+        if ':11437/' in url:
+            raise RuntimeError('Codex unavailable')
+        return envelope(valid)
+    monkeypatch.setattr('orca.runtime.bounded_json_transport', transport)
+    gateway = ModelRuntimeGateway({'kiln_codex', 'gemini_free', 'forge_qwen'})
+    assert gateway.invoke(service_id='kiln_codex', bot_id='orca',
+                          prompt='hello', use_tool_broker=False) == valid
+    assert calls == ['http://127.0.0.1:11437/v1/chat/completions',
+                     'http://127.0.0.1:11438/v1/chat/completions']
+
+
+def test_free_frontier_is_an_explicit_allowlisted_chat_service(monkeypatch):
+    valid = {'summary': 'frontier answer', 'evidence': ['conversation'],
+             'uncertainty': 'none', 'next_gate': 'none'}
+    calls = []
+    monkeypatch.setattr('orca.runtime.bounded_json_transport',
+                        lambda url, payload, timeout: calls.append((url, payload)) or envelope(valid))
+    gateway = ModelRuntimeGateway({'gemini_free'})
+    assert gateway.invoke(service_id='gemini_free', bot_id='orca',
+                          prompt='hello', use_tool_broker=False) == valid
+    assert calls[0][0] == 'http://127.0.0.1:11438/v1/chat/completions'
+    assert calls[0][1]['model'] == 'ORCA-GEMINI-FREE'
+
+
+def test_free_frontier_quota_failure_falls_back_to_local_qwen(monkeypatch):
+    calls = []
+    valid = {'summary': 'local answer', 'evidence': ['Qwen'],
+             'uncertainty': 'none', 'next_gate': 'none'}
+    def transport(url, payload, timeout):
+        calls.append(url)
+        if ':11438/' in url:
+            raise RuntimeError('free quota exhausted')
+        return envelope(valid)
+    monkeypatch.setattr('orca.runtime.bounded_json_transport', transport)
+    gateway = ModelRuntimeGateway({'gemini_free', 'forge_qwen'})
+    assert gateway.invoke(service_id='gemini_free', bot_id='orca',
+                          prompt='hello', use_tool_broker=False) == valid
+    assert calls == ['http://127.0.0.1:11438/v1/chat/completions',
+                     'http://127.0.0.1:11436/v1/chat/completions']
+
+
+@pytest.mark.parametrize('prompt,service,cleaned', [
+    ('Gemini: explain this', 'gemini_free', 'explain this'),
+    ('/gemini explain this', 'gemini_free', 'explain this'),
+    ('Ask Muse explain this', 'muse_spark', 'explain this'),
+    ('Muse: explain this', 'muse_spark', 'explain this'),
+])
+def test_provider_directives_use_one_selected_chat_model(monkeypatch, prompt, service, cleaned):
+    gateway = ModelRuntimeGateway({'gemini_free', 'muse_spark', 'forge_qwen'})
+    calls = []
+    monkeypatch.setattr(gateway, 'invoke', lambda **kwargs:
+                        calls.append(kwargs) or {'summary': 'selected provider'})
+    assert gateway.chat(prompt=prompt) == {
+        'mode': 'reason', 'result': {'summary': 'selected provider'}}
+    assert calls == [{'service_id': service, 'bot_id': 'orca',
+                      'prompt': cleaned, 'history': []}]
+
+
+def test_muse_failure_falls_back_only_to_local_qwen(monkeypatch):
+    calls = []
+    valid = {'summary': 'local answer', 'evidence': ['Qwen'],
+             'uncertainty': 'none', 'next_gate': 'none'}
+    def transport(url, payload, timeout):
+        calls.append(url)
+        if ':11439/' in url:
+            raise RuntimeError('Muse unavailable')
+        return envelope(valid)
+    monkeypatch.setattr('orca.runtime.bounded_json_transport', transport)
+    gateway = ModelRuntimeGateway({'muse_spark', 'gemini_free', 'forge_qwen'})
+    assert gateway.invoke(service_id='muse_spark', bot_id='orca',
+                          prompt='hello', use_tool_broker=False) == valid
+    assert calls == ['http://127.0.0.1:11439/v1/chat/completions',
+                     'http://127.0.0.1:11436/v1/chat/completions']
+
+
+@pytest.mark.parametrize('prompt', [
+    'Summarize the project notes in Notion.',
+    'Update the launch issue in Linear.',
+    'Organize these files in Google Drive.',
+    'Remember this decision in long-term memory.',
+])
+def test_muse_owns_memory_and_workspace_knowledge_tasks(monkeypatch, prompt):
+    gateway = ModelRuntimeGateway({'muse_spark', 'gemini_free', 'forge_qwen'})
+    calls = []
+    monkeypatch.setattr(gateway, 'invoke', lambda **kwargs:
+                        calls.append(kwargs) or {'summary': 'Muse knowledge work'})
+    assert gateway.chat(prompt=prompt) == {
+        'mode': 'reason', 'result': {'summary': 'Muse knowledge work'}}
+    assert calls == [{'service_id': 'muse_spark', 'bot_id': 'orca',
+                      'prompt': prompt, 'history': []}]
+
+
+def test_muse_specialty_does_not_enable_a_disabled_paid_service(monkeypatch):
+    gateway = ModelRuntimeGateway({'gemini_free', 'forge_qwen'})
+    calls = []
+    monkeypatch.setattr('orca.runtime.bounded_json_transport',
+                        lambda *_: envelope({'mode': 'reason', 'image_prompt': ''}))
+    monkeypatch.setattr(gateway, 'invoke', lambda **kwargs:
+                        calls.append(kwargs) or {'summary': 'fallback route'})
+    gateway.chat(prompt='Summarize the workspace in Notion.')
+    assert calls[0]['service_id'] == 'gemini_free'
 
 
 @pytest.mark.parametrize('prompt', [

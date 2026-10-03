@@ -101,7 +101,7 @@ def test_reservation_requires_approval_updates_ledger_and_routes_to_quench():
 
     assert job["level"] == "R2"
     assert job["status"] == "waiting_approval"
-    assert job["assigned_to"] == "smith"
+    assert job["assigned_to"] == "gemini"
     assert proposal["preview"]["BIN-A"]["available"] == 6
     with pytest.raises(PermissionError, match="requires Fry approval"):
         control.run_approved_inventory_workflow(job["id"], requested_by="fry")

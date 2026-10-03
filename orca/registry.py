@@ -8,6 +8,7 @@ from .domain import AgentIdentity
 AGENTS = {
     "orca": AgentIdentity("orca", "ORCA", "policy, routing, approvals, lane isolation"),
     "smith": AgentIdentity("smith", "SMITH", "coding and implementation", may_author=True),
+    "gemini": AgentIdentity("gemini", "Gemini 3.8 Flash", "sanitized coding, documentation and engineering proposals", may_author=True),
     "quench": AgentIdentity("quench", "QUENCH", "independent technical review", may_review=True),
     "security_gate": AgentIdentity("security_gate", "Independent Security Gate",
                                    "advisory security findings and escalation only"),

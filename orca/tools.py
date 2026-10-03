@@ -72,6 +72,9 @@ TOOL_CATALOG = {
 
 
 BOT_TOOL_MANIFESTS = {
+    # Gemini is an external free-tier provider. It receives sanitized prompts
+    # only and never inherits repository, file, connector or terminal reads.
+    "gemini": frozenset(),
     "orca": frozenset({
         "math.scientific", "engineering.calculate", "engineering.catalog", "engineering.review_panel",
         "math.calculate",

@@ -61,6 +61,18 @@ _USER_MANUAL_REQUEST = re.compile(
     re.IGNORECASE,
 )
 
+# Muse is the owner-selected knowledge-work specialist. This classifier is
+# deliberately narrow: ordinary mentions of RAM or Google searches stay on the
+# normal route, while explicit workspace and durable-memory work selects Muse.
+_MUSE_KNOWLEDGE_WORK = re.compile(
+    r"\b(?:notion|linear(?:\.app)?|google\s+(?:drive|docs|sheets|slides|workspace|calendar)|"
+    r"gmail)\b|\b(?:remember|save|store|archive|recall|retrieve|search|summari[sz]e|"
+    r"organize|update)\b.{0,80}\b(?:memory|notes?|knowledge\s*base|workspace)\b|"
+    r"\b(?:memory|notes?|knowledge\s*base|workspace)\b.{0,80}\b(?:remember|save|store|"
+    r"archive|recall|retrieve|search|summari[sz]e|organize|update)\b",
+    re.IGNORECASE,
+)
+
 
 def tool_request_relevant(name: str, prompt: str) -> bool:
     """Fail closed on model-proposed calculators unrelated to the user request."""
@@ -651,17 +663,21 @@ class ModelRuntimeGateway:
         self.enabled_services = frozenset(enabled_services)
         self.tool_broker = tool_broker
         definitions = {
+            "gemini_free": (
+                "http://127.0.0.1:11438/v1/chat/completions",
+                "ORCA-GEMINI-FREE", frozenset({"orca", "gemini"}),
+            ),
+            "muse_spark": (
+                "http://127.0.0.1:11439/v1/chat/completions",
+                "ORCA-MUSE-SPARK", frozenset({"orca", "gemini"}),
+            ),
             "kiln_codex": (
                 "http://127.0.0.1:11437/v1/chat/completions",
-                "ORCA-CODEX", frozenset({"orca", "smith"}),
+                "ORCA-CODEX", frozenset({"orca", "gemini"}),
             ),
             "forge_qwen": (
                 "http://127.0.0.1:11436/v1/chat/completions",
-                "ORCA-QWEN", frozenset({"orca", "smith"}),
-            ),
-            "forge_smith": (
-                "http://127.0.0.1:11434/v1/chat/completions",
-                "SMITH", frozenset({"smith"}),
+                "ORCA-QWEN", frozenset({"orca", "gemini"}),
             ),
             "kiln_quench": (
                 "http://127.0.0.1:11435/v1/chat/completions",
@@ -674,13 +690,38 @@ class ModelRuntimeGateway:
         self._definitions = definitions
 
     def chat(self, *, prompt: str, history=None) -> dict:
-        if not ({"kiln_codex", "forge_qwen"} & self.enabled_services):
-            raise PermissionError("automatic chat requires Codex or Qwen")
+        if not ({"kiln_codex", "gemini_free", "forge_qwen"} & self.enabled_services):
+            raise PermissionError("automatic chat requires Codex, Gemini Free or Qwen")
         conversation = validate_history(history)
         if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > 12_000:
             raise ValueError("chat prompt must contain 1-12000 characters")
         if redact_text(prompt) != prompt:
             raise ValueError("prompt contains secret-shaped data")
+        provider_prompt = prompt.strip()
+        provider_service = None
+        for prefixes, service_id in (
+            (("gemini:", "/gemini ", "ask gemini "), "gemini_free"),
+            (("muse:", "/muse ", "ask muse "), "muse_spark"),
+        ):
+            lowered = provider_prompt.casefold()
+            prefix = next((value for value in prefixes if lowered.startswith(value)), None)
+            if prefix is not None:
+                provider_service = service_id
+                provider_prompt = provider_prompt[len(prefix):].strip()
+                break
+        if provider_service is not None:
+            if not provider_prompt:
+                raise ValueError("provider-directed chat prompt is empty")
+            return {"mode": "reason", "result": self.invoke(
+                service_id=provider_service, bot_id="orca", prompt=provider_prompt,
+                history=conversation,
+            )}
+        if ("muse_spark" in self.enabled_services
+                and _MUSE_KNOWLEDGE_WORK.search(prompt)):
+            return {"mode": "reason", "result": self.invoke(
+                service_id="muse_spark", bot_id="orca", prompt=prompt,
+                history=conversation,
+            )}
         from .calculator import calculate, chat_expression
         from .scientific import scientific_calculate, chat_science_request
         scientific_request = chat_science_request(prompt)
@@ -710,17 +751,23 @@ class ModelRuntimeGateway:
                 "uncertainty": uncertainty, "next_gate": "none"}}
         if direct_conversation_fast_path(prompt, conversation):
             return {"mode": "reason", "result": self.invoke(
-                service_id=("kiln_codex" if "kiln_codex" in self.enabled_services else "forge_qwen"),
+                service_id=("kiln_codex" if "kiln_codex" in self.enabled_services
+                            else "gemini_free" if "gemini_free" in self.enabled_services
+                            else "forge_qwen"),
                 bot_id="orca", prompt=prompt,
                 history=conversation, use_tool_broker=False)}
-        primary_reason = "kiln_codex" if "kiln_codex" in self.enabled_services else "forge_qwen"
-        primary_code = "kiln_codex" if "kiln_codex" in self.enabled_services else "forge_qwen"
+        primary_reason = ("kiln_codex" if "kiln_codex" in self.enabled_services
+                          else "gemini_free" if "gemini_free" in self.enabled_services
+                          else "forge_qwen")
+        primary_code = primary_reason
         modes = {
-            "reason": (primary_reason, "orca"), "code": (primary_code, "smith"),
-            "review": ("kiln_quench", "quench"), "engineer": (primary_reason, "smith"),
+            "reason": (primary_reason, "orca"), "code": ("gemini_free", "gemini"),
+            "review": ("kiln_quench", "quench"), "engineer": ("gemini_free", "gemini"),
             "visual": (primary_reason, "orca"),
         }
-        router_service = "forge_qwen" if "forge_qwen" in self.enabled_services else "kiln_codex"
+        router_service = ("forge_qwen" if "forge_qwen" in self.enabled_services
+                          else "gemini_free" if "gemini_free" in self.enabled_services
+                          else "kiln_codex")
         router_endpoint, router_model, _ = self._definitions[router_service]
         raw = bounded_json_transport(router_endpoint, {
             "model": router_model, "stream": False,
@@ -786,7 +833,8 @@ class ModelRuntimeGateway:
             # independent findings and still close the strict JSON object.
             # Keep the review bounded, but leave enough room for a complete
             # contract instead of accepting or displaying truncated output.
-            max_output_tokens=(2_048 if service_id == "kiln_codex"
+            max_output_tokens=(2_048 if service_id in {
+                "kiln_codex", "gemini_free", "muse_spark"}
                                else 4_096 if service_id == "forge_qwen"
                                else 2_048),
         )
@@ -797,20 +845,30 @@ class ModelRuntimeGateway:
                 history=recent_history(validate_history(history), 4000 if service_id == "kiln_quench" else 12000),
             )
         except (RuntimeError, ValueError):
-            if service_id != "kiln_codex":
+            if service_id not in {"kiln_codex", "gemini_free", "muse_spark"}:
                 raise
-            fallback = "forge_qwen"
-            if fallback not in self.enabled_services:
-                raise
-            fallback_endpoint, fallback_model, allowed_bots = self._definitions[fallback]
-            if bot_id not in allowed_bots:
-                raise
-            return SandboxedOpenAIAdapter(
-                endpoint=fallback_endpoint, allowed_models=(fallback_model,),
-                transport=bounded_json_transport,
-                max_output_tokens=4_096 if fallback == "forge_qwen" else 512,
-            ).invoke(
-                bot_id=bot_id, model=fallback_model, prompt=prompt,
-                tool_broker=self.tool_broker if use_tool_broker else None,
-                history=recent_history(validate_history(history), 12000),
-            )
+            fallbacks = []
+            if service_id == "kiln_codex" and "gemini_free" in self.enabled_services:
+                fallbacks.append("gemini_free")
+            if "forge_qwen" in self.enabled_services:
+                fallbacks.append("forge_qwen")
+            last_error = None
+            for fallback in fallbacks:
+                fallback_endpoint, fallback_model, allowed_bots = self._definitions[fallback]
+                if bot_id not in allowed_bots:
+                    continue
+                try:
+                    return SandboxedOpenAIAdapter(
+                        endpoint=fallback_endpoint, allowed_models=(fallback_model,),
+                        transport=bounded_json_transport,
+                        max_output_tokens=4_096 if fallback == "forge_qwen" else 2_048,
+                    ).invoke(
+                        bot_id=bot_id, model=fallback_model, prompt=prompt,
+                        tool_broker=self.tool_broker if use_tool_broker else None,
+                        history=recent_history(validate_history(history), 12000),
+                    )
+                except (RuntimeError, ValueError) as exc:
+                    last_error = exc
+            if last_error is not None:
+                raise last_error
+            raise

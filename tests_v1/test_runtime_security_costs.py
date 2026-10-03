@@ -24,10 +24,12 @@ from orca.models import ModelRoute, ModelRouter
 
 
 def test_prompt_contracts_are_versioned_and_complete():
-    assert set(PROMPT_CONTRACTS) == {"orca", "smith", "quench", "security_gate"}
+    assert set(PROMPT_CONTRACTS) == {"orca", "gemini", "smith", "quench", "security_gate"}
     assert PROMPT_CONTRACTS["orca"].version == "1.4.0"
-    assert all(contract.version == "1.1.0" for key, contract in PROMPT_CONTRACTS.items()
-               if key != "orca")
+    assert PROMPT_CONTRACTS["gemini"].version == "1.0.0"
+    assert PROMPT_CONTRACTS["smith"].version == "retired-compatibility"
+    assert PROMPT_CONTRACTS["quench"].version == "1.1.0"
+    assert PROMPT_CONTRACTS["security_gate"].version == "1.1.0"
     assert all("evidence" in contract.required_output_fields for contract in PROMPT_CONTRACTS.values())
     assert all("Never claim an action ran" in contract.system for contract in PROMPT_CONTRACTS.values())
 
@@ -270,15 +272,15 @@ def test_model_runtime_gateway_is_service_and_identity_allowlisted(monkeypatch):
             "choices": [{"message": {"content": __import__("json").dumps(valid)}}]
         },
     )
-    gateway = ModelRuntimeGateway({"forge_smith", "kiln_quench"})
+    gateway = ModelRuntimeGateway({"gemini_free", "kiln_quench"})
     assert gateway.invoke(
-        service_id="forge_smith", bot_id="smith", prompt="implement"
+        service_id="gemini_free", bot_id="gemini", prompt="implement"
     ) == valid
-    assert calls[0][0] == "http://127.0.0.1:11434/v1/chat/completions"
+    assert calls[0][0] == "http://127.0.0.1:11438/v1/chat/completions"
     with pytest.raises(PermissionError, match="disabled"):
-        gateway.invoke(service_id="forge_qwen", bot_id="smith", prompt="reason")
+        gateway.invoke(service_id="forge_qwen", bot_id="gemini", prompt="reason")
     with pytest.raises(PermissionError, match="identity"):
-        gateway.invoke(service_id="kiln_quench", bot_id="smith", prompt="review")
+        gateway.invoke(service_id="kiln_quench", bot_id="gemini", prompt="review")
     with pytest.raises(ValueError, match="unknown enabled"):
         ModelRuntimeGateway({"cloud"})
 

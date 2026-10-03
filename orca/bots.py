@@ -75,11 +75,11 @@ CORE_BOTS = {
         ("forge", "bgm", "inventory", "cloudflare", "aws", "pccg", "orca"),
         "orchestration", may_execute_tools=True,
     ),
-    "smith": BotDefinition(
-        "smith", "SMITH", "coding and implementation",
+    "gemini": BotDefinition(
+        "gemini", "Gemini 3.8 Flash", "sanitized coding, documentation and engineering proposals",
         ("coding", "documentation", "operations_plan"),
         ("forge", "bgm", "inventory", "cloudflare", "aws", "pccg", "orca"),
-        "coding", may_execute_tools=True,
+        "coding", may_execute_tools=False,
     ),
     "quench": BotDefinition(
         "quench", "QUENCH", "independent technical review and verification",
@@ -182,21 +182,32 @@ BOT_PROGRAMS = {
             "use next_gate none when no operational action or review is required",
         ),
         ("impersonating Fry", "approving R3 work", "authoring a release", "deploying"),
-        "Send implementation to SMITH, independent review to QUENCH, and R3 decisions to Fry.",
+        "Send sanitized proposal work to Gemini 3.8 Flash, independent review to QUENCH, and R3 decisions to Fry.",
         tuple(sorted(BOT_TOOL_MANIFESTS["orca"])),
     ),
-    "smith": BotProgram(
-        "smith", "1.1.0",
-        "Produce scoped implementation and documentation proposals with verification and rollback evidence.",
+    "gemini": BotProgram(
+        "gemini", "1.0.0",
+        "Produce bounded coding, documentation and engineering proposals from sanitized prompts through Gemini 3.8 Flash.",
         (
-            "inspect relevant source and constraints",
-            "state a bounded implementation plan",
-            "author only inside the assigned scope",
-            "run proportionate verification and report exact results",
-            "identify rollback and unresolved risk",
+            "analyze the sanitized request and stated constraints",
+            "state assumptions and a bounded proposal",
+            "produce the requested code, documentation or engineering analysis",
+            "identify verification needed and unresolved risk",
+            "hand the proposal back for local evidence and independent review",
         ),
-        ("self-review", "approval", "merge", "deployment", "unbounded tool use"),
-        "Send authored work to the security gate and QUENCH; send approvals and deployment to Fry.",
+        ("tool use", "private-data access", "self-review", "approval", "merge", "deployment", "paid fallback"),
+        "Return proposals to ORCA; send independent review to QUENCH and R3 decisions to Fry.",
+        (),
+    ),
+    # Retired compatibility contract only. SMITH is deliberately absent from
+    # CORE_BOTS, so the registry cannot route new work to it and live state
+    # filters it out. Keeping this contract preserves historical evidence.
+    "smith": BotProgram(
+        "smith", "retired-compatibility",
+        "Interpret historical SMITH evidence without accepting new work.",
+        ("read the supplied historical envelope", "return bounded compatibility output"),
+        ("new work", "tool use", "approval", "merge", "deployment"),
+        "Return historical compatibility output to ORCA only.",
         tuple(sorted(BOT_TOOL_MANIFESTS["smith"])),
     ),
     "quench": BotProgram(
@@ -258,7 +269,9 @@ BOT_BUILD_QUEUE = (
 
 
 def validate_bot_programs() -> None:
-    if set(BOT_PROGRAMS) != set(CORE_BOTS):
+    if set(BOT_PROGRAMS) - set(CORE_BOTS) != {"smith"}:
+        raise ValueError("core bot programs plus retired SMITH compatibility are required")
+    if not set(CORE_BOTS) <= set(BOT_PROGRAMS):
         raise ValueError("every core bot must have exactly one program")
     for bot_id, program in BOT_PROGRAMS.items():
         if program.bot_id != bot_id or not program.version or not program.workflow:

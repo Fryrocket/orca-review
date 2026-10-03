@@ -95,9 +95,12 @@ def test_state_endpoint_is_readable_and_truthful():
         assert "media-src 'self' blob:" in response.headers["Content-Security-Policy"]
         assert data["evidence_chain_valid"] is True
         assert {a["id"] for a in data["agents"]} == {
-            "orca", "smith", "quench", "security_gate", "fry"}
+            "orca", "gemini", "quench", "security_gate", "fry"}
         assert {b["id"] for b in data["bots"]} == {
-            "orca", "smith", "quench", "security_gate"}
+            "orca", "gemini", "quench", "security_gate"}
+        assert "smith" not in {r["id"] for r in data["role_catalog"]}
+        assert "smith" not in data["prompt_contracts"]
+        assert "smith" not in data["tool_manifests"]
         assert all(b["runtime_enabled"] is False for b in data["bots"])
         assert {n["id"] for n in data["nodes"]} == {"anvil", "forge", "kiln", "ember", "temper"}
         assert all(n["state"] == "unproven" for n in data["nodes"])

@@ -45,6 +45,19 @@ AI_SERVICES = {
         "Codex (ChatGPT-authenticated)", "codex-cli bridge", "OpenAI",
         32_000, 1, 1, deployment_state="live_external", may_author=True,
     ),
+    "gemini_free": AIServiceProfile(
+        "gemini_free", "forge",
+        "zero-cost frontier conversation and coding fallback",
+        "Gemini 3.8 Flash (free tier)", "bounded loopback bridge", "Google AI",
+        32_000, 1, 1, deployment_state="live_external_free", may_author=True,
+    ),
+    "muse_spark": AIServiceProfile(
+        "muse_spark", "forge",
+        "owner-selected memory, Notion, Linear and Google Workspace specialist",
+        "Muse Spark 1.3", "bounded loopback bridge", "Meta Model API",
+        32_000, 1, 1, deployment_state="credential_and_cost_approval_pending",
+        may_author=True,
+    ),
     "anvil_reflex": AIServiceProfile(
         "anvil_reflex", "anvil",
         "fast private operator triage, summarization and prompt preparation",
@@ -103,10 +116,11 @@ AI_SERVICES = {
 # processing. These are advisory routes; ORCA model invocation remains disabled.
 AI_LADDERS = {
     "orchestration": ("forge_policy",),
-    "interactive": ("kiln_codex", "forge_qwen", "fry"),
-    "coding": ("kiln_codex", "forge_qwen", "kiln_quench", "fry"),
-    "documentation": ("kiln_codex", "forge_qwen", "kiln_quench", "fry"),
-    "operations_plan": ("kiln_codex", "forge_qwen", "kiln_quench", "fry"),
+    "interactive": ("kiln_codex", "gemini_free", "forge_qwen", "fry"),
+    "coding": ("kiln_codex", "gemini_free", "forge_qwen", "kiln_quench", "fry"),
+    "documentation": ("kiln_codex", "gemini_free", "forge_qwen", "kiln_quench", "fry"),
+    "knowledge_work": ("muse_spark", "gemini_free", "forge_qwen", "fry"),
+    "operations_plan": ("kiln_codex", "gemini_free", "forge_qwen", "kiln_quench", "fry"),
     "review": ("kiln_quench", "fry"),
     "security_review": ("kiln_quench", "fry"),
     "verification": ("kiln_quench", "fry"),
@@ -129,7 +143,7 @@ COGNITIVE_FABRIC = {
     "edge_surface": "temper",
     "memory_pooling": False,
     "automatic_execution": False,
-    "cloud_fallback": "governed Codex on KILN; local Qwen remains available",
+    "cloud_fallback": "governed Codex on KILN, then Gemini free tier; local Qwen remains available",
 }
 
 
@@ -142,7 +156,8 @@ def ladder_snapshot(
             "ORCA_ENABLED_MODEL_SERVICES", "").split(",") if value.strip()
     }
     known_runtime_services = {
-        "anvil_reflex", "forge_smith", "forge_qwen", "kiln_quench", "kiln_codex"
+        "anvil_reflex", "forge_qwen", "kiln_quench", "kiln_codex",
+        "gemini_free", "muse_spark"
     }
     enabled = requested & known_runtime_services
     if not acceptance["activation_ready"]:
@@ -156,6 +171,8 @@ def ladder_snapshot(
         )
     services = {}
     for service_id, service in AI_SERVICES.items():
+        if service_id == "forge_smith":
+            continue
         row = asdict(service)
         row["runtime_enabled"] = service.id in enabled
         if service.node_id is None:

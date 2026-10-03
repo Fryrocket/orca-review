@@ -5,7 +5,8 @@
 - **Fry:** owner; decides R2/R3, push, merge, deployment, cutover, provider
   writes, secrets, spend, deletion, and physical work.
 - **ORCA:** policy, routing, lane isolation, approvals, and evidence correlation.
-- **SMITH:** implementation and authored change evidence.
+- **Gemini 3.8 Flash:** implementation and authored change evidence through
+  ORCA's governed bridge; ORCA retains private tool execution locally.
 - **QUENCH:** independent technical review and verification.
 - **Security gate:** bounded advisory findings only; no approval or deployment authority.
 
@@ -43,10 +44,10 @@ ROCm 7.2.1, and controlled load acceptance. GPU model service activation still
 waits for model/runtime selection, a post-reboot repeat, QUENCH review, and Fry's
 explicit cutover decision.
 
-The target four-host cognitive fabric keeps one authority while specializing
+The target five-node cognitive fabric keeps one authority while specializing
 execution: ANVIL provides fast private interaction, FORGE owns shared context
-and deep SMITH CPU inference, KILN provides independent QUENCH GPU review, and
-EMBER provides deterministic monitoring/UPS/watchdog service. Large CPU
-inference no longer waits for CRUCIBLE; only the accelerated GPU tier does.
+and local tools, Gemini 3.8 Flash provides governed authoring, KILN provides
+independent QUENCH review, EMBER provides deterministic monitoring and recovery,
+and TEMPER provides bounded Hailo edge inference.
 See `docs/FOUR_HOST_AI_STACK_2026-09-25.md`. These placements do not themselves
 authorize model invocation, service installation, enrollment, or deployment.

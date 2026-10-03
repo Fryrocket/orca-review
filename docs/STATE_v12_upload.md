@@ -11,6 +11,28 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
 - Historical dated reports are evidence. This file and the newest verified
   `cc-bridge` handoff carry the current operational summary.
 
+## GEMINI 3.8 FLASH REPLACEMENT — VERIFIED LIVE 2026-10-03
+
+- Gemini 3.8 Flash fully replaces SMITH in every live ORCA role, route, UI,
+  inventory workflow, count session, governance rule, simulation, placement
+  recommendation and exposed AI service.
+- Live immutable release: `/opt/orca/releases/gemini-complete-20261003`.
+  Rollback remains preserved to `/opt/orca/releases/gemini-replace-20261003`.
+- Live ORCA reports healthy with integrity valid and zero restart failures.
+  The complete regression suite passed **1,207/1,207** tests.
+- The former `orca-smith-inference.service` is disabled and inactive. The
+  `forge_smith` endpoint is absent from ORCA's live AI-stack snapshot and
+  cannot be selected by the runtime gateway.
+- Live agents are ORCA, Gemini, QUENCH, Independent Security Gate and Fry.
+  Live governed bots are ORCA, Gemini, QUENCH and Independent Security Gate.
+- Gemini authors Code and Engineering work. ORCA keeps sensitive tools local
+  and supplies only minimized context/results to the external Gemini bridge;
+  raw unrestricted Drive, Notion, Linear, repository, terminal and secret
+  access is not granted to Google. QUENCH remains the independent reviewer.
+- Hidden retired compatibility definitions remain solely to interpret old
+  signed evidence. They are excluded from live snapshots, routing, adapters
+  and services and cannot receive or execute new work.
+
 ## VERIFIED LIVE CONNECTIONS
 
 - ANVIL: `192.168.4.20`; Apple M4 MacBook Pro, 10 CPU/GPU cores, 16 GB memory.

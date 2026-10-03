@@ -244,13 +244,15 @@ def test_node_health_is_explicit_and_remote_execution_stays_disabled():
 def test_core_bot_registry_is_definition_only_and_routes_work():
     cp = ControlPlane()
     bots = {b["id"]: b for b in cp.snapshot()["bots"]}
-    assert set(bots) == {"orca", "smith", "quench", "security_gate"}
+    assert set(bots) == {"orca", "gemini", "quench", "security_gate"}
     assert all(not bot["runtime_enabled"] for bot in bots.values())
-    assert all(bot["may_execute_tools"] for bot in bots.values() if bot["id"] != "security_gate")
+    assert bots["orca"]["may_execute_tools"]
+    assert bots["quench"]["may_execute_tools"]
+    assert not bots["gemini"]["may_execute_tools"]
     assert not next(bot for bot in bots.values() if bot["id"] == "security_gate")["may_execute_tools"]
     job = cp.queue(title="implement fleet card", lane="orca", requested_by="orca",
                    task_type="coding", action=Action("edit", "UI", rollback="revert patch"))
-    assert job.assigned_to == "smith"
+    assert job.assigned_to == "gemini"
     assert job.task_type == "coding"
     assert job.model_route == "coding"
     assert job.stop_condition == "independent_review_complete"
@@ -598,13 +600,13 @@ def test_job_lifecycle_requires_assigned_author_and_independent_reviewer():
 def test_bot_pause_and_emergency_stop_pause_active_jobs():
     cp = ControlPlane()
     first = cp.submit(title="one", lane="orca", requested_by="orca",
-                      assigned_to="smith", action=Action("read", "x"))
-    cp.start_job(first.id, actor="smith")
-    cp.set_bot_pause("smith", actor="orca", paused=True, reason="hold")
+                      assigned_to="gemini", action=Action("read", "x"))
+    cp.start_job(first.id, actor="gemini")
+    cp.set_bot_pause("gemini", actor="orca", paused=True, reason="hold")
     assert first.status is JobStatus.PAUSED
-    cp.set_bot_pause("smith", actor="orca", paused=False, reason="cleared")
+    cp.set_bot_pause("gemini", actor="orca", paused=False, reason="cleared")
     second = cp.submit(title="two", lane="orca", requested_by="orca",
-                       assigned_to="smith", action=Action("read", "x"))
+                       assigned_to="gemini", action=Action("read", "x"))
     cp.set_emergency_stop(actor="fry", active=True, reason="incident")
     assert second.status is JobStatus.PAUSED
 

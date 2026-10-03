@@ -23,7 +23,7 @@ RETENTION_POLICIES = (
 
 
 ACCESS_POLICY = {
-    "read_state": ("orca", "smith", "quench", "fry"),
+    "read_state": ("orca", "gemini", "quench", "fry"),
     "mutate_jobs": ("orca", "fry"),
     "decide_r2_r3": ("fry",),
     "close_incident": ("quench", "fry"),

@@ -11,6 +11,13 @@ def test_muse_status_separates_personal_handoff_from_model_api():
     assert "email_read_organize_summarize_and_draft" in status["personal_muse"]["capabilities"]
     assert status["muse_spark"]["available"] is False
     assert "credential" in status["muse_spark"]["reason"]
+
+
+def test_muse_spark_status_tracks_runtime_activation(monkeypatch):
+    monkeypatch.setenv("ORCA_ENABLED_MODEL_SERVICES", "muse_spark,forge_qwen")
+    status = integration_status()
+    assert status["muse_spark"]["available"] is True
+    assert "bounded ORCA bridge" in status["muse_spark"]["reason"]
     assert status["return_contract"] == "cited_candidate_pack_v1"
 
 

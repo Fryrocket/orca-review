@@ -83,8 +83,8 @@ def test_concurrent_ai_service_budgets_do_not_overcommit_hosts():
 
 
 def test_ladders_escalate_to_deeper_reasoning_then_independent_review():
-    assert AI_LADDERS["interactive"] == ("kiln_codex", "forge_qwen", "fry")
-    assert AI_LADDERS["coding"] == ("kiln_codex", "forge_qwen", "kiln_quench", "fry")
+    assert AI_LADDERS["interactive"] == ("kiln_codex", "gemini_free", "forge_qwen", "fry")
+    assert AI_LADDERS["coding"] == ("kiln_codex", "gemini_free", "forge_qwen", "kiln_quench", "fry")
     assert AI_LADDERS["review"] == ("kiln_quench", "fry")
     assert AI_LADDERS["monitoring"][:2] == ("ember_sentinel", "forge_policy")
     assert AI_LADDERS["large_gpu_inference"] == ("forge_qwen", "forge_crucible", "fry")
@@ -109,7 +109,8 @@ def test_control_plane_exposes_stack_without_enabling_model_calls():
         for service in stack["services"].values()
     )
     assert stack["ladders"]["coding"][0]["service_id"] == "kiln_codex"
-    assert stack["ladders"]["coding"][1]["service_id"] == "forge_qwen"
+    assert stack["ladders"]["coding"][1]["service_id"] == "gemini_free"
+    assert stack["ladders"]["coding"][2]["service_id"] == "forge_qwen"
     assert stack["ladders"]["review"][0]["node_id"] == "kiln"
     assert stack["crucible_acceptance"]["status"] == "blocked"
     assert stack["crucible_acceptance"]["runtime_enabled"] is False
@@ -129,14 +130,14 @@ def test_runtime_activation_is_explicit_and_crucible_evidence_gated(
     path.write_text(json.dumps(asdict(evidence)))
     monkeypatch.setenv("ORCA_CRUCIBLE_ACCEPTANCE_FILE", str(path))
     monkeypatch.setenv(
-        "ORCA_ENABLED_MODEL_SERVICES", "forge_qwen,forge_smith,kiln_quench")
+        "ORCA_ENABLED_MODEL_SERVICES", "forge_qwen,gemini_free,kiln_quench")
     stack = ladder_snapshot()
     assert stack["model_invocation_enabled"] is True
     assert stack["crucible_acceptance"]["activation_ready"] is True
     assert stack["crucible_acceptance"]["status"] == "accepted_enabled"
     assert stack["crucible_acceptance"]["runtime_enabled"] is True
     assert stack["services"]["forge_qwen"]["runtime_enabled"] is True
-    assert stack["services"]["forge_smith"]["runtime_enabled"] is True
+    assert stack["services"]["gemini_free"]["runtime_enabled"] is True
     assert stack["services"]["kiln_quench"]["runtime_enabled"] is True
     bots = {row["id"]: row for row in ControlPlane().snapshot()["bots"]}
     assert all(bot["runtime_enabled"] for bot in bots.values())
@@ -144,4 +145,4 @@ def test_runtime_activation_is_explicit_and_crucible_evidence_gated(
     path.write_text("{}")
     stack = ladder_snapshot()
     assert stack["services"]["forge_qwen"]["runtime_enabled"] is False
-    assert stack["services"]["forge_smith"]["runtime_enabled"] is True
+    assert stack["services"]["gemini_free"]["runtime_enabled"] is True

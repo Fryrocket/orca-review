@@ -1,0 +1,25 @@
+[Unit]
+Description=ORCA bounded Gemini free-tier bridge on FORGE
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=fryrocket
+Group=fryrocket
+UMask=0077
+LoadCredential=api-key:/var/lib/orca/secrets/gemini-free-api-key
+ExecStart=/usr/bin/python3 /opt/orca/current/orca/gemini_bridge.py --host 127.0.0.1 --port 11438
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

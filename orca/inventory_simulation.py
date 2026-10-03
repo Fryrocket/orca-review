@@ -130,7 +130,7 @@ def run_inventory_simulation() -> dict[str, Any]:
     )
     checks["workflow_waits_for_fry_approval"] = (
         proposal["job"]["status"] == "waiting_approval"
-        and proposal["job"]["assigned_to"] == "smith")
+        and proposal["job"]["assigned_to"] == "gemini")
     control.decide(
         proposal["job"]["approval_id"], actor="fry", approve=True,
         note="Approve non-external inventory simulation")

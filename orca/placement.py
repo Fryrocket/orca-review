@@ -65,7 +65,7 @@ WORKLOAD_PLACEMENTS = {
     ),
     "large_inference": WorkloadPlacement(
         "large_inference", ("large_cpu_inference",), ("forge",),
-        "run the existing 30.5B Q4 SMITH model CPU-resident on FORGE's 32 threads and 62 GiB RAM",
+        "run Gemini 3.8 Flash through ORCA's governed bridge with local Qwen fallback on FORGE",
     ),
     "large_gpu_inference": WorkloadPlacement(
         "large_gpu_inference", ("large_gpu_inference",), ("forge",),

@@ -54,15 +54,15 @@ def test_work_submitted_during_stop_preserves_approval_and_can_resume(tmp_path):
 
 def test_resume_cannot_bypass_active_boundaries_or_worker_authority():
     cp = ControlPlane()
-    cp.set_bot_pause("smith", actor="orca", paused=True, reason="review")
+    cp.set_bot_pause("gemini", actor="orca", paused=True, reason="review")
     job = cp.submit(title="read", lane="orca", requested_by="orca",
-                    assigned_to="smith", action=Action("read", "fixture"))
+                    assigned_to="gemini", action=Action("read", "fixture"))
     assert job.status is JobStatus.PAUSED
     with pytest.raises(PermissionError):
-        cp.resume(job.id, actor="smith", reason="self resume")
+        cp.resume(job.id, actor="gemini", reason="self resume")
     with pytest.raises(PermissionError, match="boundary"):
         cp.resume(job.id, actor="orca", reason="blocked")
-    cp.set_bot_pause("smith", actor="orca", paused=False, reason="released")
+    cp.set_bot_pause("gemini", actor="orca", paused=False, reason="released")
     assert job.status is JobStatus.PAUSED
     cp.resume(job.id, actor="orca", reason="explicit resume")
     assert job.status is JobStatus.READY

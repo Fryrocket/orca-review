@@ -40,16 +40,16 @@ def test_complete_mutable_state_survives_process_style_restart(tmp_path):
         title="release restart fixture",
         lane="forge",
         requested_by="orca",
-        assigned_to="smith",
+        assigned_to="gemini",
         target_node="anvil",
         action=Action("deploy", "restart fixture", rollback="restore prior fixture"),
     )
     approval_id = job.approval_id
     assert approval_id is not None
     cp.decide(approval_id, actor="fry", approve=True, note="bounded fixture")
-    cp.start_job(job.id, actor="smith")
+    cp.start_job(job.id, actor="gemini")
 
-    cp.set_bot_pause("smith", actor="orca", paused=True, reason="restart drill")
+    cp.set_bot_pause("gemini", actor="orca", paused=True, reason="restart drill")
     cp.set_node_pause("anvil", actor="orca", paused=True, reason="restart drill")
     cp.set_lane_pause("forge", actor="orca", paused=True, reason="restart drill")
     cp.set_emergency_stop(actor="fry", active=True, reason="restart drill")
@@ -121,7 +121,7 @@ def test_complete_mutable_state_survives_process_style_restart(tmp_path):
     assert restored.jobs[job.id].approval_id == approval_id
     assert restored.approvals[approval_id].status == "approved"
     assert restored.approvals[approval_id].decided_by == "fry"
-    assert restored.bots.paused == {"smith"}
+    assert restored.bots.paused == {"gemini"}
     assert restored.paused_nodes == {"anvil"}
     assert restored.paused_lanes == {"forge"}
     assert restored.emergency_stop is True
@@ -149,14 +149,14 @@ def test_complete_mutable_state_survives_process_style_restart(tmp_path):
     # Releasing each durable boundary must not auto-resume the job. The explicit
     # resume must recover the approved pre-pause state and permit normal review.
     restored.set_emergency_stop(actor="fry", active=False, reason="drill complete")
-    restored.set_bot_pause("smith", actor="orca", paused=False, reason="drill complete")
+    restored.set_bot_pause("gemini", actor="orca", paused=False, reason="drill complete")
     restored.set_node_pause("anvil", actor="orca", paused=False, reason="drill complete")
     restored.set_lane_pause("forge", actor="orca", paused=False, reason="drill complete")
     assert restored.jobs[job.id].status is JobStatus.PAUSED
     restored.resume(job.id, actor="orca", reason="continue after verified restart")
     assert restored.jobs[job.id].status is JobStatus.READY
-    restored.start_job(job.id, actor="smith")
-    restored.submit_job_review(job.id, actor="smith", reviewer="quench")
+    restored.start_job(job.id, actor="gemini")
+    restored.submit_job_review(job.id, actor="gemini", reviewer="quench")
     restored.complete_job(job.id, actor="quench", note="restart path verified")
     assert restored.jobs[job.id].status is JobStatus.COMPLETE
     _close(restored)

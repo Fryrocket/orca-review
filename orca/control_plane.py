@@ -760,7 +760,7 @@ class ControlPlane:
         preview = calculate_inventory_changes(operation, positions)
         job = self.submit(
             title=f"Inventory {kind.replace('_', ' ')} · {operation['sku']}",
-            lane="inventory", requested_by=requested_by, assigned_to="smith",
+            lane="inventory", requested_by=requested_by, assigned_to="gemini",
             action=Action(
                 kind="commit", resource=f"inventory:{operation['sku']}",
                 requested_level=PermissionLevel.R2,
@@ -798,8 +798,8 @@ class ControlPlane:
         """Apply one approved proposal to the canonical ledger, then request review."""
 
         self._assert_fresh()
-        if actor != "smith":
-            raise PermissionError("only SMITH may execute an approved inventory workflow")
+        if actor != "gemini":
+            raise PermissionError("only Gemini may execute an approved inventory workflow")
         job = self.jobs.get(job_id)
         if job is None or job.task_type != "inventory_workflow":
             raise ValueError("inventory workflow job is unknown")
@@ -867,11 +867,11 @@ class ControlPlane:
                     "reason": operation["reason"], "evidence": operation["evidence"],
                     "approval_id": approval.id,
                 },
-                confidence=1.0, actor="smith", correlation_id=job.correlation_id,
+                confidence=1.0, actor="gemini", correlation_id=job.correlation_id,
             )
             written.append(result.record)
         self.evidence.append(
-            correlation_id=job.correlation_id, actor="smith", lane="inventory",
+            correlation_id=job.correlation_id, actor="gemini", lane="inventory",
             kind="inventory.workflow.applied",
             payload={
                 "job_id": job.id, "operation_type": operation["operation_type"],
@@ -881,13 +881,13 @@ class ControlPlane:
             },
         )
         self.policy.enforce_separation(
-            author=AGENTS["smith"], reviewer=AGENTS["quench"],
+            author=AGENTS["gemini"], reviewer=AGENTS["quench"],
             deployer=None, action=job.action)
         job.reviewer = "quench"
         job.status = JobStatus.REVIEW
         job.updated_at = utc_now()
         self.evidence.append(
-            correlation_id=job.correlation_id, actor="smith", lane="inventory",
+            correlation_id=job.correlation_id, actor="gemini", lane="inventory",
             kind="job.review_requested",
             payload={"job_id": job.id, "reviewer": "quench"},
         )
@@ -911,12 +911,12 @@ class ControlPlane:
             raise PermissionError("inventory workflow requires Fry approval")
         if job.status is not JobStatus.READY:
             raise ValueError("approved inventory workflow is not ready")
-        self.start_job(job.id, actor="smith")
-        result = self.execute_inventory_workflow(job.id, actor="smith")
+        self.start_job(job.id, actor="gemini")
+        result = self.execute_inventory_workflow(job.id, actor="gemini")
         self.evidence.append(
             correlation_id=job.correlation_id, actor=requested_by, lane="inventory",
             kind="inventory.workflow.execution_triggered",
-            payload={"job_id": job.id, "assigned_to": "smith"},
+            payload={"job_id": job.id, "assigned_to": "gemini"},
         )
         self._persist()
         return result
@@ -963,7 +963,7 @@ class ControlPlane:
             raise ValueError("inventory count session has unresolved reservation blockers")
         job = self.submit(
             title=f"Inventory count · {session['session_id']}",
-            lane="inventory", requested_by=requested_by, assigned_to="smith",
+            lane="inventory", requested_by=requested_by, assigned_to="gemini",
             action=Action(
                 kind="commit", resource=f"inventory-count:{session['session_id']}",
                 requested_level=PermissionLevel.R2, reversible=True,
@@ -992,8 +992,8 @@ class ControlPlane:
     @synchronized
     def execute_inventory_count_session(self, job_id: str, *, actor: str) -> dict:
         self._assert_fresh()
-        if actor != "smith":
-            raise PermissionError("only SMITH may execute an approved count session")
+        if actor != "gemini":
+            raise PermissionError("only Gemini may execute an approved count session")
         job = self.jobs.get(job_id)
         if job is None or job.task_type != "inventory_count_session":
             raise ValueError("inventory count session job is unknown")
@@ -1057,11 +1057,11 @@ class ControlPlane:
                     "reason": verified["reason"], "evidence": verified["evidence"],
                     "approval_id": approval.id,
                 },
-                confidence=1.0, actor="smith", correlation_id=job.correlation_id,
+                confidence=1.0, actor="gemini", correlation_id=job.correlation_id,
             )
             written.append(result.record)
         self.evidence.append(
-            correlation_id=job.correlation_id, actor="smith", lane="inventory",
+            correlation_id=job.correlation_id, actor="gemini", lane="inventory",
             kind="inventory.count.applied",
             payload={
                 "job_id": job.id, "session_id": verified["session_id"],
@@ -1071,13 +1071,13 @@ class ControlPlane:
             },
         )
         self.policy.enforce_separation(
-            author=AGENTS["smith"], reviewer=AGENTS["quench"],
+            author=AGENTS["gemini"], reviewer=AGENTS["quench"],
             deployer=None, action=job.action)
         job.reviewer = "quench"
         job.status = JobStatus.REVIEW
         job.updated_at = utc_now()
         self.evidence.append(
-            correlation_id=job.correlation_id, actor="smith", lane="inventory",
+            correlation_id=job.correlation_id, actor="gemini", lane="inventory",
             kind="job.review_requested",
             payload={"job_id": job.id, "reviewer": "quench"},
         )
@@ -1099,12 +1099,12 @@ class ControlPlane:
             raise PermissionError("inventory count session requires Fry approval")
         if job.status is not JobStatus.READY:
             raise ValueError("approved inventory count session is not ready")
-        self.start_job(job.id, actor="smith")
-        result = self.execute_inventory_count_session(job.id, actor="smith")
+        self.start_job(job.id, actor="gemini")
+        result = self.execute_inventory_count_session(job.id, actor="gemini")
         self.evidence.append(
             correlation_id=job.correlation_id, actor=requested_by, lane="inventory",
             kind="inventory.count.execution_triggered",
-            payload={"job_id": job.id, "assigned_to": "smith"},
+            payload={"job_id": job.id, "assigned_to": "gemini"},
         )
         self._persist()
         return result
@@ -1932,7 +1932,7 @@ class ControlPlane:
         }
         runtime_services_by_bot = {
             "orca": {"kiln_codex", "forge_qwen"},
-            "smith": {"kiln_codex", "forge_qwen"},
+            "gemini": {"gemini_free"},
             "quench": {"kiln_quench"},
             "security_gate": {"kiln_quench"},
         }
@@ -1942,13 +1942,15 @@ class ControlPlane:
                 runtime_services_by_bot.get(bot["id"], set()) & enabled_services
             )
         return {
-            "agents": [asdict(x) for x in AGENTS.values()],
+            "agents": [asdict(x) for key, x in AGENTS.items() if key != "smith"],
             "role_catalog": role_snapshot(),
             "bots": bots,
             "migration_candidates": MIGRATION_CANDIDATES,
             "bot_build_queue": BOT_BUILD_QUEUE,
-            "prompt_contracts": {key: asdict(value) for key, value in PROMPT_CONTRACTS.items()},
-            "tool_manifests": {key: sorted(value) for key, value in BOT_TOOL_MANIFESTS.items()},
+            "prompt_contracts": {key: asdict(value) for key, value in PROMPT_CONTRACTS.items()
+                                 if key != "smith"},
+            "tool_manifests": {key: sorted(value) for key, value in BOT_TOOL_MANIFESTS.items()
+                               if key != "smith"},
             "tool_catalog": {
                 name: {
                     "family": capability.family,

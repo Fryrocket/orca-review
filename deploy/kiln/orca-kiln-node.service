@@ -1,6 +1,6 @@
 [Unit]
 Description=ORCA KILN signed heartbeat and inference node
-After=network-online.target orca-forge-tunnel.service smith-inference.service quench-inference.service
+After=network-online.target orca-forge-tunnel.service quench-inference.service
 Wants=network-online.target orca-forge-tunnel.service
 
 [Service]

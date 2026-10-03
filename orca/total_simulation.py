@@ -148,8 +148,8 @@ def run_total_simulation() -> dict[str, Any]:
             control.evidence.verify(), {"evidence_integrity": control.evidence.verify()})),
         _stage("P", "Product development end-to-end", product_check),
         _stage("Q", "QUENCH independence", lambda: (
-            ROLE_CATALOG["smith"].node_id != ROLE_CATALOG["quench"].node_id,
-            {"author_node": ROLE_CATALOG["smith"].node_id, "review_node": ROLE_CATALOG["quench"].node_id})),
+            ROLE_CATALOG["gemini"].node_id != ROLE_CATALOG["quench"].node_id,
+            {"author_node": ROLE_CATALOG["gemini"].node_id, "review_node": ROLE_CATALOG["quench"].node_id})),
         _stage("R", "Rollback and unreleased-state proof", lambda: (
             nested["product_development"]["checks"]["concept_not_falsely_released"],
             {"release_state": "not_released"})),

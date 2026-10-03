@@ -6,8 +6,11 @@ from orca.roles import ROLE_CATALOG, validate_role_catalog
 def test_complete_role_catalog_is_valid_and_visible():
     validate_role_catalog()
     roles = {role["id"]: role for role in ControlPlane().snapshot()["role_catalog"]}
-    assert set(roles) == set(ROLE_CATALOG)
-    assert {"orca", "smith", "qwen_conversation", "quench", "security_gate"} <= set(roles)
+    assert set(roles) == set(ROLE_CATALOG) - {"smith"}
+    assert {"orca", "gemini", "qwen_conversation", "quench", "security_gate"} <= set(roles)
+    assert "smith" not in roles
+    assert all("smith" not in role["receives_from"] for role in roles.values())
+    assert all("smith" not in role["hands_off_to"] for role in roles.values())
     assert {"anvil_reflex", "forge_retrieval", "ember_sentinel"} <= set(roles)
     assert {"ampere", "relay", "temper", "heartbeat_agents", "fry"} <= set(roles)
 
@@ -73,9 +76,12 @@ def test_solo_operator_bot_crew_is_registered_gated_and_non_authoritative():
 
 def test_every_core_bot_has_a_bounded_program_and_handoff():
     validate_bot_programs()
-    assert set(BOT_PROGRAMS) == set(CORE_BOTS)
+    assert set(BOT_PROGRAMS) == set(CORE_BOTS) | {"smith"}
     assert "approving R3 work" in BOT_PROGRAMS["orca"].refusals
-    assert "self-review" in BOT_PROGRAMS["smith"].refusals
+    assert "smith" not in CORE_BOTS
+    assert BOT_PROGRAMS["smith"].version == "retired-compatibility"
+    assert BOT_PROGRAMS["gemini"].tools == ()
+    assert "private-data access" in BOT_PROGRAMS["gemini"].refusals
     assert "authoring reviewed changes" in BOT_PROGRAMS["quench"].refusals
     assert BOT_PROGRAMS["security_gate"].tools == ()
     assert all(program.handoff for program in BOT_PROGRAMS.values())
