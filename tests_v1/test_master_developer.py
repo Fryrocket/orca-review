@@ -515,3 +515,38 @@ def test_acceptance_turn_overrides_out_of_order_planner_action(monkeypatch, tmp_
     assert tools == ["tests.run", "tests.run", "git.diff"]
     assert result["state"] == "idle"
     assert "Acceptance passed" in result["messages"][-1]["content"]
+
+
+def test_acceptance_turn_allows_implementation_before_tests(monkeypatch, tmp_path):
+    source = tmp_path / "source"
+    (source / "tests").mkdir(parents=True)
+    (source / "tests_v1").mkdir()
+    (source / "tests" / "test_old.py").write_text("def test_old(): assert True\n")
+    (source / "tests_v1" / "test_new.py").write_text("def test_new(): assert True\n")
+    (source / "sample.py").write_text("VALUE = 1\n")
+    monkeypatch.setenv("ORCA_MASTER_SOURCE_ROOT", str(source))
+    monkeypatch.setenv("ORCA_MASTER_WORKSPACE", str(tmp_path / "workspace"))
+    monkeypatch.setenv("ORCA_MASTER_TEST_PYTHON", sys.executable)
+    store = MasterDeveloperSessionStore(tmp_path / "artifacts")
+    session = store.create()
+    gateway = PlanningGateway([
+        {"reason": "Implement first", "actions": [
+            {"name": "file.write", "arguments": {
+                "path": "sample.py", "content": "VALUE = 2\n"}}]},
+        {"reason": "Begin acceptance", "actions": [
+            {"name": "tests.run", "arguments": {"target": "focused"}}]},
+        {"reason": "Try to wander", "actions": [
+            {"name": "file.search", "arguments": {"query": "VALUE"}}]},
+        {"reason": "Try to wander again", "actions": [
+            {"name": "file.search", "arguments": {"query": "VALUE"}}]},
+        {"reason": "Try to reopen", "actions": [
+            {"name": "tests.run", "arguments": {"target": "focused"}}]},
+    ])
+    result = master_developer_turn(
+        store, gateway, tmp_path / "artifacts", session["session_id"],
+        "Implement sample, run focused and full regression, and inspect the final diff.")
+    tools = [message.get("tool_name") for message in result["messages"]
+             if message.get("role") == "tool" and message.get("content", "").startswith("Running")]
+    assert tools == ["file.write", "tests.run", "tests.run", "git.diff"]
+    assert (tmp_path / "workspace" / "sample.py").read_text() == "VALUE = 2\n"
+    assert result["state"] == "idle"

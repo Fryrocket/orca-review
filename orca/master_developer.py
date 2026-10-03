@@ -827,7 +827,12 @@ def master_developer_turn(store: MasterDeveloperSessionStore, runtime_gateway,
                         "message": verified_summary}}]}
         else:
             required = _acceptance_followup(prompt, evidence)
-            if required is not None:
+            acceptance_started = any(
+                item.get("name") == "tests.run" for item in evidence)
+            acceptance_requested = any(
+                action.get("name") in {"tests.run", "respond"}
+                for action in plan["actions"])
+            if required is not None and (acceptance_started or acceptance_requested):
                 selected = [
                     action for action in plan["actions"]
                     if action.get("name") == required["name"]
