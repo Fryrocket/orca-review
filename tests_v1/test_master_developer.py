@@ -6,6 +6,7 @@ import pytest
 
 from orca.master_developer import (
     MasterDeveloperBroker, MasterDeveloperSessionStore, _acceptance_followup,
+    _acceptance_summary,
     master_developer_turn)
 
 
@@ -452,3 +453,34 @@ def test_acceptance_followup_requires_full_after_latest_focused():
     ]
     assert _acceptance_followup(prompt, evidence) == {
         "name": "tests.run", "arguments": {"target": "full"}}
+
+
+def test_acceptance_summary_closes_a_proven_sequence_deterministically():
+    prompt = "Run focused and full regression and inspect the final diff."
+    evidence = [
+        {"name": "tests.run", "status": "completed", "output": {
+            "target": "focused", "passed": True}},
+        {"name": "tests.run", "status": "completed", "output": {
+            "target": "full", "passed": True}},
+        {"name": "git.diff", "status": "completed", "output": {
+            "files": ["orca/readiness_probe.py"], "test_receipts": {"results": {
+                "focused": {"passed": True}, "full": {"passed": True}}}}},
+    ]
+    summary = _acceptance_summary(prompt, evidence)
+    assert summary is not None
+    assert "Acceptance passed" in summary
+    assert "orca/readiness_probe.py" in summary
+
+
+def test_acceptance_summary_rejects_stale_diff():
+    prompt = "Run focused and full regression and inspect the final diff."
+    evidence = [
+        {"name": "git.diff", "status": "completed", "output": {
+            "files": [], "test_receipts": {"results": {
+                "focused": {"passed": True}, "full": {"passed": True}}}}},
+        {"name": "tests.run", "status": "completed", "output": {
+            "target": "focused", "passed": True}},
+        {"name": "tests.run", "status": "completed", "output": {
+            "target": "full", "passed": True}},
+    ]
+    assert _acceptance_summary(prompt, evidence) is None

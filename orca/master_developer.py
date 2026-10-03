@@ -592,6 +592,53 @@ def _acceptance_followup(prompt: str, evidence: list[dict]) -> dict | None:
     return None
 
 
+def _acceptance_summary(prompt: str, evidence: list[dict]) -> str | None:
+    normalized = prompt.casefold()
+    if not ("focused" in normalized and "full" in normalized
+            and "final diff" in normalized):
+        return None
+    completed = [
+        (index, item.get("name"), item.get("output"))
+        for index, item in enumerate(evidence)
+        if item.get("status") == "completed"
+    ]
+    focused = [
+        (index, output) for index, name, output in completed
+        if name == "tests.run" and isinstance(output, dict)
+        and output.get("target") == "focused" and output.get("passed") is True
+    ]
+    if not focused:
+        return None
+    full = [
+        (index, output) for index, name, output in completed
+        if index > focused[-1][0] and name == "tests.run" and isinstance(output, dict)
+        and output.get("target") == "full" and output.get("passed") is True
+    ]
+    if not full:
+        return None
+    final_diffs = [
+        output for index, name, output in completed
+        if index > full[-1][0] and name == "git.diff" and isinstance(output, dict)
+    ]
+    if not final_diffs:
+        return None
+    final_diff = final_diffs[-1]
+    receipts = final_diff.get("test_receipts")
+    results = receipts.get("results", {}) if isinstance(receipts, dict) else {}
+    if not all(isinstance(results.get(target), dict)
+               and results[target].get("passed") is True
+               for target in ("focused", "full")):
+        return None
+    files = final_diff.get("files")
+    if not isinstance(files, list):
+        return None
+    return (
+        "Acceptance passed under the deterministic controller. The focused suite passed, "
+        "then the full suite passed, and a fresh final diff preserved both receipts. "
+        f"Final changed files: {json.dumps(files)}. No deployment or restart was performed."
+    )
+
+
 def _deterministic_audit_checkpoint(evidence: list[dict]) -> str:
     snapshot = _completed_output(evidence, "audit.snapshot")
     repository = _completed_output(evidence, "repository.inspect")
@@ -773,6 +820,11 @@ def master_developer_turn(store: MasterDeveloperSessionStore, runtime_gateway,
                 evidence=planning_evidence,
             )
             return store.set_state(session_id, "failed")
+        verified_summary = _acceptance_summary(prompt, evidence)
+        if verified_summary is not None:
+            plan = {"reason": "The ordered acceptance evidence is complete and verified.",
+                    "actions": [{"name": "respond", "arguments": {
+                        "message": verified_summary}}]}
         store.append(session_id, "activity", plan["reason"], activity_state="planned")
         if any(action.get("name") == "respond" for action in plan["actions"]):
             followup = _acceptance_followup(prompt, evidence)
