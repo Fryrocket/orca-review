@@ -37,6 +37,8 @@ def test_gateway_route_and_method_allowlist_fails_closed():
     assert gateway.allowed_request("GET", "/")
     assert gateway.allowed_request("GET", "/api/state")
     assert gateway.allowed_request("POST", "/api/chat")
+    assert gateway.allowed_request("POST", "/api/inference")
+    assert not gateway.allowed_request("GET", "/api/inference")
     assert gateway.allowed_request("POST", "/api/custom-bots/test")
     assert gateway.allowed_request("POST", "/api/jobs/job-1/resume")
     assert gateway.allowed_request("GET", "/api/images/health")

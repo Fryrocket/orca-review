@@ -47,7 +47,7 @@ GET_API_PATHS = {
 POST_API_PATHS = {
     "/api/business/muse/email-handoff", "/api/business/muse/handoff",
     "/api/business/records", "/api/business/workflows", "/api/cad/pcb-draft",
-    "/api/chat", "/api/control/emergency-stop", "/api/engineering",
+    "/api/chat", "/api/inference", "/api/control/emergency-stop", "/api/engineering",
     "/api/custom-bots/list", "/api/custom-bots/save", "/api/custom-bots/test",
     "/api/governance/retention-audit", "/api/heartbeats", "/api/inbox/import",
     "/api/inventory/counts", "/api/inventory/counts/preview",
