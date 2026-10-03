@@ -380,6 +380,22 @@ class MasterDeveloperBroker:
                     return candidate
         raise RuntimeError("no verified pytest-capable Master Developer test Python is available")
 
+    def _test_environment(self) -> dict[str, str]:
+        test_home = self.artifact_root / "master-test-home"
+        test_home.mkdir(parents=True, exist_ok=True)
+        environment = {
+            "HOME": str(test_home),
+            "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+            "PYTHONPATH": str(self.workspace),
+            "PYTHONDONTWRITEBYTECODE": "1",
+            "PYTEST_ADDOPTS": "-p no:cacheprovider",
+        }
+        for name in ("LANG", "LC_ALL", "TMPDIR"):
+            value = os.environ.get(name)
+            if value:
+                environment[name] = value
+        return environment
+
     def execute(self, name: str, arguments: dict) -> dict:
         if not isinstance(arguments, dict):
             raise ValueError("action arguments must be an object")
@@ -441,7 +457,8 @@ class MasterDeveloperBroker:
             tests = ["tests_v1"] if target == "focused" else ["tests", "tests_v1"]
             test_python = self._test_python()
             result = subprocess.run([str(test_python), "-m", "pytest", "-q", *tests],
-                                    cwd=self.workspace, capture_output=True, text=True, timeout=900)
+                                    cwd=self.workspace, capture_output=True, text=True, timeout=900,
+                                    env=self._test_environment())
             output = {"passed": result.returncode == 0, "returncode": result.returncode,
                       "output": (result.stdout + result.stderr)[-64_000:],
                       "runner": str(test_python)}

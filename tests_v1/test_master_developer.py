@@ -331,3 +331,21 @@ def test_master_developer_rejects_invalid_test_target(monkeypatch, tmp_path):
     broker = MasterDeveloperBroker(Gateway(), tmp_path / "artifacts")
     with pytest.raises(ValueError, match="focused or full"):
         broker.execute("tests.run", {"target": "arbitrary"})
+
+
+def test_master_developer_test_environment_is_isolated(monkeypatch, tmp_path):
+    source = tmp_path / "source"
+    source.mkdir()
+    monkeypatch.setenv("ORCA_MASTER_SOURCE_ROOT", str(source))
+    monkeypatch.setenv("ORCA_MASTER_WORKSPACE", str(tmp_path / "workspace"))
+    monkeypatch.setenv("ORCA_ENABLED_MODEL_SERVICES", "must-not-leak")
+
+    class Gateway:
+        tool_broker = None
+
+    broker = MasterDeveloperBroker(Gateway(), tmp_path / "artifacts")
+    environment = broker._test_environment()
+    assert "ORCA_ENABLED_MODEL_SERVICES" not in environment
+    assert environment["PYTHONPATH"] == str(broker.workspace)
+    assert environment["PYTHONDONTWRITEBYTECODE"] == "1"
+    assert "no:cacheprovider" in environment["PYTEST_ADDOPTS"]
