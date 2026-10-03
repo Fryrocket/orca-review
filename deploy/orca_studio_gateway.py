@@ -38,6 +38,7 @@ MEDIA_POST_PATHS = {
 }
 MEDIA_PATHS = MEDIA_GET_PATHS | MEDIA_POST_PATHS
 GET_API_PATHS = {
+    "/api/administrator-screen/runs",
     "/api/business/muse", "/api/business/state", "/api/communications",
     "/api/config", "/api/edge-inference", "/api/engineering/catalog",
     "/api/health", "/api/inbox", "/api/inventory",
@@ -45,6 +46,7 @@ GET_API_PATHS = {
     "/api/state", *MEDIA_GET_PATHS,
 }
 POST_API_PATHS = {
+    "/api/administrator-screen/runs",
     "/api/business/muse/email-handoff", "/api/business/muse/handoff",
     "/api/business/records", "/api/business/workflows", "/api/cad/pcb-draft",
     "/api/chat", "/api/inference", "/api/control/emergency-stop", "/api/engineering",
@@ -62,6 +64,9 @@ POST_API_PATHS = {
 MANUAL_GET_PATTERN = re.compile(r"/api/manuals/([0-9a-f]{64})/manual\.(odt|pdf)")
 PRODUCT_PACKAGE_GET_PATTERN = re.compile(
     r"/api/product-development/packages/[0-9a-f]{64}/(?:ORCA-[A-Za-z0-9.-]+\.zip|MANIFEST\.json)"
+)
+ADMINISTRATOR_RUN_GET_PATTERN = re.compile(
+    r"/api/administrator-screen/runs/eng_[0-9]{8}T[0-9]{6}Z_[a-f0-9]{12}"
 )
 POST_API_PATTERNS = tuple(re.compile(pattern) for pattern in (
     r"/api/approvals/[A-Za-z0-9_.:-]+",
@@ -110,6 +115,7 @@ def allowed_request(method: str, path: str) -> bool:
         return (
             path == "/" or path in GET_API_PATHS or MANUAL_GET_PATTERN.fullmatch(path)
             or PRODUCT_PACKAGE_GET_PATTERN.fullmatch(path)
+            or ADMINISTRATOR_RUN_GET_PATTERN.fullmatch(path)
             or not path.startswith("/api/")
         )
     if method != "POST":

@@ -126,6 +126,13 @@ def test_manual_routes_require_authenticated_orca_identity(tmp_path: Path):
 
 
 def test_verified_product_workflow_routes_are_narrowly_allowlisted():
+    assert gateway.allowed_request("POST", "/api/administrator-screen/runs")
+    assert gateway.allowed_request("GET", "/api/administrator-screen/runs")
+    assert gateway.allowed_request(
+        "GET", "/api/administrator-screen/runs/eng_20261003T153000Z_abcdef123456")
+    assert not gateway.allowed_request(
+        "GET", "/api/administrator-screen/runs/../../secrets")
+    assert not gateway.allowed_request("DELETE", "/api/administrator-screen/runs")
     assert gateway.allowed_request("POST", "/api/product-development/package")
     assert gateway.allowed_request("POST", "/api/product-development/fabrication-readiness")
     assert not gateway.allowed_request("PUT", "/api/product-development/package")
