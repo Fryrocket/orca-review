@@ -157,8 +157,8 @@ $('#engineering-console-form').addEventListener('submit', async event => {
   event.preventDefault();
   const prompt = $('#engineering-console-prompt').value.trim();
   if (!prompt) return;
-  const button = event.currentTarget.querySelector('button');
-  button.disabled = true; $('#administrator-cancel').hidden = false;
+  const promptField = $('#engineering-console-prompt');
+  promptField.disabled = true; $('#administrator-cancel').hidden = false;
   administratorController = new AbortController();
   try {
     if (!administratorSessionId) {
@@ -178,7 +178,14 @@ $('#engineering-console-form').addEventListener('submit', async event => {
       const target = $('#administrator-conversation');
       target.insertAdjacentHTML('beforeend', `<article class="administrator-message activity">${esc(error.message)}<time>${esc(new Date().toLocaleString())}</time></article>`);
     }
-  } finally { administratorController = null; button.disabled = false; $('#administrator-cancel').hidden = true; }
+  } finally { administratorController = null; promptField.disabled = false; $('#administrator-cancel').hidden = true; promptField.focus(); }
+});
+
+$('#engineering-console-prompt').addEventListener('keydown', event => {
+  if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.keyCode !== 229) {
+    event.preventDefault();
+    if (!event.repeat && !administratorController) $('#engineering-console-form').requestSubmit();
+  }
 });
 
 $('#administrator-cancel').addEventListener('click', async () => {
