@@ -553,6 +553,45 @@ def _completed_output(evidence: list[dict], name: str) -> object:
     return None
 
 
+def _acceptance_followup(prompt: str, evidence: list[dict]) -> dict | None:
+    normalized = prompt.casefold()
+    if not ("focused" in normalized and "full" in normalized
+            and "final diff" in normalized):
+        return None
+    completed = [
+        (index, item.get("name"), item.get("output"))
+        for index, item in enumerate(evidence)
+        if item.get("status") == "completed"
+    ]
+    focused = [
+        index for index, name, output in completed
+        if name == "tests.run" and isinstance(output, dict)
+        and output.get("target") == "focused" and output.get("passed") is True
+    ]
+    if not focused:
+        return {"name": "tests.run", "arguments": {"target": "focused"}}
+    full = [
+        index for index, name, output in completed
+        if index > focused[-1] and name == "tests.run" and isinstance(output, dict)
+        and output.get("target") == "full" and output.get("passed") is True
+    ]
+    if not full:
+        return {"name": "tests.run", "arguments": {"target": "full"}}
+    final_diffs = [
+        output for index, name, output in completed
+        if index > full[-1] and name == "git.diff" and isinstance(output, dict)
+    ]
+    if not final_diffs:
+        return {"name": "git.diff", "arguments": {}}
+    receipts = final_diffs[-1].get("test_receipts")
+    results = receipts.get("results", {}) if isinstance(receipts, dict) else {}
+    if not all(isinstance(results.get(target), dict)
+               and results[target].get("passed") is True
+               for target in ("focused", "full")):
+        return {"name": "git.diff", "arguments": {}}
+    return None
+
+
 def _deterministic_audit_checkpoint(evidence: list[dict]) -> str:
     snapshot = _completed_output(evidence, "audit.snapshot")
     repository = _completed_output(evidence, "repository.inspect")
@@ -661,7 +700,7 @@ def master_developer_turn(store: MasterDeveloperSessionStore, runtime_gateway,
     evidence = []
     audit_request = any(phrase in prompt.casefold() for phrase in (
         "catch yourself up", "ecosystem audit", "reconcile all"))
-    for _iteration in range(6):
+    for _iteration in range(10):
         planning_evidence = _planner_evidence(evidence)
         plan, planning_error = None, None
         for attempt in range(2):
@@ -735,6 +774,17 @@ def master_developer_turn(store: MasterDeveloperSessionStore, runtime_gateway,
             )
             return store.set_state(session_id, "failed")
         store.append(session_id, "activity", plan["reason"], activity_state="planned")
+        if any(action.get("name") == "respond" for action in plan["actions"]):
+            followup = _acceptance_followup(prompt, evidence)
+            if followup is not None:
+                plan = {
+                    "reason": (
+                        "The deterministic acceptance controller requires a passing focused "
+                        "suite, then a passing full suite, then a fresh final diff carrying "
+                        "both receipts before a completion response is allowed."
+                    ),
+                    "actions": [followup],
+                }
         for action in plan["actions"]:
             name = action["name"]
             arguments = action.get("arguments")
@@ -762,6 +812,6 @@ def master_developer_turn(store: MasterDeveloperSessionStore, runtime_gateway,
                          tool_result=item)
         store.set_state(session_id, "planning")
     store.append(session_id, "assistant",
-                 "The bounded technical loop reached its six-iteration ceiling. All evidence is preserved; no unverified success was recorded.",
+                 "The bounded technical loop reached its ten-iteration ceiling. All evidence is preserved; no unverified success was recorded.",
                  evidence=_planner_evidence(evidence))
     return store.set_state(session_id, "blocked")

@@ -5,7 +5,8 @@ import sys
 import pytest
 
 from orca.master_developer import (
-    MasterDeveloperBroker, MasterDeveloperSessionStore, master_developer_turn)
+    MasterDeveloperBroker, MasterDeveloperSessionStore, _acceptance_followup,
+    master_developer_turn)
 
 
 class PlanningGateway:
@@ -420,3 +421,34 @@ def test_git_diff_ignores_bytecode_and_includes_test_receipts(monkeypatch, tmp_p
     assert result["files"] == ["sample.py"]
     assert "__pycache__" not in result["diff"]
     assert result["test_receipts"]["results"]["focused"]["passed"] is True
+
+
+def test_acceptance_followup_enforces_focused_full_then_final_diff():
+    prompt = "Run focused and full regression and inspect the final diff."
+    evidence = []
+    assert _acceptance_followup(prompt, evidence) == {
+        "name": "tests.run", "arguments": {"target": "focused"}}
+    evidence.append({"name": "tests.run", "status": "completed", "output": {
+        "target": "focused", "passed": True}})
+    assert _acceptance_followup(prompt, evidence) == {
+        "name": "tests.run", "arguments": {"target": "full"}}
+    evidence.append({"name": "tests.run", "status": "completed", "output": {
+        "target": "full", "passed": True}})
+    assert _acceptance_followup(prompt, evidence) == {
+        "name": "git.diff", "arguments": {}}
+    evidence.append({"name": "git.diff", "status": "completed", "output": {
+        "files": ["sample.py"], "test_receipts": {"results": {
+            "focused": {"passed": True}, "full": {"passed": True}}}}})
+    assert _acceptance_followup(prompt, evidence) is None
+
+
+def test_acceptance_followup_requires_full_after_latest_focused():
+    prompt = "Run focused and full regression and inspect the final diff."
+    evidence = [
+        {"name": "tests.run", "status": "completed", "output": {
+            "target": "full", "passed": True}},
+        {"name": "tests.run", "status": "completed", "output": {
+            "target": "focused", "passed": True}},
+    ]
+    assert _acceptance_followup(prompt, evidence) == {
+        "name": "tests.run", "arguments": {"target": "full"}}
