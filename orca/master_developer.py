@@ -825,18 +825,23 @@ def master_developer_turn(store: MasterDeveloperSessionStore, runtime_gateway,
             plan = {"reason": "The ordered acceptance evidence is complete and verified.",
                     "actions": [{"name": "respond", "arguments": {
                         "message": verified_summary}}]}
+        else:
+            required = _acceptance_followup(prompt, evidence)
+            if required is not None:
+                selected = [
+                    action for action in plan["actions"]
+                    if action.get("name") == required["name"]
+                    and action.get("arguments", {}) == required["arguments"]
+                ]
+                if not selected:
+                    plan = {
+                        "reason": (
+                            "The deterministic acceptance controller selected the next "
+                            "required ordered evidence step."
+                        ),
+                        "actions": [required],
+                    }
         store.append(session_id, "activity", plan["reason"], activity_state="planned")
-        if any(action.get("name") == "respond" for action in plan["actions"]):
-            followup = _acceptance_followup(prompt, evidence)
-            if followup is not None:
-                plan = {
-                    "reason": (
-                        "The deterministic acceptance controller requires a passing focused "
-                        "suite, then a passing full suite, then a fresh final diff carrying "
-                        "both receipts before a completion response is allowed."
-                    ),
-                    "actions": [followup],
-                }
         for action in plan["actions"]:
             name = action["name"]
             arguments = action.get("arguments")

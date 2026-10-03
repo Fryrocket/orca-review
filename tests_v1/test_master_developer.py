@@ -484,3 +484,34 @@ def test_acceptance_summary_rejects_stale_diff():
             "target": "full", "passed": True}},
     ]
     assert _acceptance_summary(prompt, evidence) is None
+
+
+def test_acceptance_turn_overrides_out_of_order_planner_action(monkeypatch, tmp_path):
+    source = tmp_path / "source"
+    (source / "tests").mkdir(parents=True)
+    (source / "tests_v1").mkdir()
+    (source / "tests" / "test_old.py").write_text("def test_old(): assert True\n")
+    (source / "tests_v1" / "test_new.py").write_text("def test_new(): assert True\n")
+    monkeypatch.setenv("ORCA_MASTER_SOURCE_ROOT", str(source))
+    monkeypatch.setenv("ORCA_MASTER_WORKSPACE", str(tmp_path / "workspace"))
+    monkeypatch.setenv("ORCA_MASTER_TEST_PYTHON", sys.executable)
+    store = MasterDeveloperSessionStore(tmp_path / "artifacts")
+    session = store.create()
+    gateway = PlanningGateway([
+        {"reason": "Try to skip focused", "actions": [
+            {"name": "tests.run", "arguments": {"target": "full"}}]},
+        {"reason": "Try to skip full", "actions": [
+            {"name": "git.diff", "arguments": {}}]},
+        {"reason": "Try to rerun focused", "actions": [
+            {"name": "tests.run", "arguments": {"target": "focused"}}]},
+        {"reason": "Try to reopen the loop", "actions": [
+            {"name": "tests.run", "arguments": {"target": "focused"}}]},
+    ])
+    result = master_developer_turn(
+        store, gateway, tmp_path / "artifacts", session["session_id"],
+        "Run focused and full regression and inspect the final diff.")
+    tools = [message.get("tool_name") for message in result["messages"]
+             if message.get("role") == "tool" and message.get("content", "").startswith("Running")]
+    assert tools == ["tests.run", "tests.run", "git.diff"]
+    assert result["state"] == "idle"
+    assert "Acceptance passed" in result["messages"][-1]["content"]
