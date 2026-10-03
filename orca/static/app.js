@@ -286,6 +286,21 @@ $('#chatgpt-prompt').addEventListener('keydown', event => {
 });
 $('#chatgpt-cancel').addEventListener('click', () => chatgptController?.abort());
 
+$('#chatgpt-new').addEventListener('click', async () => {
+  if (chatgptController) return;
+  const button = $('#chatgpt-new');
+  button.disabled = true;
+  try {
+    renderChatGPTSession(await engineeringConsoleRequest(
+      '/api/master-developer/sessions', {method: 'POST', body: '{}'}));
+    $('#chatgpt-prompt').value = '';
+    $('#chatgpt-prompt').focus();
+  } catch (error) {
+    $('#chatgpt-conversation').insertAdjacentHTML('beforeend',
+      `<article class="administrator-message activity">${esc(error.message)}<time>${esc(new Date().toLocaleString())}</time></article>`);
+  } finally { button.disabled = false; }
+});
+
 async function loadChatGPTSession() {
   if (!chatgptSessionId) return;
   try { renderChatGPTSession(await engineeringConsoleRequest(`/api/master-developer/sessions/${chatgptSessionId}`)); }
