@@ -224,3 +224,30 @@ def test_audit_uses_deterministic_read_only_start_after_two_contract_failures(
     assert "audit.snapshot" in tool_names
     assert "repository.inspect" in tool_names
     assert "sessions.inspect" in tool_names
+
+
+def test_clean_master_workspace_refreshes_and_dirty_workspace_is_preserved(
+        monkeypatch, tmp_path):
+    source = tmp_path / "source"
+    source.mkdir()
+    tracked = source / "sample.py"
+    tracked.write_text("VALUE = 1\n", encoding="utf-8")
+    workspace = tmp_path / "workspace"
+    artifacts = tmp_path / "artifacts"
+    monkeypatch.setenv("ORCA_MASTER_SOURCE_ROOT", str(source))
+    monkeypatch.setenv("ORCA_MASTER_WORKSPACE", str(workspace))
+
+    class Gateway:
+        tool_broker = None
+
+    MasterDeveloperBroker(Gateway(), artifacts)
+    assert (workspace / "sample.py").read_text() == "VALUE = 1\n"
+    tracked.write_text("VALUE = 2\n", encoding="utf-8")
+    MasterDeveloperBroker(Gateway(), artifacts)
+    assert (workspace / "sample.py").read_text() == "VALUE = 2\n"
+    assert list((artifacts / "master-developer-rollback").glob("workspace-refresh-*"))
+
+    (workspace / "sample.py").write_text("OWNER CHANGE\n", encoding="utf-8")
+    tracked.write_text("VALUE = 3\n", encoding="utf-8")
+    MasterDeveloperBroker(Gateway(), artifacts)
+    assert (workspace / "sample.py").read_text() == "OWNER CHANGE\n"

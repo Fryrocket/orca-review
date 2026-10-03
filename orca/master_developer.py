@@ -153,6 +153,7 @@ class MasterDeveloperBroker:
         self.workspace = Path(os.environ.get(
             "ORCA_MASTER_WORKSPACE", artifact_root.parent / "master-workspace")).resolve()
         self.rollback = artifact_root / "master-developer-rollback"
+        self.baseline = self.artifact_root / "master-workspace-baseline.json"
         self.rollback.mkdir(parents=True, exist_ok=True)
         self._bootstrap()
 
@@ -308,11 +309,44 @@ class MasterDeveloperBroker:
         snapshot["sessions"] = self._sessions_inspect(kind="all", limit=8)
         return snapshot
 
+    @staticmethod
+    def _tree_manifest(root: Path) -> dict[str, str]:
+        manifest = {}
+        for path in root.rglob("*"):
+            if (not path.is_file() or ".git" in path.parts or "__pycache__" in path.parts
+                    or path.name == ".master-test.json" or path.suffix == ".pyc"):
+                continue
+            relative = str(path.relative_to(root))
+            try:
+                manifest[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+            except OSError:
+                continue
+        return manifest
+
+    def _write_baseline(self, manifest: dict[str, str]) -> None:
+        temporary = self.baseline.with_suffix(".tmp")
+        temporary.write_text(json.dumps({"created_at": _now(), "manifest": manifest},
+                                        sort_keys=True) + "\n", encoding="utf-8")
+        temporary.replace(self.baseline)
+
     def _bootstrap(self) -> None:
-        if self.workspace.exists():
-            return
         ignore = shutil.ignore_patterns(".git", ".venv", "__pycache__", "*.pyc")
+        source_manifest = self._tree_manifest(self.source)
+        if self.workspace.exists():
+            try:
+                baseline = json.loads(self.baseline.read_text(encoding="utf-8"))["manifest"]
+            except (OSError, KeyError, TypeError, json.JSONDecodeError):
+                return
+            workspace_manifest = self._tree_manifest(self.workspace)
+            if workspace_manifest != baseline or source_manifest == baseline:
+                return
+            archive = self.rollback / f"workspace-refresh-{uuid4().hex}"
+            self.workspace.replace(archive)
+            shutil.copytree(self.source, self.workspace, ignore=ignore)
+            self._write_baseline(source_manifest)
+            return
         shutil.copytree(self.source, self.workspace, ignore=ignore)
+        self._write_baseline(source_manifest)
 
     def _file(self, raw: object) -> Path:
         if not isinstance(raw, str) or not raw or len(raw) > 500:

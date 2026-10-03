@@ -204,7 +204,7 @@ class RcloneDriveReadTools:
         needle = raw_query.casefold()
         output = self.runner([
             "lsjson", "--recursive", "--files-only", "--max-depth", "12",
-            "--include", f"*{raw_query}*", "gdrive:",
+            "--fast-list", "--include", f"*{raw_query}*", "gdrive:",
         ])
         value = json.loads(output)
         if not isinstance(value, list):
