@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import hashlib
+import difflib
 import fnmatch
 import json
 import os
@@ -329,6 +330,35 @@ class MasterDeveloperBroker:
                                         sort_keys=True) + "\n", encoding="utf-8")
         temporary.replace(self.baseline)
 
+    def _diff_evidence(self) -> dict:
+        source_manifest = self._tree_manifest(self.source)
+        workspace_manifest = self._tree_manifest(self.workspace)
+        changed = sorted(
+            path for path in set(source_manifest) | set(workspace_manifest)
+            if source_manifest.get(path) != workspace_manifest.get(path)
+        )
+        chunks = []
+        for relative in changed:
+            source = self.source / relative
+            workspace = self.workspace / relative
+            try:
+                before = source.read_text(encoding="utf-8").splitlines(keepends=True) \
+                    if source.is_file() else []
+                after = workspace.read_text(encoding="utf-8").splitlines(keepends=True) \
+                    if workspace.is_file() else []
+            except (OSError, UnicodeDecodeError):
+                chunks.append(f"Binary files differ: {relative}\n")
+                continue
+            chunks.extend(difflib.unified_diff(
+                before, after, fromfile=f"a/{relative}", tofile=f"b/{relative}"))
+        receipts_path = self.artifact_root / "master-test-receipts" / "latest.json"
+        try:
+            receipts = json.loads(receipts_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            receipts = None
+        return {"diff": "".join(chunks)[-64_000:], "different": bool(changed),
+                "files": changed, "test_receipts": receipts}
+
     def _bootstrap(self) -> None:
         ignore = shutil.ignore_patterns(".git", ".venv", "__pycache__", "*.pyc")
         source_manifest = self._tree_manifest(self.source)
@@ -448,9 +478,7 @@ class MasterDeveloperBroker:
             return {"path": str(path.relative_to(self.workspace)), "bytes": len(content.encode()),
                     "rollback": "preserved"}
         if name == "git.diff":
-            result = subprocess.run(["git", "diff", "--no-index", "--", str(self.source),
-                                     str(self.workspace)], capture_output=True, text=True, timeout=60)
-            return {"diff": result.stdout[-64_000:], "different": result.returncode == 1}
+            return self._diff_evidence()
         if name == "tests.run":
             target = arguments.get("target", "focused")
             if target not in {"focused", "full"}:
@@ -466,9 +494,19 @@ class MasterDeveloperBroker:
             if output["passed"]:
                 receipts = self.artifact_root / "master-test-receipts"
                 receipts.mkdir(parents=True, exist_ok=True)
-                (receipts / "latest.json").write_text(json.dumps({
+                receipt_path = receipts / "latest.json"
+                try:
+                    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    receipt = {"results": {}}
+                receipt.setdefault("results", {})[target] = {
                     "passed": True, "completed_at": _now(), "target": target,
-                    "workspace": str(self.workspace)}) + "\n", encoding="utf-8")
+                    "workspace": str(self.workspace), "output": output["output"][-4000:],
+                }
+                receipt.update({"passed": True, "completed_at": _now(), "target": target,
+                                "workspace": str(self.workspace)})
+                receipt_path.write_text(json.dumps(receipt, sort_keys=True) + "\n",
+                                        encoding="utf-8")
             return output
         if name == "health.check":
             with urlopen("http://127.0.0.1:8787/api/health", timeout=10) as response:

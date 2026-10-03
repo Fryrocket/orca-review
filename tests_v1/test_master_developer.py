@@ -372,3 +372,51 @@ def test_test_receipt_is_labeled_and_kept_outside_workspace(monkeypatch, tmp_pat
     assert not (workspace / ".master-test.json").exists()
     receipt = json.loads((artifacts / "master-test-receipts" / "latest.json").read_text())
     assert receipt["target"] == "focused"
+    assert receipt["results"]["focused"]["passed"] is True
+
+
+def test_test_receipts_preserve_focused_and_full_results(monkeypatch, tmp_path):
+    source = tmp_path / "source"
+    (source / "tests").mkdir(parents=True)
+    (source / "tests_v1").mkdir()
+    (source / "tests" / "test_legacy_ok.py").write_text("def test_ok(): assert True\n")
+    (source / "tests_v1" / "test_current_ok.py").write_text(
+        "def test_ok_v1(): assert True\n")
+    artifacts = tmp_path / "artifacts"
+    monkeypatch.setenv("ORCA_MASTER_SOURCE_ROOT", str(source))
+    monkeypatch.setenv("ORCA_MASTER_WORKSPACE", str(tmp_path / "workspace"))
+    monkeypatch.setenv("ORCA_MASTER_TEST_PYTHON", sys.executable)
+
+    class Gateway:
+        tool_broker = None
+
+    broker = MasterDeveloperBroker(Gateway(), artifacts)
+    assert broker.execute("tests.run", {"target": "focused"})["passed"] is True
+    assert broker.execute("tests.run", {"target": "full"})["passed"] is True
+    receipt = json.loads((artifacts / "master-test-receipts" / "latest.json").read_text())
+    assert set(receipt["results"]) == {"focused", "full"}
+
+
+def test_git_diff_ignores_bytecode_and_includes_test_receipts(monkeypatch, tmp_path):
+    source = tmp_path / "source"
+    (source / "__pycache__").mkdir(parents=True)
+    (source / "__pycache__" / "sample.pyc").write_bytes(b"source cache")
+    (source / "sample.py").write_text("VALUE = 1\n")
+    artifacts = tmp_path / "artifacts"
+    monkeypatch.setenv("ORCA_MASTER_SOURCE_ROOT", str(source))
+    monkeypatch.setenv("ORCA_MASTER_WORKSPACE", str(tmp_path / "workspace"))
+
+    class Gateway:
+        tool_broker = None
+
+    broker = MasterDeveloperBroker(Gateway(), artifacts)
+    (broker.workspace / "sample.py").write_text("VALUE = 2\n")
+    (broker.workspace / "__pycache__").mkdir(exist_ok=True)
+    (broker.workspace / "__pycache__" / "other.pyc").write_bytes(b"workspace cache")
+    receipt_dir = artifacts / "master-test-receipts"
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / "latest.json").write_text('{"results":{"focused":{"passed":true}}}\n')
+    result = broker.execute("git.diff", {})
+    assert result["files"] == ["sample.py"]
+    assert "__pycache__" not in result["diff"]
+    assert result["test_receipts"]["results"]["focused"]["passed"] is True
