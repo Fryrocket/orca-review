@@ -22,6 +22,25 @@ def _now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
+def _planner_evidence(evidence: list[dict]) -> list[dict]:
+    """Keep iterative model context bounded while preserving durable full evidence."""
+    compact = []
+    for item in evidence[-12:]:
+        raw = json.dumps(item, sort_keys=True, separators=(",", ":"),
+                         ensure_ascii=False, allow_nan=False)
+        if len(raw) <= 4_000:
+            compact.append(item)
+            continue
+        compact.append({
+            "name": item.get("name"),
+            "status": item.get("status"),
+            "truncated_for_planning": True,
+            "original_chars": len(raw),
+            "evidence_excerpt": redact_text(raw[:1_900] + "\n...[bounded]...\n" + raw[-1_900:]),
+        })
+    return compact
+
+
 class MasterDeveloperSessionStore:
     def __init__(self, root: str | Path):
         self.root = Path(root).resolve() / "master-developer-sessions"
@@ -63,7 +82,7 @@ class MasterDeveloperSessionStore:
                     "session_id", "created_at", "updated_at", "state")})
             except (OSError, json.JSONDecodeError):
                 continue
-        return result
+        return sorted(result, key=lambda item: item.get("updated_at") or "", reverse=True)
 
     def append(self, session_id: str, role: str, content: str, **metadata) -> dict:
         if role not in {"user", "assistant", "activity", "tool"}:
@@ -249,7 +268,20 @@ def master_developer_turn(store: MasterDeveloperSessionStore, runtime_gateway,
     broker = MasterDeveloperBroker(runtime_gateway, artifact_root)
     evidence = []
     for _iteration in range(6):
-        plan = runtime_gateway.master_developer_plan(prompt=prompt, history=prior, evidence=evidence)
+        planning_evidence = _planner_evidence(evidence)
+        try:
+            plan = runtime_gateway.master_developer_plan(
+                prompt=prompt, history=prior, evidence=planning_evidence)
+        except Exception as exc:
+            store.append(
+                session_id, "assistant",
+                "Master Developer could not complete the next planning pass. "
+                f"The provider stopped with {type(exc).__name__}; completed tool evidence is "
+                "preserved and no unverified success was recorded. Retry this request to resume "
+                "from the durable session evidence.",
+                evidence=planning_evidence,
+            )
+            return store.set_state(session_id, "failed")
         store.append(session_id, "activity", plan["reason"], activity_state="planned")
         for action in plan["actions"]:
             name = action["name"]
@@ -262,7 +294,8 @@ def master_developer_turn(store: MasterDeveloperSessionStore, runtime_gateway,
                 message = arguments.get("message")
                 if not isinstance(message, str) or not message.strip():
                     raise ValueError("Master Developer response is invalid")
-                store.append(session_id, "assistant", message, evidence=evidence[-12:])
+                store.append(session_id, "assistant", message,
+                             evidence=_planner_evidence(evidence))
                 return store.set_state(session_id, "idle")
             store.set_state(session_id, "running_tool")
             store.append(session_id, "tool", f"Running {name}", tool_name=name,
@@ -278,5 +311,5 @@ def master_developer_turn(store: MasterDeveloperSessionStore, runtime_gateway,
         store.set_state(session_id, "planning")
     store.append(session_id, "assistant",
                  "The bounded technical loop reached its six-iteration ceiling. All evidence is preserved; no unverified success was recorded.",
-                 evidence=evidence[-12:])
+                 evidence=_planner_evidence(evidence))
     return store.set_state(session_id, "blocked")
