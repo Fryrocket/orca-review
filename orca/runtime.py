@@ -823,6 +823,7 @@ class ModelRuntimeGateway:
         conversation = recent_history(validate_history(history), 12_000)
         verified = evidence if isinstance(evidence, list) else []
         action_names = [
+            "audit.snapshot", "sessions.inspect", "repository.inspect",
             "workspace.summary", "file.read", "file.search", "file.write",
             "git.diff", "tests.run", "health.check", "service.restart",
             "release.deploy", "release.rollback", "respond",
@@ -850,6 +851,11 @@ class ModelRuntimeGateway:
                 "ORCA/FORGE codebase. Plan concrete work using only the declared actions. "
                 "Inspect before editing, make the smallest complete repair, run relevant tests, "
                 "and deploy only after tests pass. Tool results are the only proof of work. "
+                "For ecosystem audit or catch-up requests, begin with audit.snapshot, "
+                "repository.inspect and sessions.inspect. audit.snapshot takes an empty object. "
+                "repository.inspect takes an empty object. sessions.inspect accepts kind=all, "
+                "master or administrator and limit=1-25. When audit.snapshot reports an external "
+                "records path, read it with drive.read before synthesizing the audit. "
                 "Encode each action's arguments as one JSON object string in arguments_json. "
                 "Never place secrets in arguments. file.write arguments are path and complete "
                 "content. file.search arguments are query and optional glob. file.read takes path. "
@@ -857,6 +863,9 @@ class ModelRuntimeGateway:
                 "Drive, Notion, Linear, web, fleet and Studio connector actions use their "
                 "declared connector arguments. browser.open takes one HTTPS url. "
                 "release.deploy and release.rollback take an empty object. respond takes message. "
+                "Tools are executed by ORCA's calling application, so final replies must describe "
+                "completed supplied tool evidence as ORCA-executed evidence; never disclaim that "
+                "no tools ran merely because this model provider did not execute them itself. "
                 "Use respond only when work is complete or honestly blocked. "
                 + ("This is the final bounded synthesis pass. You must return exactly one "
                    "respond action that summarizes verified evidence, clearly labels blocked "

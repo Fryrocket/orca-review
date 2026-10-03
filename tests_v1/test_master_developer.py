@@ -117,3 +117,45 @@ def test_sixth_planning_pass_is_forced_to_synthesize_a_reply(monkeypatch, tmp_pa
     assert finals == [False, False, False, False, False, True]
     assert result["state"] == "idle"
     assert result["messages"][-1]["content"].startswith("Verified state")
+
+
+def test_audit_snapshot_exposes_release_session_and_external_record_evidence(
+        monkeypatch, tmp_path):
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "state.md").write_text("state\n", encoding="utf-8")
+    monkeypatch.setenv("ORCA_MASTER_SOURCE_ROOT", str(source))
+    monkeypatch.setenv("ORCA_MASTER_WORKSPACE", str(tmp_path / "workspace"))
+
+    class Result:
+        def __init__(self, output): self.output = output
+
+    class ToolBroker:
+        def execute(self, *, bot_id, requests):
+            assert bot_id == "orca"
+            request = requests[0]
+            if request.name == "node.observe":
+                return [Result({"nodes": [{"id": "forge", "state": "healthy"}]})]
+            if request.name == "studio.capabilities":
+                return [Result({"read_tools": ["drive.read"]})]
+            if request.name == "drive.read":
+                return [Result({"path": request.arguments["path"], "text": "snapshot"})]
+            raise AssertionError(request.name)
+
+    class Gateway:
+        tool_broker = ToolBroker()
+
+    artifacts = tmp_path / "artifacts"
+    master = artifacts / "master-developer-sessions"
+    master.mkdir(parents=True)
+    (master / "master_123456789012345678901234.json").write_text(json.dumps({
+        "session_id": "master_123456789012345678901234", "created_at": "1",
+        "updated_at": "2", "state": "idle", "messages": [{"role": "assistant"}],
+    }), encoding="utf-8")
+    broker = MasterDeveloperBroker(Gateway(), artifacts)
+    monkeypatch.setattr("orca.master_developer.urlopen", lambda *_a, **_k: None)
+    snapshot = broker.execute("audit.snapshot", {})
+    assert snapshot["external_records"]["status"] == "available"
+    assert snapshot["sessions"]["master"]["count"] == 1
+    assert snapshot["releases"]["current"]["path"] == "/opt/orca/current"
+    assert snapshot["mutated"] is False

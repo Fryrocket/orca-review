@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import hashlib
 import fnmatch
 import json
 import os
@@ -132,6 +133,7 @@ class MasterDeveloperBroker:
 
     def __init__(self, runtime_gateway, artifact_root: Path):
         self.gateway = runtime_gateway
+        self.artifact_root = Path(artifact_root).resolve()
         self.source = Path(os.environ.get("ORCA_MASTER_SOURCE_ROOT", Path.cwd())).resolve()
         self.workspace = Path(os.environ.get(
             "ORCA_MASTER_WORKSPACE", artifact_root.parent / "master-workspace")).resolve()
@@ -146,6 +148,116 @@ class MasterDeveloperBroker:
                 "Google Drive search and read", "Notion and Linear lookup when connected",
                 "public web search and fetch", "KILN governed browser handoff",
                 "audited evidence and rollback snapshots"]
+
+    @staticmethod
+    def _link_state(path: Path) -> dict:
+        try:
+            return {"path": str(path), "exists": path.exists(),
+                    "target": str(path.resolve(strict=True))}
+        except (OSError, RuntimeError):
+            return {"path": str(path), "exists": False, "target": None}
+
+    def _session_index(self, directory: str, prefix: str, limit: int = 12) -> dict:
+        root = self.artifact_root / directory
+        items = []
+        for path in root.glob(f"{prefix}*.json") if root.is_dir() else ():
+            try:
+                value = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            messages = value.get("messages") if isinstance(value.get("messages"), list) else []
+            items.append({
+                "session_id": value.get("session_id"),
+                "created_at": value.get("created_at"),
+                "updated_at": value.get("updated_at"),
+                "state": value.get("state"),
+                "message_count": len(messages),
+                "last_role": messages[-1].get("role") if messages else None,
+            })
+        items.sort(key=lambda item: item.get("updated_at") or "", reverse=True)
+        return {"count": len(items), "sessions": items[:limit],
+                "truncated": len(items) > limit}
+
+    def _sessions_inspect(self, *, kind: str = "all", limit: int = 12) -> dict:
+        if kind not in {"all", "master", "administrator"}:
+            raise ValueError("session kind must be all, master or administrator")
+        if type(limit) is not int or not 1 <= limit <= 25:
+            raise ValueError("session limit must be 1-25")
+        result = {"kind": kind}
+        if kind in {"all", "master"}:
+            result["master"] = self._session_index(
+                "master-developer-sessions", "master_", limit)
+        if kind in {"all", "administrator"}:
+            result["administrator"] = self._session_index(
+                "administrator-sessions", "admin_", limit)
+        return result
+
+    def _repository_inspect(self) -> dict:
+        diff = subprocess.run(
+            ["git", "diff", "--no-index", "--stat", "--", str(self.source),
+             str(self.workspace)], capture_output=True, text=True, timeout=60)
+        github = subprocess.run(
+            ["git", "ls-remote", "--heads",
+             "https://github.com/Fryrocket/orca-review.git", "main",
+             "agent/orca-rebuild-v1"], capture_output=True, text=True, timeout=30,
+            env={"PATH": "/usr/bin:/bin", "GIT_TERMINAL_PROMPT": "0"})
+        heads = {}
+        if github.returncode == 0:
+            for line in github.stdout.splitlines():
+                fields = line.split()
+                if len(fields) == 2:
+                    heads[fields[1].removeprefix("refs/heads/")] = fields[0]
+        return {
+            "source_release": self._link_state(Path("/opt/orca/current")),
+            "previous_release": self._link_state(Path("/var/lib/orca/previous-release")),
+            "workspace": str(self.workspace),
+            "workspace_differs": diff.returncode == 1,
+            "diff_stat": (diff.stdout + diff.stderr)[-12_000:],
+            "github": {"reachable": github.returncode == 0, "heads": heads},
+            "gitea": {"source": "timestamped external-record snapshot",
+                      "direct_from_forge": "network path unavailable"},
+        }
+
+    def _audit_snapshot(self) -> dict:
+        snapshot = {"generated_at": _now(), "mutated": False}
+        try:
+            with urlopen("http://127.0.0.1:8787/api/health", timeout=10) as response:
+                snapshot["health"] = json.load(response)
+        except Exception as exc:
+            snapshot["health"] = {"status": "unavailable", "error": type(exc).__name__}
+        broker = getattr(self.gateway, "tool_broker", None)
+        for key, name, arguments in (
+            ("fleet", "node.observe", {"node_id": "all"}),
+            ("studio", "studio.capabilities", {"area": "tools"}),
+        ):
+            try:
+                result = broker.execute(
+                    bot_id="orca", requests=[ToolRequest(name, arguments)])[0]
+                snapshot[key] = result.output
+            except Exception as exc:
+                snapshot[key] = {"status": "unavailable", "error": type(exc).__name__}
+        external_path = "cc-bridge/CC_ORCA_external_records_2026-10-03.md"
+        try:
+            result = broker.execute(bot_id="orca", requests=[
+                ToolRequest("drive.read", {"path": external_path})])[0]
+            raw = json.dumps(result.output, sort_keys=True, ensure_ascii=False)
+            snapshot["external_records"] = {
+                "status": "available", "path": external_path,
+                "sha256": hashlib.sha256(raw.encode()).hexdigest(),
+                "chars": len(raw),
+                "instruction": "Use drive.read on this path for the full timestamped Notion, Linear, GitHub and Gitea index.",
+            }
+        except Exception as exc:
+            snapshot["external_records"] = {
+                "status": "unavailable", "path": external_path,
+                "error": type(exc).__name__,
+            }
+        snapshot["releases"] = {
+            "current": self._link_state(Path("/opt/orca/current")),
+            "previous": self._link_state(Path("/var/lib/orca/previous-release")),
+        }
+        snapshot["sessions"] = self._sessions_inspect(kind="all", limit=8)
+        return snapshot
 
     def _bootstrap(self) -> None:
         if self.workspace.exists():
@@ -169,6 +281,13 @@ class MasterDeveloperBroker:
                      if path.is_file() and ".git" not in path.parts]
             return {"workspace": str(self.workspace), "files": files[:500],
                     "truncated": len(files) > 500}
+        if name == "audit.snapshot":
+            return self._audit_snapshot()
+        if name == "sessions.inspect":
+            return self._sessions_inspect(
+                kind=arguments.get("kind", "all"), limit=arguments.get("limit", 12))
+        if name == "repository.inspect":
+            return self._repository_inspect()
         if name == "file.read":
             path = self._file(arguments.get("path"))
             text = path.read_text(encoding="utf-8")
