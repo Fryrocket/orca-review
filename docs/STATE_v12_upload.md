@@ -1318,5 +1318,11 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   regression passed **1,223/1,223**. Live FORGE release is
   `/opt/orca/releases/connect-558c776`; health and integrity are valid and the
   previous immutable releases remain available for rollback.
+- KILN's visible Studio had been started outside its enabled user service while
+  `kiln-studio.service` still carried an old start-limit failure. The existing
+  window was gracefully replaced by the supervised service without closing the
+  separate ORCA Chrome process. Studio is now `active/running` with zero
+  restarts, the Notion/Linear/Drive browser unit remains active, and both direct
+  FORGE and KILN gateway health checks return healthy with valid integrity.
 
 END STATE.md — AS OF 2026-10-03
