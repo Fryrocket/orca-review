@@ -1219,4 +1219,26 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   This passes the autonomous software/design and document-delivery test. It is
   not a claim that fabricated hardware has been physically proven.
 
-END STATE.md — AS OF 2026-10-02
+## Gemini Free live in ORCA — 2026-10-03
+
+- ORCA's **Frontier Free** mode is live and verified end to end through the
+  authenticated KILN Studio gateway, FORGE inference route and the loopback-only
+  Gemini bridge. The registered provider is Google Gemini free tier using
+  `gemini-3.8-flash`; paid fallback is disabled.
+- The live black-box test submitted a synthetic request from the visible ORCA
+  interface and received a bounded Gemini response back in ORCA. No private
+  data, credentials, tools or action authority were included in the test.
+- The test exposed an HTTP 405 because the hardened Studio gateway allowed
+  `/api/chat` but not the existing governed `/api/inference` route. Commit
+  `81885de` adds only that POST route to the allowlist and adds negative/positive
+  gateway coverage. The focused suite passed 54/54 and the complete regression
+  passed **1,207/1,207**.
+- Only `orca-studio-gateway.service` was restarted. It returned healthy with
+  valid integrity and zero automatic restarts. The prior gateway file remains
+  available at `/opt/orca-studio/orca_studio_gateway.py.pre-81885de` for
+  rollback.
+- Privacy boundary: free-tier Gemini receives sanitized, bounded prompts only.
+  Secrets, credentials, customer records and financial data remain excluded;
+  the provider must never silently switch to paid usage.
+
+END STATE.md — AS OF 2026-10-03
