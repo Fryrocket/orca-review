@@ -73,8 +73,9 @@ def test_administrator_is_left_of_chatgpt_and_has_no_shell_controls():
     administrator = html.index('class="engineering-console"')
     chatgpt = html.index('class="conversation-panel chatgpt-panel"')
     assert administrator < chatgpt
-    assert 'aria-label="Administrator ChatGPT"' in html
+    assert 'aria-label="Core Developer"' in html
     assert 'aria-label="ChatGPT"' in html
+    assert "<h2>Core Developer</h2>" in html
     assert "ChatGPT with ORCA/FORGE tools" in html
     assert "/api/administrator-screen/runs" in script
     assert "shell" not in html[administrator:chatgpt]

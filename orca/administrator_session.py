@@ -162,7 +162,7 @@ def administrator_turn(store: AdministratorSessionStore, runtime_gateway, artifa
         store.append(session_id, "assistant", "The KILN Codex bridge is unavailable. No work was claimed complete.")
         return store.set_state(session_id, "blocked")
     try:
-        result = runtime_gateway.invoke(service_id="kiln_codex", bot_id="orca", prompt=prompt,
+        result = runtime_gateway.invoke(service_id="kiln_codex", bot_id="chatgpt", prompt=prompt,
                                         history=prior, use_tool_broker=False)
         answer = result["summary"]
     except Exception as exc:

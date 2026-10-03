@@ -15,6 +15,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 from threading import Lock
 
@@ -56,10 +57,12 @@ def _validated_request(payload: object) -> tuple[str, dict]:
     if len(encoded_schema) > 32_000:
         raise ValueError("response schema exceeds the limit")
     prompt = (
-        "You are the bounded Codex reasoning provider inside ORCA. Work only from "
+        "You are an authenticated OpenAI Codex reasoning provider. Follow the identity "
+        "and mission declared by the supplied system message. Work only from "
         "the conversation below. Do not inspect files, run shell commands, browse, "
-        "or perform external actions. ORCA separately owns tools, memory, approvals, "
-        "and execution. Never claim a tool, test, deployment, file read, or external "
+        "or perform external actions in this provider process. The calling application "
+        "separately owns tools, memory, approvals, and execution. Never claim a tool, "
+        "test, deployment, file read, or external "
         "action occurred unless an ORCA message explicitly supplies verified evidence "
         "of it. When no verified tool evidence is supplied, describe the evidence as "
         "conversation-only and state that no tools were executed. Return only one JSON "
@@ -93,6 +96,12 @@ def run_codex(*, codex: str, workspace: Path, prompt: str, schema: dict,
         except (OSError, subprocess.TimeoutExpired):
             raise RuntimeError("Codex execution is unavailable") from None
         if completed.returncode != 0 or not output_path.is_file():
+            # Record only Codex's bounded diagnostic stream. The prompt and
+            # model output are never written to the service journal.
+            diagnostic = (completed.stderr or "")[-4_000:].strip()
+            if diagnostic:
+                print(f"Codex bridge execution diagnostic: {diagnostic}", file=sys.stderr,
+                      flush=True)
             raise RuntimeError("Codex execution failed")
         raw = output_path.read_bytes()
         if not raw or len(raw) > MAX_OUTPUT_BYTES:
