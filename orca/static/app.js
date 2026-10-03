@@ -22,7 +22,7 @@ const mutationControlSelector = '#operator-identity,#operator-token,#stop-reason
 let mutationPending = false;
 let inferencePending = false;
 let activeMediaController = null;
-let activeMode = 'reason';
+let activeMode = 'auto';
 function setMediaCancelVisible(visible) {
   $$('.cancel-generation').forEach(button => {
     button.hidden = !visible;
@@ -211,6 +211,59 @@ async function loadLatestEngineeringRun() {
     const result = await engineeringConsoleRequest('/api/administrator-screen/runs');
     if (result.runs?.length) renderEngineeringRun(result.runs[0]);
   } catch { /* Console remains honest and empty until authentication is ready. */ }
+}
+
+let chatgptSessionId = localStorage.getItem('orca-chatgpt-session-v1');
+let chatgptController = null;
+function renderChatGPTSession(session) {
+  chatgptSessionId = session.session_id;
+  localStorage.setItem('orca-chatgpt-session-v1', chatgptSessionId);
+  const badge = $('#chatgpt-state');
+  badge.textContent = session.state.replaceAll('_', ' ').toUpperCase();
+  badge.className = `engineering-state ${session.state === 'thinking' ? 'running' : session.state}`;
+  const messages = (session.messages || []).map(message =>
+    `<article class="administrator-message ${esc(message.role)}">${esc(message.content)}<time>${esc(new Date(message.created_at).toLocaleString())}</time></article>`
+  ).join('');
+  $('#chatgpt-conversation').innerHTML = messages || '<div class="administrator-welcome"><strong>ChatGPT</strong><p>A separate persistent conversation through KILN’s authenticated OpenAI bridge.</p></div>';
+  $('#chatgpt-conversation').scrollTop = $('#chatgpt-conversation').scrollHeight;
+}
+
+$('#chatgpt-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const promptField = $('#chatgpt-prompt');
+  const prompt = promptField.value.trim();
+  if (!prompt || chatgptController) return;
+  promptField.disabled = true; $('#chatgpt-cancel').hidden = false;
+  chatgptController = new AbortController();
+  try {
+    if (!chatgptSessionId) {
+      renderChatGPTSession(await engineeringConsoleRequest('/api/administrator-screen/sessions', {method: 'POST', body: '{}'}));
+    }
+    const optimistic = await engineeringConsoleRequest(`/api/administrator-screen/sessions/${chatgptSessionId}`);
+    optimistic.messages.push({role: 'user', content: prompt, created_at: new Date().toISOString()});
+    optimistic.state = 'thinking'; renderChatGPTSession(optimistic); promptField.value = '';
+    renderChatGPTSession(await engineeringConsoleRequest(`/api/administrator-screen/sessions/${chatgptSessionId}/messages`, {
+      method: 'POST', body: JSON.stringify({prompt}), signal: chatgptController.signal
+    }));
+  } catch (error) {
+    if (error.name !== 'AbortError') $('#chatgpt-conversation').insertAdjacentHTML('beforeend',
+      `<article class="administrator-message activity">${esc(error.message)}<time>${esc(new Date().toLocaleString())}</time></article>`);
+  } finally {
+    chatgptController = null; promptField.disabled = false; $('#chatgpt-cancel').hidden = true; promptField.focus();
+  }
+});
+$('#chatgpt-prompt').addEventListener('keydown', event => {
+  if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.keyCode !== 229) {
+    event.preventDefault();
+    if (!event.repeat && !chatgptController) $('#chatgpt-form').requestSubmit();
+  }
+});
+$('#chatgpt-cancel').addEventListener('click', () => chatgptController?.abort());
+
+async function loadChatGPTSession() {
+  if (!chatgptSessionId) return;
+  try { renderChatGPTSession(await engineeringConsoleRequest(`/api/administrator-screen/sessions/${chatgptSessionId}`)); }
+  catch { localStorage.removeItem('orca-chatgpt-session-v1'); chatgptSessionId = null; }
 }
 let inventory = { items: [], locations: [], categories: [], units: [] };
 let inventoryAnalysis = null;
@@ -1635,4 +1688,5 @@ updateWorkspaceClock();
 setInterval(updateWorkspaceClock, 1000);
 refresh();
 setTimeout(loadLatestEngineeringRun, 1200);
+setTimeout(loadChatGPTSession, 1250);
 setInterval(refresh, 8000);
