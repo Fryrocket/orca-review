@@ -226,6 +226,55 @@ def test_audit_uses_deterministic_read_only_start_after_two_contract_failures(
     assert "sessions.inspect" in tool_names
 
 
+def test_audit_completes_deterministically_when_provider_contract_never_recovers(
+        monkeypatch, tmp_path):
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "docs").mkdir()
+    (source / "docs" / "STATE_v12_upload.md").write_text(
+        "verified state\n", encoding="utf-8")
+    monkeypatch.setenv("ORCA_MASTER_SOURCE_ROOT", str(source))
+    monkeypatch.setenv("ORCA_MASTER_WORKSPACE", str(tmp_path / "workspace"))
+
+    class Result:
+        def __init__(self, output): self.output = output
+
+    class ToolBroker:
+        def execute(self, *, requests, **_kwargs):
+            request = requests[0]
+            if request.name == "health.check":
+                return [Result({"status": "healthy", "integrity_valid": True})]
+            if request.name == "node.observe":
+                return [Result({"nodes": [{"id": "forge", "name": "FORGE",
+                    "state": "healthy", "paused": False,
+                    "last_verified": "now", "detail": "healthy"}],
+                    "paused_nodes": []})]
+            if request.name == "studio.capabilities":
+                return [Result({"read_tools": ["drive.read"]})]
+            if request.name == "drive.read":
+                return [Result({"path": request.arguments["path"], "text": "records"})]
+            raise AssertionError(request.name)
+
+    class Gateway:
+        tool_broker = ToolBroker()
+
+        def master_developer_plan(self, **_payload):
+            raise ValueError("malformed contract forever")
+
+    store = MasterDeveloperSessionStore(tmp_path / "artifacts")
+    session = store.create()
+    result = master_developer_turn(
+        store, Gateway(), tmp_path / "artifacts", session["session_id"],
+        "Catch yourself up and reconcile all available records.")
+    assert result["state"] == "idle", result["messages"][-12:]
+    assert "deterministic evidence recovery" in result["messages"][-1]["content"]
+    assert "Provider JSON failed repeatedly" in result["messages"][-1]["content"]
+    tool_names = [item.get("tool_name") for item in result["messages"]]
+    assert "drive.read" in tool_names
+    assert "health.check" in tool_names
+    assert "node.observe" in tool_names
+
+
 def test_clean_master_workspace_refreshes_and_dirty_workspace_is_preserved(
         monkeypatch, tmp_path):
     source = tmp_path / "source"

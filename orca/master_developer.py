@@ -460,6 +460,110 @@ class MasterDeveloperBroker:
                 "evidence": "owner-authenticated operator request recorded; result pending"}
 
 
+def _completed_output(evidence: list[dict], name: str) -> object:
+    for item in reversed(evidence):
+        if item.get("name") == name and item.get("status") == "completed":
+            return item.get("output")
+    return None
+
+
+def _deterministic_audit_checkpoint(evidence: list[dict]) -> str:
+    snapshot = _completed_output(evidence, "audit.snapshot")
+    repository = _completed_output(evidence, "repository.inspect")
+    sessions = _completed_output(evidence, "sessions.inspect")
+    state_record = _completed_output(evidence, "file.read")
+    external = _completed_output(evidence, "drive.read")
+    health = _completed_output(evidence, "health.check")
+    fleet = _completed_output(evidence, "node.observe")
+    snapshot = snapshot if isinstance(snapshot, dict) else {}
+    repository = repository if isinstance(repository, dict) else {}
+    health = health if isinstance(health, dict) else snapshot.get("health", {})
+    fleet = fleet if isinstance(fleet, dict) else snapshot.get("fleet", {})
+    if isinstance(fleet, dict) and isinstance(fleet.get("output"), dict):
+        fleet = fleet["output"]
+    if isinstance(external, dict) and isinstance(external.get("output"), dict):
+        external = external["output"]
+    nodes = fleet.get("nodes", []) if isinstance(fleet, dict) else []
+    node_lines = []
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue
+        node_lines.append(
+            f"- {node.get('name') or node.get('id', 'unknown')}: "
+            f"{node.get('state', 'unproven')}; paused={bool(node.get('paused'))}; "
+            f"last verified {node.get('last_verified') or 'unavailable'}; "
+            f"{node.get('detail') or 'no detail'}")
+    current = repository.get("source_release", {})
+    previous = repository.get("previous_release", {})
+    github = repository.get("github", {})
+    gitea = repository.get("gitea", {})
+    external_path = snapshot.get("external_records", {}).get("path", "unavailable")
+    state_read = isinstance(state_record, dict) and isinstance(
+        state_record.get("content"), str)
+    external_read = isinstance(external, dict) and isinstance(
+        external.get("text"), str)
+    session_count = "unavailable"
+    if isinstance(sessions, dict):
+        session_count = sum(
+            value.get("count", 0) for key, value in sessions.items()
+            if key in {"master", "administrator"} and isinstance(value, dict))
+    paused = fleet.get("paused_nodes", []) if isinstance(fleet, dict) else []
+    return "\n".join([
+        "Consolidated ORCA/FORGE checkpoint — deterministic evidence recovery",
+        "",
+        "1. Current-state briefing",
+        f"ORCA health is {health.get('status', 'unproven')} with integrity_valid="
+        f"{health.get('integrity_valid', 'unproven')}. The current immutable release is "
+        f"{current.get('target', 'unavailable')}; rollback points to "
+        f"{previous.get('target', 'unavailable')}. This checkpoint used only completed "
+        "read-only tool evidence and performed no mutation.",
+        "",
+        "2. Completed and proven",
+        f"- Repository inspection completed. workspace_differs="
+        f"{repository.get('workspace_differs', 'unproven')}.",
+        f"- GitHub reachable={github.get('reachable', 'unproven')}; heads="
+        f"{json.dumps(github.get('heads', {}), sort_keys=True)}.",
+        f"- STATE_v12_upload.md read completed={state_read}.",
+        f"- External records read completed={external_read} from {external_path}.",
+        f"- Master/Administrator session histories inspected; session count={session_count}.",
+        "",
+        "3. Actively running / observed fleet",
+        *(node_lines or ["- No completed signed node observation was available."]),
+        "",
+        "4. Unfinished",
+        "- Planned, staged and historical claims still require their own acceptance evidence; "
+        "repository presence and record entries are not proof of live completion.",
+        "- Physical hardware, power-loss, fit, thermal and fabrication checks remain physical "
+        "gates wherever the inspected records require them.",
+        "",
+        "5. Blocked and why",
+        f"- Paused nodes: {json.dumps(paused)}. Resume only after a fresh authenticated healthy "
+        "heartbeat proves the reported cause has cleared.",
+        f"- Direct Gitea inspection from FORGE: {gitea.get('direct_from_forge', 'unproven')}; "
+        "the timestamped external record is the available corroborating source.",
+        "- Any source not marked read-completed above remains unproven, not silently complete.",
+        "",
+        "6. Ordered master task list",
+        "1) Restore and re-verify any degraded or paused node without weakening safeguards.",
+        "2) Reconcile STATE, Drive, Notion and Linear against the inspected release and evidence.",
+        "3) Resolve direct Gitea observability or keep timestamped external push evidence explicit.",
+        "4) Run the appropriate software acceptance suite for the deployed commit and preserve results.",
+        "5) Complete remaining physical acceptance gates with owner-present evidence.",
+        "6) Deduplicate stale or contradictory records only after verified reconciliation.",
+        "",
+        "7. Safest autonomous next action",
+        "Perform bounded read-only health verification for every node and service, then reconcile "
+        "the resulting evidence into the existing records without creating duplicates.",
+        "",
+        "8. What genuinely requires you",
+        "Only owner-present physical tests, credential or account authorization, money, legal "
+        "acceptance, publishing, permission changes, and any other existing R3 approval gate.",
+        "",
+        "Provider JSON failed repeatedly, so ORCA completed this audit through its deterministic "
+        "read-only recovery path rather than returning a false success or asking you to retry.",
+    ])
+
+
 def master_developer_turn(store: MasterDeveloperSessionStore, runtime_gateway,
                           artifact_root: Path, session_id: str, prompt: str) -> dict:
     if runtime_gateway is None or not hasattr(runtime_gateway, "master_developer_plan"):
@@ -469,6 +573,8 @@ def master_developer_turn(store: MasterDeveloperSessionStore, runtime_gateway,
     store.set_state(session_id, "planning")
     broker = MasterDeveloperBroker(runtime_gateway, artifact_root)
     evidence = []
+    audit_request = any(phrase in prompt.casefold() for phrase in (
+        "catch yourself up", "ecosystem audit", "reconcile all"))
     for _iteration in range(6):
         planning_evidence = _planner_evidence(evidence)
         plan, planning_error = None, None
@@ -485,9 +591,7 @@ def master_developer_turn(store: MasterDeveloperSessionStore, runtime_gateway,
                 break
             except Exception as exc:
                 planning_error = exc
-        if plan is None and not evidence and _iteration == 0 and any(
-                phrase in prompt.casefold() for phrase in (
-                    "catch yourself up", "ecosystem audit", "reconcile all")):
+        if plan is None and not evidence and _iteration == 0 and audit_request:
             plan = {
                 "reason": (
                     "The model planning contract failed twice before evidence collection; "
@@ -501,6 +605,38 @@ def master_developer_turn(store: MasterDeveloperSessionStore, runtime_gateway,
                         "kind": "all", "limit": 12}},
                 ],
             }
+        elif plan is None and audit_request:
+            attempted = {item.get("name") for item in evidence}
+            supplemental = []
+            if "file.read" not in attempted:
+                supplemental.append({"name": "file.read", "arguments": {
+                    "path": "docs/STATE_v12_upload.md"}})
+            if "drive.read" not in attempted:
+                supplemental.append({"name": "drive.read", "arguments": {
+                    "path": "cc-bridge/CC_ORCA_external_records_2026-10-03.md"}})
+            if "health.check" not in attempted:
+                supplemental.append({"name": "health.check", "arguments": {}})
+            if "node.observe" not in attempted:
+                supplemental.append({"name": "node.observe", "arguments": {}})
+            if supplemental:
+                plan = {
+                    "reason": (
+                        "The provider planning contract remained malformed after the initial "
+                        "audit evidence. Continue the same read-only audit through the remaining "
+                        "deterministic authoritative sources before synthesis."
+                    ),
+                    "actions": supplemental[:6],
+                }
+            else:
+                plan = {
+                    "reason": (
+                        "The provider planning contract remained malformed after authoritative "
+                        "evidence collection. Return the deterministic evidence checkpoint so "
+                        "the audit completes truthfully instead of stalling."
+                    ),
+                    "actions": [{"name": "respond", "arguments": {
+                        "message": _deterministic_audit_checkpoint(evidence)}}],
+                }
         elif plan is None:
             exc = planning_error
             store.append(
