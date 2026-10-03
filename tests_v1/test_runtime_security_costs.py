@@ -638,8 +638,11 @@ def test_rclone_drive_tools_use_only_listing_and_cat_with_owner_only_config(tmp_
     assert drive.search(query="CC_note")["results"][0]["ID"] == "abc"
     assert drive.read(path="cc-bridge/CC_note.md")["text"] == "handoff text"
     assert calls[0][0] == [
-        "lsjson", "--recursive", "--files-only", "--max-depth", "12", "gdrive:",
+        "lsjson", "--recursive", "--files-only", "--max-depth", "12",
+        "--include", "*CC_note*", "gdrive:",
     ]
+    with pytest.raises(ValueError, match="unsupported filename"):
+        drive.search(query="*.md")
     assert calls[1] == (["cat", "gdrive:cc-bridge/CC_note.md"], 256_000)
     with pytest.raises(ValueError, match="relative"):
         drive.read(path="../secret")
