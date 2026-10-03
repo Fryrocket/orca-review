@@ -834,8 +834,8 @@ class ModelRuntimeGateway:
                 "actions": {"type": "array", "minItems": 1, "maxItems": 6,
                     "items": {"type": "object", "properties": {
                         "name": {"type": "string", "enum": action_names},
-                        "arguments": {"type": "object"}},
-                        "required": ["name", "arguments"], "additionalProperties": False}},
+                        "arguments_json": {"type": "string", "maxLength": 260000}},
+                        "required": ["name", "arguments_json"], "additionalProperties": False}},
                 "reason": {"type": "string", "maxLength": 2000}},
             "required": ["actions", "reason"], "additionalProperties": False,
         }
@@ -847,6 +847,7 @@ class ModelRuntimeGateway:
                 "ORCA/FORGE codebase. Plan concrete work using only the declared actions. "
                 "Inspect before editing, make the smallest complete repair, run relevant tests, "
                 "and deploy only after tests pass. Tool results are the only proof of work. "
+                "Encode each action's arguments as one JSON object string in arguments_json. "
                 "Never place secrets in arguments. file.write arguments are path and complete "
                 "content. file.search arguments are query and optional glob. file.read takes path. "
                 "tests.run accepts target=focused or full. service.restart takes service=orca. "

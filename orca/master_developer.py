@@ -252,7 +252,12 @@ def master_developer_turn(store: MasterDeveloperSessionStore, runtime_gateway,
         plan = runtime_gateway.master_developer_plan(prompt=prompt, history=prior, evidence=evidence)
         store.append(session_id, "activity", plan["reason"], activity_state="planned")
         for action in plan["actions"]:
-            name, arguments = action["name"], action["arguments"]
+            name = action["name"]
+            arguments = action.get("arguments")
+            if arguments is None:
+                arguments = json.loads(action.get("arguments_json", "{}"))
+            if not isinstance(arguments, dict):
+                raise ValueError("Master Developer action arguments are invalid")
             if name == "respond":
                 message = arguments.get("message")
                 if not isinstance(message, str) or not message.strip():
