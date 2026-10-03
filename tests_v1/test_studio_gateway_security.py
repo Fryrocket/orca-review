@@ -141,6 +141,12 @@ def test_verified_product_workflow_routes_are_narrowly_allowlisted():
     assert gateway.allowed_request("POST", session + "/cancel")
     assert not gateway.allowed_request("POST", session + "/shell")
     assert not gateway.allowed_request("GET", session + "/messages")
+    master = "/api/master-developer/sessions/master_" + "a" * 24
+    assert gateway.allowed_request("GET", "/api/master-developer/sessions")
+    assert gateway.allowed_request("POST", "/api/master-developer/sessions")
+    assert gateway.allowed_request("GET", master)
+    assert gateway.allowed_request("POST", master + "/messages")
+    assert not gateway.allowed_request("POST", master + "/shell")
     assert gateway.allowed_request("POST", "/api/product-development/package")
     assert gateway.allowed_request("POST", "/api/product-development/fabrication-readiness")
     assert not gateway.allowed_request("PUT", "/api/product-development/package")

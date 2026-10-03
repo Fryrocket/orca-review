@@ -378,6 +378,28 @@ class OrcaHandler(BaseHTTPRequestHandler):
         if not self._host_allowed():
             return self._json({"error": "host header is not allowlisted"}, HTTPStatus.MISDIRECTED_REQUEST)
         path = urlparse(self.path).path
+        if path == "/api/master-developer/sessions" or path.startswith("/api/master-developer/sessions/"):
+            try:
+                identity = self._authenticate_mutation()
+            except IdentityAuthenticationError as exc:
+                return self._json({"error": str(exc)}, HTTPStatus.UNAUTHORIZED)
+            except RuntimeError:
+                return self._json({"error": "Master Developer authentication is unavailable"},
+                                  HTTPStatus.SERVICE_UNAVAILABLE)
+            if identity != "fry":
+                return self._json({"error": "Only Fry may read Master Developer sessions"},
+                                  HTTPStatus.FORBIDDEN)
+            from .master_developer import MasterDeveloperSessionStore
+            store = MasterDeveloperSessionStore(self._product_artifact_root())
+            if path == "/api/master-developer/sessions":
+                return self._json({"sessions": store.list()})
+            parts = path.split("/")
+            if len(parts) != 5:
+                return self._json({"error": "Master Developer session not found"}, HTTPStatus.NOT_FOUND)
+            try:
+                return self._json(store.read(parts[4]))
+            except (ValueError, FileNotFoundError):
+                return self._json({"error": "Master Developer session not found"}, HTTPStatus.NOT_FOUND)
         if path == "/api/administrator-screen/sessions" or path.startswith("/api/administrator-screen/sessions/"):
             try:
                 identity = self._authenticate_mutation()
@@ -624,8 +646,9 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     "nonce": heartbeat.nonce,
                     "status": "accepted",
                 }, HTTPStatus.OK)
-            if (path in {"/api/inference", "/api/chat", "/api/memory", "/api/science", "/api/engineering", "/api/project/plan", "/api/cad/pcb-draft", "/api/product-development/package", "/api/product-development/fabrication-readiness", "/api/administrator-screen/runs", "/api/administrator-screen/sessions", "/api/temper/inventory-dataset/plan", "/api/business/muse/handoff", "/api/business/muse/email-handoff", "/api/solo-operator/action-plan", "/api/solo-operator/snapshot"}
-                    or path.startswith("/api/administrator-screen/sessions/")):
+            if (path in {"/api/inference", "/api/chat", "/api/memory", "/api/science", "/api/engineering", "/api/project/plan", "/api/cad/pcb-draft", "/api/product-development/package", "/api/product-development/fabrication-readiness", "/api/administrator-screen/runs", "/api/administrator-screen/sessions", "/api/master-developer/sessions", "/api/temper/inventory-dataset/plan", "/api/business/muse/handoff", "/api/business/muse/email-handoff", "/api/solo-operator/action-plan", "/api/solo-operator/snapshot"}
+                    or path.startswith("/api/administrator-screen/sessions/")
+                    or path.startswith("/api/master-developer/sessions/")):
                 try:
                     authenticated_identity = self._authenticate_mutation()
                 except IdentityAuthenticationError as exc:
@@ -639,6 +662,24 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     raise IdentityAuthorizationError(
                         "only Fry may initiate local model inference")
                 data = self._body()
+                if path == "/api/master-developer/sessions":
+                    if data:
+                        raise ValueError("new Master Developer session request must be empty")
+                    from .master_developer import MasterDeveloperSessionStore
+                    return self._json(MasterDeveloperSessionStore(
+                        self._product_artifact_root()).create(), HTTPStatus.CREATED)
+                if path.startswith("/api/master-developer/sessions/"):
+                    parts = path.split("/")
+                    if len(parts) != 6 or parts[5] != "messages":
+                        return self._json({"error": "Master Developer session route not found"},
+                                          HTTPStatus.NOT_FOUND)
+                    if set(data) != {"prompt"}:
+                        raise ValueError("Master Developer turn requires one prompt")
+                    from .master_developer import MasterDeveloperSessionStore, master_developer_turn
+                    store = MasterDeveloperSessionStore(self._product_artifact_root())
+                    return self._json(master_developer_turn(
+                        store, self.server.runtime_gateway, self._product_artifact_root(),
+                        parts[4], data["prompt"]))
                 if path == "/api/administrator-screen/sessions":
                     if data:
                         raise ValueError("new Administrator session request must be empty")

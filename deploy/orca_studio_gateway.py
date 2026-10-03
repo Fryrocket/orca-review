@@ -40,6 +40,7 @@ MEDIA_PATHS = MEDIA_GET_PATHS | MEDIA_POST_PATHS
 GET_API_PATHS = {
     "/api/administrator-screen/runs",
     "/api/administrator-screen/sessions",
+    "/api/master-developer/sessions",
     "/api/business/muse", "/api/business/state", "/api/communications",
     "/api/config", "/api/edge-inference", "/api/engineering/catalog",
     "/api/health", "/api/inbox", "/api/inventory",
@@ -49,6 +50,7 @@ GET_API_PATHS = {
 POST_API_PATHS = {
     "/api/administrator-screen/runs",
     "/api/administrator-screen/sessions",
+    "/api/master-developer/sessions",
     "/api/business/muse/email-handoff", "/api/business/muse/handoff",
     "/api/business/records", "/api/business/workflows", "/api/cad/pcb-draft",
     "/api/chat", "/api/inference", "/api/control/emergency-stop", "/api/engineering",
@@ -73,8 +75,12 @@ ADMINISTRATOR_RUN_GET_PATTERN = re.compile(
 ADMINISTRATOR_SESSION_GET_PATTERN = re.compile(
     r"/api/administrator-screen/sessions/admin_[a-f0-9]{24}"
 )
+MASTER_DEVELOPER_SESSION_GET_PATTERN = re.compile(
+    r"/api/master-developer/sessions/master_[a-f0-9]{24}"
+)
 POST_API_PATTERNS = tuple(re.compile(pattern) for pattern in (
     r"/api/administrator-screen/sessions/admin_[a-f0-9]{24}/(?:messages|cancel)",
+    r"/api/master-developer/sessions/master_[a-f0-9]{24}/messages",
     r"/api/approvals/[A-Za-z0-9_.:-]+",
     r"/api/bots/[A-Za-z0-9_.:-]+/pause",
     r"/api/incidents(?:/[A-Za-z0-9_.:-]+)?",
@@ -123,6 +129,7 @@ def allowed_request(method: str, path: str) -> bool:
             or PRODUCT_PACKAGE_GET_PATTERN.fullmatch(path)
             or ADMINISTRATOR_RUN_GET_PATTERN.fullmatch(path)
             or ADMINISTRATOR_SESSION_GET_PATTERN.fullmatch(path)
+            or MASTER_DEVELOPER_SESSION_GET_PATTERN.fullmatch(path)
             or not path.startswith("/api/")
         )
     if method != "POST":

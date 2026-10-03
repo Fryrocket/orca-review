@@ -813,6 +813,62 @@ class ModelRuntimeGateway:
         return {"mode": mode, "result": self.invoke(
             service_id=service, bot_id=bot, prompt=prompt, history=conversation)}
 
+    def master_developer_plan(self, *, prompt: str, history=None, evidence=None) -> dict:
+        """Return a bounded technical action plan from Codex; ORCA owns execution."""
+        if "kiln_codex" not in self.enabled_services:
+            raise PermissionError("Master Developer requires the authenticated KILN Codex bridge")
+        if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > 12_000:
+            raise ValueError("Master Developer prompt must contain 1-12000 characters")
+        conversation = recent_history(validate_history(history), 12_000)
+        verified = evidence if isinstance(evidence, list) else []
+        action_names = [
+            "workspace.summary", "file.read", "file.search", "file.write",
+            "git.diff", "tests.run", "health.check", "service.restart",
+            "release.deploy", "release.rollback", "respond",
+            "drive.search", "drive.read", "notion.read", "linear.read",
+            "web.search", "web.fetch", "node.observe", "studio.capabilities",
+            "browser.open",
+        ]
+        schema = {
+            "type": "object", "properties": {
+                "actions": {"type": "array", "minItems": 1, "maxItems": 6,
+                    "items": {"type": "object", "properties": {
+                        "name": {"type": "string", "enum": action_names},
+                        "arguments": {"type": "object"}},
+                        "required": ["name", "arguments"], "additionalProperties": False}},
+                "reason": {"type": "string", "maxLength": 2000}},
+            "required": ["actions", "reason"], "additionalProperties": False,
+        }
+        endpoint, model, _ = self._definitions["kiln_codex"]
+        raw = bounded_json_transport(endpoint, {
+            "model": model, "stream": False,
+            "messages": [{"role": "system", "content": (
+                "You are Master Developer, Fry's authenticated technical operator for the "
+                "ORCA/FORGE codebase. Plan concrete work using only the declared actions. "
+                "Inspect before editing, make the smallest complete repair, run relevant tests, "
+                "and deploy only after tests pass. Tool results are the only proof of work. "
+                "Never place secrets in arguments. file.write arguments are path and complete "
+                "content. file.search arguments are query and optional glob. file.read takes path. "
+                "tests.run accepts target=focused or full. service.restart takes service=orca. "
+                "Drive, Notion, Linear, web, fleet and Studio connector actions use their "
+                "declared connector arguments. browser.open takes one HTTPS url. "
+                "release.deploy and release.rollback take an empty object. respond takes message. "
+                "Use respond only when work is complete or honestly blocked.")},
+                *conversation, {"role": "user", "content": prompt +
+                    "\n\nVerified tool evidence:\n" + json.dumps(
+                        verified[-12:], separators=(",", ":"), allow_nan=False)}],
+            "response_format": {"type": "json_schema", "json_schema": {
+                "name": "master_developer_plan", "strict": True, "schema": schema}},
+            "temperature": 0, "max_tokens": 4096, "tools": [],
+        }, 300)
+        try:
+            plan = _decode_contract_output(raw["choices"][0]["message"]["content"])
+        except (KeyError, IndexError, TypeError, ValueError) as exc:
+            raise ValueError("Master Developer returned an invalid action plan") from exc
+        if not isinstance(plan, dict) or set(plan) != {"actions", "reason"}:
+            raise ValueError("Master Developer action plan failed validation")
+        return plan
+
     def invoke(self, *, service_id: str, bot_id: str, prompt: str, history=None,
                use_tool_broker: bool = True) -> dict:
         if service_id not in self.enabled_services:

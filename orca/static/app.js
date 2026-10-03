@@ -213,18 +213,18 @@ async function loadLatestEngineeringRun() {
   } catch { /* Console remains honest and empty until authentication is ready. */ }
 }
 
-let chatgptSessionId = localStorage.getItem('orca-chatgpt-session-v1');
+let chatgptSessionId = localStorage.getItem('orca-master-developer-session-v1');
 let chatgptController = null;
 function renderChatGPTSession(session) {
   chatgptSessionId = session.session_id;
-  localStorage.setItem('orca-chatgpt-session-v1', chatgptSessionId);
+  localStorage.setItem('orca-master-developer-session-v1', chatgptSessionId);
   const badge = $('#chatgpt-state');
   badge.textContent = session.state.replaceAll('_', ' ').toUpperCase();
   badge.className = `engineering-state ${session.state === 'thinking' ? 'running' : session.state}`;
   const messages = (session.messages || []).map(message =>
     `<article class="administrator-message ${esc(message.role)}">${esc(message.content)}<time>${esc(new Date(message.created_at).toLocaleString())}</time></article>`
   ).join('');
-  $('#chatgpt-conversation').innerHTML = messages || '<div class="administrator-welcome"><strong>Master Developer</strong><p>A separate persistent ChatGPT conversation through KILN’s authenticated OpenAI bridge.</p></div>';
+  $('#chatgpt-conversation').innerHTML = messages || '<div class="administrator-welcome"><strong>Master Developer</strong><p>Your authenticated message authorizes requested reversible ORCA/FORGE technical work. Actions and verified results appear here.</p></div>';
   $('#chatgpt-conversation').scrollTop = $('#chatgpt-conversation').scrollHeight;
 }
 
@@ -237,12 +237,12 @@ $('#chatgpt-form').addEventListener('submit', async event => {
   chatgptController = new AbortController();
   try {
     if (!chatgptSessionId) {
-      renderChatGPTSession(await engineeringConsoleRequest('/api/administrator-screen/sessions', {method: 'POST', body: '{}'}));
+      renderChatGPTSession(await engineeringConsoleRequest('/api/master-developer/sessions', {method: 'POST', body: '{}'}));
     }
-    const optimistic = await engineeringConsoleRequest(`/api/administrator-screen/sessions/${chatgptSessionId}`);
+    const optimistic = await engineeringConsoleRequest(`/api/master-developer/sessions/${chatgptSessionId}`);
     optimistic.messages.push({role: 'user', content: prompt, created_at: new Date().toISOString()});
     optimistic.state = 'thinking'; renderChatGPTSession(optimistic); promptField.value = '';
-    renderChatGPTSession(await engineeringConsoleRequest(`/api/administrator-screen/sessions/${chatgptSessionId}/messages`, {
+    renderChatGPTSession(await engineeringConsoleRequest(`/api/master-developer/sessions/${chatgptSessionId}/messages`, {
       method: 'POST', body: JSON.stringify({prompt}), signal: chatgptController.signal
     }));
   } catch (error) {
@@ -262,8 +262,8 @@ $('#chatgpt-cancel').addEventListener('click', () => chatgptController?.abort())
 
 async function loadChatGPTSession() {
   if (!chatgptSessionId) return;
-  try { renderChatGPTSession(await engineeringConsoleRequest(`/api/administrator-screen/sessions/${chatgptSessionId}`)); }
-  catch { localStorage.removeItem('orca-chatgpt-session-v1'); chatgptSessionId = null; }
+  try { renderChatGPTSession(await engineeringConsoleRequest(`/api/master-developer/sessions/${chatgptSessionId}`)); }
+  catch { localStorage.removeItem('orca-master-developer-session-v1'); chatgptSessionId = null; }
 }
 let inventory = { items: [], locations: [], categories: [], units: [] };
 let inventoryAnalysis = null;
