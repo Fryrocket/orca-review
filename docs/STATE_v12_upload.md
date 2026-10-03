@@ -831,7 +831,8 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   pushed to `fry/orca-review`. Gitea and GitHub both contained commit
   `1030d686b94f80415ddcc1c41fac7b57c3c033fa` before this continuity-only
   update. No server-wide administrator credential, new password, or secret was
-  placed in the repository.
+  placed in the repository. The tested branch was then fast-forwarded into
+  `main` on both GitHub and Gitea; their branch heads were verified identical.
 - Google Drive's canonical operating folder retains
   `STATE_v12_upload.md` as the current state record. Superseded
   `STATE_v11_upload.md` was moved, without deletion, into the existing Drive
