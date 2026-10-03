@@ -858,12 +858,7 @@ def master_developer_turn(store: MasterDeveloperSessionStore, runtime_gateway,
                 store.set_state(session_id, "planning")
                 continue
             if required is not None and (acceptance_started or acceptance_requested):
-                selected = [
-                    action for action in plan["actions"]
-                    if action.get("name") == required["name"]
-                    and action.get("arguments", {}) == required["arguments"]
-                ]
-                if not selected:
+                if plan["actions"] != [required]:
                     plan = {
                         "reason": (
                             "The deterministic acceptance controller selected the next "
