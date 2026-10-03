@@ -198,16 +198,21 @@ class RcloneDriveReadTools:
     def search(self, *, query: str) -> dict:
         if not isinstance(query, str) or not query.strip() or len(query) > 500:
             raise ValueError("Drive search query must be bounded text")
-        escaped = query.strip().replace("\\", "\\\\").replace("'", "\\'")
+        needle = query.strip().casefold()
         output = self.runner([
-            "backend", "query", "gdrive:",
-            f"name contains '{escaped}' and trashed = false",
+            "lsjson", "--recursive", "--files-only", "--max-depth", "12", "gdrive:",
         ])
         value = json.loads(output)
         if not isinstance(value, list):
             raise ValueError("Drive search returned an invalid response")
-        return {"query": query.strip(), "results": value[:20],
-                "truncated": len(value) > 20}
+        matches = [
+            item for item in value
+            if isinstance(item, dict) and needle in str(
+                item.get("Path") or item.get("Name") or ""
+            ).casefold()
+        ]
+        return {"query": query.strip(), "results": matches[:20],
+                "truncated": len(matches) > 20}
 
     def read(self, *, path: str) -> dict:
         if (not isinstance(path, str) or not path or len(path) > 1_000

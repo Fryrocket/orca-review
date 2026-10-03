@@ -620,7 +620,7 @@ def test_google_drive_tools_are_read_only_and_require_owner_only_token(tmp_path)
         GoogleDriveReadTools(token, transport=transport)
 
 
-def test_rclone_drive_tools_use_only_query_and_cat_with_owner_only_config(tmp_path):
+def test_rclone_drive_tools_use_only_listing_and_cat_with_owner_only_config(tmp_path):
     config = tmp_path / "rclone.conf"
     config.write_text("[gdrive]\ntype = drive\n")
     config.chmod(0o600)
@@ -628,14 +628,18 @@ def test_rclone_drive_tools_use_only_query_and_cat_with_owner_only_config(tmp_pa
 
     def runner(arguments, limit=512_000):
         calls.append((arguments, limit))
-        if arguments[:2] == ["backend", "query"]:
-            return '[{"id":"abc","name":"CC_note.md"}]'
+        if arguments[0] == "lsjson":
+            return ('[{"ID":"abc","Name":"CC_note.md",'
+                    '"Path":"cc-bridge/CC_note.md"},'
+                    '{"ID":"other","Name":"Other.md","Path":"Other.md"}]')
         return "handoff text"
 
     drive = RcloneDriveReadTools(config, runner=runner)
-    assert drive.search(query="CC_note")["results"][0]["id"] == "abc"
+    assert drive.search(query="CC_note")["results"][0]["ID"] == "abc"
     assert drive.read(path="cc-bridge/CC_note.md")["text"] == "handoff text"
-    assert calls[0][0][:3] == ["backend", "query", "gdrive:"]
+    assert calls[0][0] == [
+        "lsjson", "--recursive", "--files-only", "--max-depth", "12", "gdrive:",
+    ]
     assert calls[1] == (["cat", "gdrive:cc-bridge/CC_note.md"], 256_000)
     with pytest.raises(ValueError, match="relative"):
         drive.read(path="../secret")
