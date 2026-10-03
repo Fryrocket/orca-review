@@ -1265,4 +1265,31 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   Secrets, credentials, customer records and financial data remain excluded;
   the provider must never silently switch to paid usage.
 
+## Master Developer technical control plane — 2026-10-03
+
+- Commit `36d289c` is live on FORGE as immutable release
+  `/opt/orca/releases/master-developer-36d289c`. ORCA and the narrow
+  `orca-master-operator.service` are active with zero current restart failures;
+  the previous immutable releases remain available for rollback.
+- The right-hand Master Developer pane now uses a separate Fry-authenticated
+  session and action loop rather than the ordinary Administrator/ChatGPT
+  conversation endpoint. A Fry-authenticated message is the authorization for
+  requested reversible ORCA/FORGE technical work; actions and verified results
+  are recorded directly in that session.
+- Live technical actions include staged repository inventory, bounded read and
+  search, rollback-preserving file writes, diff, focused/full tests, ORCA health,
+  service restart requests, test-gated immutable deploy and rollback. A
+  root-side operator accepts only `orca.service`, deploy and rollback requests
+  from the fixed Master Developer workspace/queue.
+- Connected read surfaces registered for the planner include Drive, Notion,
+  Linear, public-web research, fleet observation and Studio capabilities.
+  Provider-specific reads execute only when that connector has a live handler;
+  browser requests are handed to KILN's governed native browser path. This does
+  not imply that an unconfigured provider credential is connected.
+- Focused Master Developer, gateway security and web regressions passed. The
+  live black-box screen test used Enter in the visible Master Developer pane,
+  ran `workspace.summary` and `studio.capabilities`, showed both tool events,
+  and returned an evidence-qualified capability report without editing,
+  restarting or deploying.
+
 END STATE.md — AS OF 2026-10-03
