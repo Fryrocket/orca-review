@@ -215,6 +215,31 @@ async function loadLatestEngineeringRun() {
 
 let chatgptSessionId = localStorage.getItem('orca-master-developer-session-v1');
 let chatgptController = null;
+let handledMasterBrowserMessages;
+try {
+  handledMasterBrowserMessages = new Set(JSON.parse(
+    localStorage.getItem('orca-master-browser-opened-v1') || '[]'));
+} catch { handledMasterBrowserMessages = new Set(); }
+
+function launchMasterDeveloperBrowser(messages) {
+  for (const message of messages || []) {
+    const result = message?.tool_result?.output;
+    if (message.role !== 'tool' || !message.message_id
+        || result?.state !== 'ready_for_kiln_browser' || !StudioLauncher.webURL(result.url)
+        || handledMasterBrowserMessages.has(message.message_id)) continue;
+    handledMasterBrowserMessages.add(message.message_id);
+    localStorage.setItem('orca-master-browser-opened-v1', JSON.stringify(
+      [...handledMasterBrowserMessages].slice(-100)));
+    StudioLauncher.launch({kind: 'app', target: 'chrome', url: result.url}).then(outcome => {
+      const detail = outcome?.ok ? `Opened ${result.url} in ORCA Chrome on KILN.`
+        : (outcome?.message || 'KILN browser launch was not confirmed.');
+      $('#chatgpt-conversation').insertAdjacentHTML('beforeend',
+        `<article class="administrator-message activity">${esc(detail)}<time>${esc(new Date().toLocaleString())}</time></article>`);
+      $('#chatgpt-conversation').scrollTop = $('#chatgpt-conversation').scrollHeight;
+    });
+  }
+}
+
 function renderChatGPTSession(session) {
   chatgptSessionId = session.session_id;
   localStorage.setItem('orca-master-developer-session-v1', chatgptSessionId);
@@ -225,6 +250,7 @@ function renderChatGPTSession(session) {
     `<article class="administrator-message ${esc(message.role)}">${esc(message.content)}<time>${esc(new Date(message.created_at).toLocaleString())}</time></article>`
   ).join('');
   $('#chatgpt-conversation').innerHTML = messages || '<div class="administrator-welcome"><strong>Master Developer</strong><p>Your authenticated message authorizes requested reversible ORCA/FORGE technical work. Actions and verified results appear here.</p></div>';
+  launchMasterDeveloperBrowser(session.messages);
   $('#chatgpt-conversation').scrollTop = $('#chatgpt-conversation').scrollHeight;
 }
 

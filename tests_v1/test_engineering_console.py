@@ -89,3 +89,12 @@ def test_administrator_is_left_of_chatgpt_and_has_no_shell_controls():
     assert "CHATGPT · ORCA/FORGE TOOLS" in html
     assert "/api/administrator-screen/runs" in script
     assert "shell" not in html[administrator:chatgpt]
+
+
+def test_master_developer_browser_handoff_opens_once_in_orca_chrome():
+    script = Path("orca/static/app.js").read_text(encoding="utf-8")
+    assert "launchMasterDeveloperBrowser(session.messages)" in script
+    assert "result?.state !== 'ready_for_kiln_browser'" in script
+    assert "StudioLauncher.webURL(result.url)" in script
+    assert "handledMasterBrowserMessages.has(message.message_id)" in script
+    assert "target: 'chrome', url: result.url" in script
