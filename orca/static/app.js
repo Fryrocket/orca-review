@@ -22,7 +22,7 @@ const mutationControlSelector = '#operator-identity,#operator-token,#stop-reason
 let mutationPending = false;
 let inferencePending = false;
 let activeMediaController = null;
-let activeMode = 'auto';
+let activeMode = 'reason';
 function setMediaCancelVisible(visible) {
   $$('.cancel-generation').forEach(button => {
     button.hidden = !visible;
@@ -143,7 +143,7 @@ function renderAdministratorSession(session) {
   const messages = (session.messages || []).map(message =>
     `<article class="administrator-message ${esc(message.role)}">${esc(message.content)}<time>${esc(new Date(message.created_at).toLocaleString())}</time></article>`
   ).join('');
-  $('#administrator-conversation').innerHTML = messages || '<div class="administrator-welcome"><strong>Persistent Codex engineering session</strong><p>Ask ordinary questions or request technical work. Governed tool activity and verified results appear inline.</p></div>';
+  $('#administrator-conversation').innerHTML = messages || '<div class="administrator-welcome"><strong>ChatGPT with ORCA/FORGE tools</strong><p>Talk naturally. Technical actions, progress, and verified results appear here as they happen.</p></div>';
   $('#administrator-conversation').scrollTop = $('#administrator-conversation').scrollHeight;
 }
 

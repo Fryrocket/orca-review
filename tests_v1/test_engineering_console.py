@@ -67,11 +67,14 @@ def test_retry_is_bounded_and_never_reports_false_success(tmp_path, monkeypatch)
     assert stored["state"] == "failed"
 
 
-def test_console_is_visible_beside_conversation_and_has_no_shell_controls():
+def test_administrator_is_left_of_chatgpt_and_has_no_shell_controls():
     html = Path("orca/static/index.html").read_text(encoding="utf-8")
     script = Path("orca/static/app.js").read_text(encoding="utf-8")
-    assert html.index('class="conversation-panel"') < html.index('class="engineering-console"')
-    assert "Administrator Screen" in html
-    assert "Ordinary ORCA agents never inherit Administrator authority" in html
+    administrator = html.index('class="engineering-console"')
+    chatgpt = html.index('class="conversation-panel chatgpt-panel"')
+    assert administrator < chatgpt
+    assert 'aria-label="Administrator ChatGPT"' in html
+    assert 'aria-label="ChatGPT"' in html
+    assert "ChatGPT with ORCA/FORGE tools" in html
     assert "/api/administrator-screen/runs" in script
-    assert "shell" not in html[html.index('class="engineering-console"'):html.index('class="context-rail"')]
+    assert "shell" not in html[administrator:chatgpt]
