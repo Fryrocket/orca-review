@@ -42,7 +42,7 @@ def _planner_evidence(evidence: list[dict]) -> list[dict]:
     for item in selected:
         raw = json.dumps(item, sort_keys=True, separators=(",", ":"),
                          ensure_ascii=False, allow_nan=False)
-        if len(raw) <= 6_000 and budget + len(raw) <= 32_000:
+        if len(raw) <= 16_000 and budget + len(raw) <= 48_000:
             compact.append(item)
             budget += len(raw)
             continue
@@ -51,7 +51,7 @@ def _planner_evidence(evidence: list[dict]) -> list[dict]:
             "status": item.get("status"),
             "truncated_for_planning": True,
             "original_chars": len(raw),
-            "evidence_excerpt": redact_text(raw[:1_450] + "\n...[bounded]...\n" + raw[-1_450:]),
+            "evidence_excerpt": redact_text(raw[:3_000] + "\n...[bounded]...\n" + raw[-3_000:]),
         }
         compact.append(bounded)
         budget += len(json.dumps(bounded))

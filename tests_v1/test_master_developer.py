@@ -93,9 +93,37 @@ def test_large_tool_evidence_is_compacted_before_the_next_planning_pass(monkeypa
     result = master_developer_turn(
         store, Gateway(), tmp_path / "artifacts", session["session_id"], "Inspect it.")
     assert result["state"] == "idle"
-    assert len(json.dumps(seen[1])) < 5_000
+    assert len(json.dumps(seen[1])) < 7_000
     assert seen[1][0]["truncated_for_planning"] is True
     assert result["messages"][-1]["evidence"][0]["truncated_for_planning"] is True
+
+
+def test_normal_source_file_is_not_compacted_before_planning(monkeypatch, tmp_path):
+    source = tmp_path / "source"
+    source.mkdir()
+    content = "A" * 10_000
+    (source / "normal.md").write_text(content, encoding="utf-8")
+    monkeypatch.setenv("ORCA_MASTER_SOURCE_ROOT", str(source))
+    monkeypatch.setenv("ORCA_MASTER_WORKSPACE", str(tmp_path / "workspace"))
+    seen = []
+
+    class Gateway:
+        tool_broker = None
+
+        def master_developer_plan(self, **payload):
+            seen.append(payload["evidence"])
+            if len(seen) == 1:
+                return {"reason": "Read source", "actions": [
+                    {"name": "file.read", "arguments": {"path": "normal.md"}}]}
+            return {"reason": "Finish", "actions": [
+                {"name": "respond", "arguments": {"message": "done"}}]}
+
+    store = MasterDeveloperSessionStore(tmp_path / "artifacts")
+    session = store.create()
+    master_developer_turn(
+        store, Gateway(), tmp_path / "artifacts", session["session_id"], "Inspect it.")
+    assert seen[1][0]["output"]["content"] == content
+    assert "truncated_for_planning" not in seen[1][0]
 
 
 def test_planning_provider_failure_becomes_a_durable_failed_reply(tmp_path):
