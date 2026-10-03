@@ -356,6 +356,30 @@ class MasterDeveloperBroker:
             raise PermissionError("path is outside the Master Developer workspace")
         return candidate
 
+    def _test_python(self) -> Path:
+        configured = os.environ.get("ORCA_MASTER_TEST_PYTHON")
+        if configured:
+            candidate = Path(configured)
+            if not candidate.is_file() or not os.access(candidate, os.X_OK):
+                raise RuntimeError("configured Master Developer test Python is unavailable")
+            return candidate
+        candidates = (
+            self.workspace / ".venv/bin/python",
+            self.source / ".venv/bin/python",
+            Path("/var/lib/orca/test-venv/bin/python"),
+            Path(sys.executable),
+        )
+        for candidate in candidates:
+            if candidate.is_file() and os.access(candidate, os.X_OK):
+                probe = subprocess.run(
+                    [str(candidate), "-c", "import pytest"],
+                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL, timeout=15,
+                )
+                if probe.returncode == 0:
+                    return candidate
+        raise RuntimeError("no verified pytest-capable Master Developer test Python is available")
+
     def execute(self, name: str, arguments: dict) -> dict:
         if not isinstance(arguments, dict):
             raise ValueError("action arguments must be an object")
@@ -412,11 +436,15 @@ class MasterDeveloperBroker:
             return {"diff": result.stdout[-64_000:], "different": result.returncode == 1}
         if name == "tests.run":
             target = arguments.get("target", "focused")
+            if target not in {"focused", "full"}:
+                raise ValueError("test target must be focused or full")
             tests = ["tests_v1"] if target == "focused" else ["tests", "tests_v1"]
-            result = subprocess.run([sys.executable, "-m", "pytest", "-q", *tests],
+            test_python = self._test_python()
+            result = subprocess.run([str(test_python), "-m", "pytest", "-q", *tests],
                                     cwd=self.workspace, capture_output=True, text=True, timeout=900)
             output = {"passed": result.returncode == 0, "returncode": result.returncode,
-                      "output": (result.stdout + result.stderr)[-64_000:]}
+                      "output": (result.stdout + result.stderr)[-64_000:],
+                      "runner": str(test_python)}
             if output["passed"]:
                 (self.workspace / ".master-test.json").write_text(json.dumps({
                     "passed": True, "completed_at": _now(), "target": target}) + "\n",

@@ -1,5 +1,8 @@
 import json
 from pathlib import Path
+import sys
+
+import pytest
 
 from orca.master_developer import (
     MasterDeveloperBroker, MasterDeveloperSessionStore, master_developer_turn)
@@ -300,3 +303,31 @@ def test_clean_master_workspace_refreshes_and_dirty_workspace_is_preserved(
     tracked.write_text("VALUE = 3\n", encoding="utf-8")
     MasterDeveloperBroker(Gateway(), artifacts)
     assert (workspace / "sample.py").read_text() == "OWNER CHANGE\n"
+
+
+def test_master_developer_uses_verified_configured_test_python(monkeypatch, tmp_path):
+    source = tmp_path / "source"
+    source.mkdir()
+    monkeypatch.setenv("ORCA_MASTER_SOURCE_ROOT", str(source))
+    monkeypatch.setenv("ORCA_MASTER_WORKSPACE", str(tmp_path / "workspace"))
+    monkeypatch.setenv("ORCA_MASTER_TEST_PYTHON", sys.executable)
+
+    class Gateway:
+        tool_broker = None
+
+    broker = MasterDeveloperBroker(Gateway(), tmp_path / "artifacts")
+    assert broker._test_python() == Path(sys.executable)
+
+
+def test_master_developer_rejects_invalid_test_target(monkeypatch, tmp_path):
+    source = tmp_path / "source"
+    source.mkdir()
+    monkeypatch.setenv("ORCA_MASTER_SOURCE_ROOT", str(source))
+    monkeypatch.setenv("ORCA_MASTER_WORKSPACE", str(tmp_path / "workspace"))
+
+    class Gateway:
+        tool_broker = None
+
+    broker = MasterDeveloperBroker(Gateway(), tmp_path / "artifacts")
+    with pytest.raises(ValueError, match="focused or full"):
+        broker.execute("tests.run", {"target": "arbitrary"})
