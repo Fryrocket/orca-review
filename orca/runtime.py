@@ -813,7 +813,8 @@ class ModelRuntimeGateway:
         return {"mode": mode, "result": self.invoke(
             service_id=service, bot_id=bot, prompt=prompt, history=conversation)}
 
-    def master_developer_plan(self, *, prompt: str, history=None, evidence=None) -> dict:
+    def master_developer_plan(self, *, prompt: str, history=None, evidence=None,
+                              final: bool = False) -> dict:
         """Return a bounded technical action plan from Codex; ORCA owns execution."""
         if "kiln_codex" not in self.enabled_services:
             raise PermissionError("Master Developer requires the authenticated KILN Codex bridge")
@@ -829,6 +830,8 @@ class ModelRuntimeGateway:
             "web.search", "web.fetch", "node.observe", "studio.capabilities",
             "browser.open",
         ]
+        if final:
+            action_names = ["respond"]
         schema = {
             "type": "object", "properties": {
                 "actions": {"type": "array", "minItems": 1, "maxItems": 6,
@@ -854,7 +857,11 @@ class ModelRuntimeGateway:
                 "Drive, Notion, Linear, web, fleet and Studio connector actions use their "
                 "declared connector arguments. browser.open takes one HTTPS url. "
                 "release.deploy and release.rollback take an empty object. respond takes message. "
-                "Use respond only when work is complete or honestly blocked.")},
+                "Use respond only when work is complete or honestly blocked. "
+                + ("This is the final bounded synthesis pass. You must return exactly one "
+                   "respond action that summarizes verified evidence, clearly labels blocked "
+                   "or inaccessible sources, and gives the requested next steps. Do not request "
+                   "another tool." if final else ""))},
                 *conversation, {"role": "user", "content": prompt +
                     "\n\nVerified tool evidence:\n" + json.dumps(
                         verified[-12:], separators=(",", ":"), allow_nan=False)}],

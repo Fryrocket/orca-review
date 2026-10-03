@@ -88,3 +88,32 @@ def test_planning_provider_failure_becomes_a_durable_failed_reply(tmp_path):
     assert result["messages"][-1]["role"] == "assistant"
     assert "TimeoutError" in result["messages"][-1]["content"]
     assert "private upstream detail" not in result["messages"][-1]["content"]
+
+
+def test_sixth_planning_pass_is_forced_to_synthesize_a_reply(monkeypatch, tmp_path):
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "state.md").write_text("verified\n", encoding="utf-8")
+    monkeypatch.setenv("ORCA_MASTER_SOURCE_ROOT", str(source))
+    monkeypatch.setenv("ORCA_MASTER_WORKSPACE", str(tmp_path / "workspace"))
+    finals = []
+
+    class Gateway:
+        tool_broker = None
+
+        def master_developer_plan(self, **payload):
+            finals.append(payload.get("final"))
+            if payload.get("final"):
+                return {"reason": "Synthesize bounded evidence", "actions": [
+                    {"name": "respond", "arguments": {
+                        "message": "Verified state read; inaccessible sources are labeled."}}]}
+            return {"reason": "Continue bounded inspection", "actions": [
+                {"name": "file.read", "arguments": {"path": "state.md"}}]}
+
+    store = MasterDeveloperSessionStore(tmp_path / "artifacts")
+    session = store.create()
+    result = master_developer_turn(
+        store, Gateway(), tmp_path / "artifacts", session["session_id"], "Catch up.")
+    assert finals == [False, False, False, False, False, True]
+    assert result["state"] == "idle"
+    assert result["messages"][-1]["content"].startswith("Verified state")

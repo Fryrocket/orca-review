@@ -271,7 +271,8 @@ def master_developer_turn(store: MasterDeveloperSessionStore, runtime_gateway,
         planning_evidence = _planner_evidence(evidence)
         try:
             plan = runtime_gateway.master_developer_plan(
-                prompt=prompt, history=prior, evidence=planning_evidence)
+                prompt=prompt, history=prior, evidence=planning_evidence,
+                final=_iteration == 5)
         except Exception as exc:
             store.append(
                 session_id, "assistant",
