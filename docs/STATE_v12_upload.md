@@ -824,13 +824,14 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   long-term engineering, and completed history. Each real task remains linked
   to Linear; no due dates were invented.
 - Source-control reconciliation found the local branch
-  `agent/orca-rebuild-v1` clean and matching the corresponding GitHub branch;
-  `de5c271` is the latest functional-candidate checkpoint before the
-  documentation-only reconciliation commit. GitHub `main` and Gitea `main`
-  both point to the older
-  `a3f524b` review commit. The Gitea repository is a public, read-only review
-  mirror for the current account and does not contain the working branch.
-  Nothing was pushed or permissions changed.
+  `agent/orca-rebuild-v1` clean and matching the corresponding GitHub branch.
+  On 2026-10-03, the existing protected ANVIL Gitea credential was verified as
+  having write access only through the authenticated `fry` account, the
+  repository-specific `gitea` remote was added, and the same tested branch was
+  pushed to `fry/orca-review`. Gitea and GitHub both contained commit
+  `1030d686b94f80415ddcc1c41fac7b57c3c033fa` before this continuity-only
+  update. No server-wide administrator credential, new password, or secret was
+  placed in the repository.
 - Google Drive's canonical operating folder retains
   `STATE_v12_upload.md` as the current state record. Superseded
   `STATE_v11_upload.md` was moved, without deletion, into the existing Drive
