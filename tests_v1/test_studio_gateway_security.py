@@ -133,6 +133,14 @@ def test_verified_product_workflow_routes_are_narrowly_allowlisted():
     assert not gateway.allowed_request(
         "GET", "/api/administrator-screen/runs/../../secrets")
     assert not gateway.allowed_request("DELETE", "/api/administrator-screen/runs")
+    session = "/api/administrator-screen/sessions/admin_" + "a" * 24
+    assert gateway.allowed_request("GET", "/api/administrator-screen/sessions")
+    assert gateway.allowed_request("POST", "/api/administrator-screen/sessions")
+    assert gateway.allowed_request("GET", session)
+    assert gateway.allowed_request("POST", session + "/messages")
+    assert gateway.allowed_request("POST", session + "/cancel")
+    assert not gateway.allowed_request("POST", session + "/shell")
+    assert not gateway.allowed_request("GET", session + "/messages")
     assert gateway.allowed_request("POST", "/api/product-development/package")
     assert gateway.allowed_request("POST", "/api/product-development/fabrication-readiness")
     assert not gateway.allowed_request("PUT", "/api/product-development/package")

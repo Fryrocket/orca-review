@@ -378,6 +378,28 @@ class OrcaHandler(BaseHTTPRequestHandler):
         if not self._host_allowed():
             return self._json({"error": "host header is not allowlisted"}, HTTPStatus.MISDIRECTED_REQUEST)
         path = urlparse(self.path).path
+        if path == "/api/administrator-screen/sessions" or path.startswith("/api/administrator-screen/sessions/"):
+            try:
+                identity = self._authenticate_mutation()
+            except IdentityAuthenticationError as exc:
+                return self._json({"error": str(exc)}, HTTPStatus.UNAUTHORIZED)
+            except RuntimeError:
+                return self._json({"error": "Administrator Screen authentication is unavailable"},
+                                  HTTPStatus.SERVICE_UNAVAILABLE)
+            if identity != "fry":
+                return self._json({"error": "Only Fry may read Administrator sessions"},
+                                  HTTPStatus.FORBIDDEN)
+            from .administrator_session import AdministratorSessionStore
+            store = AdministratorSessionStore(self._product_artifact_root())
+            if path == "/api/administrator-screen/sessions":
+                return self._json({"sessions": store.list()})
+            parts = path.split("/")
+            if len(parts) != 5:
+                return self._json({"error": "Administrator session not found"}, HTTPStatus.NOT_FOUND)
+            try:
+                return self._json(store.read(parts[4]))
+            except (ValueError, FileNotFoundError):
+                return self._json({"error": "Administrator session not found"}, HTTPStatus.NOT_FOUND)
         if path == "/api/administrator-screen/runs" or path.startswith("/api/administrator-screen/runs/"):
             try:
                 identity = self._authenticate_mutation()
@@ -602,7 +624,8 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     "nonce": heartbeat.nonce,
                     "status": "accepted",
                 }, HTTPStatus.OK)
-            if path in {"/api/inference", "/api/chat", "/api/memory", "/api/science", "/api/engineering", "/api/project/plan", "/api/cad/pcb-draft", "/api/product-development/package", "/api/product-development/fabrication-readiness", "/api/administrator-screen/runs", "/api/temper/inventory-dataset/plan", "/api/business/muse/handoff", "/api/business/muse/email-handoff", "/api/solo-operator/action-plan", "/api/solo-operator/snapshot"}:
+            if (path in {"/api/inference", "/api/chat", "/api/memory", "/api/science", "/api/engineering", "/api/project/plan", "/api/cad/pcb-draft", "/api/product-development/package", "/api/product-development/fabrication-readiness", "/api/administrator-screen/runs", "/api/administrator-screen/sessions", "/api/temper/inventory-dataset/plan", "/api/business/muse/handoff", "/api/business/muse/email-handoff", "/api/solo-operator/action-plan", "/api/solo-operator/snapshot"}
+                    or path.startswith("/api/administrator-screen/sessions/")):
                 try:
                     authenticated_identity = self._authenticate_mutation()
                 except IdentityAuthenticationError as exc:
@@ -616,6 +639,29 @@ class OrcaHandler(BaseHTTPRequestHandler):
                     raise IdentityAuthorizationError(
                         "only Fry may initiate local model inference")
                 data = self._body()
+                if path == "/api/administrator-screen/sessions":
+                    if data:
+                        raise ValueError("new Administrator session request must be empty")
+                    from .administrator_session import AdministratorSessionStore
+                    return self._json(AdministratorSessionStore(
+                        self._product_artifact_root()).create(), HTTPStatus.CREATED)
+                if path.startswith("/api/administrator-screen/sessions/"):
+                    parts = path.split("/")
+                    if len(parts) != 6 or parts[5] not in {"messages", "cancel"}:
+                        return self._json({"error": "Administrator session route not found"},
+                                          HTTPStatus.NOT_FOUND)
+                    from .administrator_session import (
+                        AdministratorSessionStore, administrator_turn)
+                    store = AdministratorSessionStore(self._product_artifact_root())
+                    if parts[5] == "cancel":
+                        if data:
+                            raise ValueError("Administrator cancellation request must be empty")
+                        return self._json(store.cancel(parts[4]))
+                    if set(data) != {"prompt"}:
+                        raise ValueError("Administrator turn requires one prompt")
+                    return self._json(administrator_turn(
+                        store, self.server.runtime_gateway, self._product_artifact_root(),
+                        parts[4], data["prompt"]))
                 if path == "/api/administrator-screen/runs":
                     if set(data) != {"prompt"}:
                         raise ValueError("engineering acceptance requires one prompt")

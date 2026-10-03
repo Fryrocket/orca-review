@@ -127,9 +127,30 @@ async function engineeringConsoleRequest(url, options = {}) {
     'X-ORCA-Identity-Token': studioAuth.token, ...(options.headers || {})
   }});
   let body;
-  try { body = await response.json(); } catch { throw Error(`Engineering console returned unreadable evidence (${response.status})`); }
-  if (!response.ok) throw Error(body.error || `Engineering console failed (${response.status})`);
+  try { body = await response.json(); } catch { throw Error(`Administrator Screen returned unreadable evidence (${response.status})`); }
+  if (!response.ok) throw Error(body.error || `Administrator Screen failed (${response.status})`);
   return body;
+}
+
+let administratorSessionId = localStorage.getItem('orca-administrator-session-v1');
+let administratorController = null;
+function renderAdministratorSession(session) {
+  administratorSessionId = session.session_id;
+  localStorage.setItem('orca-administrator-session-v1', administratorSessionId);
+  const badge = $('#engineering-console-state');
+  badge.textContent = session.state.replaceAll('_', ' ').toUpperCase();
+  badge.className = `engineering-state ${session.state === 'thinking' || session.state === 'running_tool' ? 'running' : session.state}`;
+  const messages = (session.messages || []).map(message =>
+    `<article class="administrator-message ${esc(message.role)}">${esc(message.content)}<time>${esc(new Date(message.created_at).toLocaleString())}</time></article>`
+  ).join('');
+  $('#administrator-conversation').innerHTML = messages || '<div class="administrator-welcome"><strong>Persistent Codex engineering session</strong><p>Ask ordinary questions or request technical work. Governed tool activity and verified results appear inline.</p></div>';
+  $('#administrator-conversation').scrollTop = $('#administrator-conversation').scrollHeight;
+}
+
+async function refreshAdministratorEvidence(session) {
+  if (!session.active_run_id) return;
+  try { renderEngineeringRun(await engineeringConsoleRequest(`/api/administrator-screen/runs/${session.active_run_id}`)); }
+  catch { /* Conversation still exposes the honest blocker even if evidence reload is unavailable. */ }
 }
 
 $('#engineering-console-form').addEventListener('submit', async event => {
@@ -137,23 +158,49 @@ $('#engineering-console-form').addEventListener('submit', async event => {
   const prompt = $('#engineering-console-prompt').value.trim();
   if (!prompt) return;
   const button = event.currentTarget.querySelector('button');
-  button.disabled = true;
-  renderEngineeringRun({run_id: 'creating tracked project…', state: 'running', iteration: 0,
-    max_iterations: 3, events: [{state: 'running', step: 'project', detail: 'Creating durable run before execution'}],
-    artifacts: [], rollback: {state: 'preserved', activation: 'not_requested'}});
+  button.disabled = true; $('#administrator-cancel').hidden = false;
+  administratorController = new AbortController();
   try {
-    renderEngineeringRun(await engineeringConsoleRequest('/api/administrator-screen/runs', {
-      method: 'POST', body: JSON.stringify({prompt})
-    }));
+    if (!administratorSessionId) {
+      const created = await engineeringConsoleRequest('/api/administrator-screen/sessions', {method: 'POST', body: '{}'});
+      renderAdministratorSession(created);
+    }
+    const optimistic = await engineeringConsoleRequest(`/api/administrator-screen/sessions/${administratorSessionId}`);
+    optimistic.messages.push({role: 'user', content: prompt, created_at: new Date().toISOString()});
+    optimistic.state = 'thinking'; renderAdministratorSession(optimistic);
+    $('#engineering-console-prompt').value = '';
+    const session = await engineeringConsoleRequest(`/api/administrator-screen/sessions/${administratorSessionId}/messages`, {
+      method: 'POST', body: JSON.stringify({prompt}), signal: administratorController.signal
+    });
+    renderAdministratorSession(session); await refreshAdministratorEvidence(session);
   } catch (error) {
-    renderEngineeringRun({run_id: 'request_failed', state: 'failed', iteration: 0,
-      max_iterations: 3, events: [{state: 'failed', step: 'transport', detail: error.message}],
-      artifacts: [], rollback: {state: 'preserved', activation: 'not_requested'}});
-  } finally { button.disabled = false; }
+    if (error.name !== 'AbortError') {
+      const target = $('#administrator-conversation');
+      target.insertAdjacentHTML('beforeend', `<article class="administrator-message activity">${esc(error.message)}<time>${esc(new Date().toLocaleString())}</time></article>`);
+    }
+  } finally { administratorController = null; button.disabled = false; $('#administrator-cancel').hidden = true; }
+});
+
+$('#administrator-cancel').addEventListener('click', async () => {
+  administratorController?.abort();
+  if (!administratorSessionId) return;
+  try { renderAdministratorSession(await engineeringConsoleRequest(
+    `/api/administrator-screen/sessions/${administratorSessionId}/cancel`, {method: 'POST', body: '{}'})); }
+  catch { /* The aborted request remains visibly cancelled client-side. */ }
 });
 
 async function loadLatestEngineeringRun() {
   try {
+    if (administratorSessionId) {
+      const session = await engineeringConsoleRequest(`/api/administrator-screen/sessions/${administratorSessionId}`);
+      renderAdministratorSession(session); await refreshAdministratorEvidence(session);
+    } else {
+      const listed = await engineeringConsoleRequest('/api/administrator-screen/sessions');
+      if (listed.sessions?.length) {
+        const session = await engineeringConsoleRequest(`/api/administrator-screen/sessions/${listed.sessions[0].session_id}`);
+        renderAdministratorSession(session); await refreshAdministratorEvidence(session);
+      }
+    }
     const result = await engineeringConsoleRequest('/api/administrator-screen/runs');
     if (result.runs?.length) renderEngineeringRun(result.runs[0]);
   } catch { /* Console remains honest and empty until authentication is ready. */ }

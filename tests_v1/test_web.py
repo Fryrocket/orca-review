@@ -647,6 +647,45 @@ def test_auto_chat_is_authenticated_and_preserves_history():
         server.server_close()
 
 
+def test_administrator_sessions_are_fry_only_durable_and_bounded(tmp_path):
+    from orca.evidence import EvidenceStore
+
+    class Gateway:
+        def invoke(self, **payload):
+            assert payload["service_id"] == "kiln_codex"
+            return {"summary": "Persistent answer", "evidence": ["conversation"],
+                    "uncertainty": "none", "next_gate": "none"}
+
+    token = "a" * 32
+    control = ControlPlane(EvidenceStore(tmp_path / "events.db"))
+    server = OrcaHTTPServer(("127.0.0.1", 0), control, operator_token=token,
+                           runtime_gateway=Gateway())
+    Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        base = f"http://127.0.0.1:{server.server_port}/api/administrator-screen/sessions"
+        headers = {"Content-Type": "application/json"}
+        with pytest.raises(HTTPError) as denied:
+            urlopen(Request(base, data=b"{}", headers=headers))
+        assert denied.value.code == 401
+        headers["X-ORCA-Operator-Token"] = token
+        with urlopen(Request(base, data=b"{}", headers=headers)) as response:
+            created = json.load(response)
+        session_url = base + "/" + created["session_id"]
+        with urlopen(Request(session_url + "/messages", data=json.dumps({
+                "prompt": "Hello Administrator"}).encode(), headers=headers)) as response:
+            completed = json.load(response)
+        assert completed["messages"][-1]["content"] == "Persistent answer"
+        with urlopen(Request(session_url, headers=headers)) as response:
+            assert json.load(response)["messages"] == completed["messages"]
+        with pytest.raises(HTTPError) as invalid:
+            urlopen(Request(session_url + "/messages", data=json.dumps({
+                "prompt": "hello", "tool": "shell"}).encode(), headers=headers))
+        assert invalid.value.code == 400
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
 def test_memory_endpoint_is_authenticated_and_retrieved_in_chat(tmp_path):
     from orca.chat_memory import ChatMemory
     memory = ChatMemory(tmp_path / 'memory.db')
