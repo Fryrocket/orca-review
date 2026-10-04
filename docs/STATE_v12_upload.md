@@ -1443,4 +1443,34 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   staged only in `/var/lib/orca/master-workspace` for review and was not merged
   into the live core.
 
+## Master Developer scope-evidence repair and two-pass proof — 2026-10-03
+
+- The first confirmation after the deterministic controller repair was
+  rejected rather than counted: its final diff included live-controller drift
+  and two macOS AppleDouble metadata files, so the requested exact file scope
+  was not honestly proven.
+- Commit `eb29c98` excludes AppleDouble and Finder metadata from workspace
+  manifests and immutable deploy copies, measures candidate changes against
+  the workspace baseline, reports later live-source drift separately, and
+  fails closed when a prompt claiming “no unrelated file changed” contains
+  out-of-scope files.
+- The focused Master Developer suite passed **31/31** and the complete ORCA
+  regression passed **1,252/1,252** both locally and against the exact clean
+  immutable candidate.
+- Live FORGE release `/opt/orca/releases/master-scope-eb29c98` is healthy and
+  integrity-valid with zero restart failures. Rollback is preserved at
+  `/opt/orca/releases/master-deterministic-20261003-1`. Commit `eb29c98` is
+  pushed to GitHub and private Gitea on `agent/orca-rebuild-v1`.
+- The same readiness-hardening prompt then passed twice from independent clean
+  sessions in the visible physical-KILN Master Developer pane. Sessions
+  `master_207dc21743864d2dbaaf3227` and
+  `master_0fb47046ba784189813c115f` both returned to `idle` only after focused,
+  full, fresh-final-diff, exact-scope and verified-summary evidence completed.
+  The final staged candidate changed only `orca/readiness_probe.py` and its
+  readiness-specific tests. It remains staged and was not deployed.
+- The next controller defect remains open: Studio can display a misleading
+  two-minute 502 while the durable Master Developer session continues and
+  completes successfully. The next campaign challenge should exercise and
+  repair durable UI polling/recovery without weakening backend gates.
+
 END STATE.md — AS OF 2026-10-03
