@@ -37,7 +37,7 @@ def _deploy() -> dict:
     release = RELEASES / f"master-developer-{stamp}"
     previous = str(CURRENT.resolve())
     shutil.copytree(WORKSPACE, release, ignore=shutil.ignore_patterns(
-        ".master-test.json", "__pycache__", "*.pyc"))
+        ".master-test.json", "__pycache__", "*.pyc", "._*", ".DS_Store"))
     temporary = CURRENT.with_name("current.master-next")
     temporary.unlink(missing_ok=True)
     temporary.symlink_to(release)

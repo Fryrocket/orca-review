@@ -8,6 +8,7 @@ import fnmatch
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -315,7 +316,8 @@ class MasterDeveloperBroker:
         manifest = {}
         for path in root.rglob("*"):
             if (not path.is_file() or ".git" in path.parts or "__pycache__" in path.parts
-                    or path.name == ".master-test.json" or path.suffix == ".pyc"):
+                    or path.name == ".master-test.json" or path.suffix == ".pyc"
+                    or path.name.startswith("._") or path.name == ".DS_Store"):
                 continue
             relative = str(path.relative_to(root))
             try:
@@ -333,9 +335,20 @@ class MasterDeveloperBroker:
     def _diff_evidence(self) -> dict:
         source_manifest = self._tree_manifest(self.source)
         workspace_manifest = self._tree_manifest(self.workspace)
+        try:
+            baseline_manifest = json.loads(
+                self.baseline.read_text(encoding="utf-8"))["manifest"]
+            if not isinstance(baseline_manifest, dict):
+                raise TypeError("baseline manifest is invalid")
+        except (OSError, KeyError, TypeError, json.JSONDecodeError):
+            baseline_manifest = source_manifest
         changed = sorted(
-            path for path in set(source_manifest) | set(workspace_manifest)
-            if source_manifest.get(path) != workspace_manifest.get(path)
+            path for path in set(baseline_manifest) | set(workspace_manifest)
+            if baseline_manifest.get(path) != workspace_manifest.get(path)
+        )
+        source_drift = sorted(
+            path for path in set(baseline_manifest) | set(source_manifest)
+            if baseline_manifest.get(path) != source_manifest.get(path)
         )
         chunks = []
         for relative in changed:
@@ -357,10 +370,12 @@ class MasterDeveloperBroker:
         except (OSError, json.JSONDecodeError):
             receipts = None
         return {"diff": "".join(chunks)[-64_000:], "different": bool(changed),
-                "files": changed, "test_receipts": receipts}
+                "files": changed, "source_drift_files": source_drift,
+                "test_receipts": receipts}
 
     def _bootstrap(self) -> None:
-        ignore = shutil.ignore_patterns(".git", ".venv", "__pycache__", "*.pyc")
+        ignore = shutil.ignore_patterns(
+            ".git", ".venv", "__pycache__", "*.pyc", "._*", ".DS_Store")
         source_manifest = self._tree_manifest(self.source)
         if self.workspace.exists():
             try:
@@ -592,6 +607,38 @@ def _acceptance_followup(prompt: str, evidence: list[dict]) -> dict | None:
     return None
 
 
+def _acceptance_scope_error(prompt: str, files: object) -> str | None:
+    """Prove explicit no-unrelated-file claims instead of trusting model prose."""
+    normalized = prompt.casefold()
+    if "no unrelated file changed" not in normalized:
+        return None
+    if not isinstance(files, list) or not all(isinstance(path, str) for path in files):
+        return "the final diff did not provide a verifiable file list"
+    explicit = set(re.findall(
+        r"(?<![A-Za-z0-9_.-])(?:[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.-]+"
+        r"\.(?:py|js|html|css|md|json|toml|ya?ml|service|sh|txt)", prompt))
+    if not explicit:
+        return "the prompt claimed exact file scope without naming a verifiable path"
+    allowed = set(explicit)
+    test_stems = {
+        Path(path).stem for path in explicit
+        if path.startswith("orca/") and path.endswith(".py")
+    }
+    unrelated = []
+    for path in files:
+        if path in allowed:
+            continue
+        name = Path(path).name
+        if (path.startswith(("tests/", "tests_v1/"))
+                and any(name == f"test_{stem}.py" or name.startswith(f"test_{stem}_")
+                        for stem in test_stems)):
+            continue
+        unrelated.append(path)
+    if unrelated:
+        return f"unrelated files are present: {json.dumps(sorted(unrelated))}"
+    return None
+
+
 def _acceptance_summary(prompt: str, evidence: list[dict]) -> str | None:
     normalized = prompt.casefold()
     if not ("focused" in normalized and "full" in normalized
@@ -631,6 +678,8 @@ def _acceptance_summary(prompt: str, evidence: list[dict]) -> str | None:
         return None
     files = final_diff.get("files")
     if not isinstance(files, list):
+        return None
+    if _acceptance_scope_error(prompt, files) is not None:
         return None
     return (
         "Acceptance passed under the deterministic controller. The focused suite passed, "
@@ -758,6 +807,16 @@ def master_developer_turn(store: MasterDeveloperSessionStore, runtime_gateway,
         # the only safe next step.  Do not spend another provider turn asking a
         # model to rediscover focused -> full -> final diff, because a slow or
         # unavailable provider must not strand completed test evidence.
+        scope_error = None
+        if _acceptance_followup(prompt, evidence) is None:
+            final_diff = _completed_output(evidence, "git.diff")
+            if isinstance(final_diff, dict):
+                scope_error = _acceptance_scope_error(prompt, final_diff.get("files"))
+        if scope_error is not None:
+            message = f"Acceptance blocked: {scope_error}. No success was recorded."
+            store.append(session_id, "assistant", message,
+                         evidence=_planner_evidence(evidence))
+            return store.set_state(session_id, "blocked")
         verified_summary = _acceptance_summary(prompt, evidence)
         if verified_summary is not None:
             store.append(session_id, "assistant", verified_summary,

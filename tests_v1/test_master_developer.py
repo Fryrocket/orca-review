@@ -6,6 +6,7 @@ import pytest
 
 from orca.master_developer import (
     MasterDeveloperBroker, MasterDeveloperSessionStore, _acceptance_followup,
+    _acceptance_scope_error,
     _acceptance_summary, _prompt_requires_workspace_write,
     master_developer_turn)
 from orca.runtime import ModelRuntimeGateway
@@ -451,6 +452,8 @@ def test_git_diff_ignores_bytecode_and_includes_test_receipts(monkeypatch, tmp_p
     source = tmp_path / "source"
     (source / "__pycache__").mkdir(parents=True)
     (source / "__pycache__" / "sample.pyc").write_bytes(b"source cache")
+    (source / "._sample.py").write_bytes(b"apple metadata")
+    (source / ".DS_Store").write_bytes(b"finder metadata")
     (source / "sample.py").write_text("VALUE = 1\n")
     artifacts = tmp_path / "artifacts"
     monkeypatch.setenv("ORCA_MASTER_SOURCE_ROOT", str(source))
@@ -470,6 +473,27 @@ def test_git_diff_ignores_bytecode_and_includes_test_receipts(monkeypatch, tmp_p
     assert result["files"] == ["sample.py"]
     assert "__pycache__" not in result["diff"]
     assert result["test_receipts"]["results"]["focused"]["passed"] is True
+
+
+def test_git_diff_separates_live_source_drift_from_candidate_changes(monkeypatch, tmp_path):
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "controller.py").write_text("VALUE = 1\n")
+    (source / "candidate.py").write_text("VALUE = 1\n")
+    artifacts = tmp_path / "artifacts"
+    monkeypatch.setenv("ORCA_MASTER_SOURCE_ROOT", str(source))
+    monkeypatch.setenv("ORCA_MASTER_WORKSPACE", str(tmp_path / "workspace"))
+
+    class Gateway:
+        tool_broker = None
+
+    broker = MasterDeveloperBroker(Gateway(), artifacts)
+    (source / "controller.py").write_text("VALUE = 2\n")
+    (broker.workspace / "candidate.py").write_text("VALUE = 2\n")
+    result = broker.execute("git.diff", {})
+
+    assert result["files"] == ["candidate.py"]
+    assert result["source_drift_files"] == ["controller.py"]
 
 
 def test_acceptance_followup_enforces_focused_full_then_final_diff():
@@ -518,6 +542,40 @@ def test_acceptance_summary_closes_a_proven_sequence_deterministically():
     assert summary is not None
     assert "Acceptance passed" in summary
     assert "orca/readiness_probe.py" in summary
+
+
+def test_acceptance_scope_rejects_unrelated_files_but_allows_derived_tests():
+    prompt = (
+        "Review orca/readiness_probe.py and its tests. Run focused and full regression, "
+        "inspect the final diff, and prove no unrelated file changed."
+    )
+    assert _acceptance_scope_error(prompt, [
+        "orca/readiness_probe.py",
+        "tests_v1/test_readiness_probe.py",
+        "tests_v1/test_readiness_probe_security.py",
+    ]) is None
+    error = _acceptance_scope_error(prompt, [
+        "orca/readiness_probe.py", "orca/master_developer.py"])
+    assert error is not None
+    assert "orca/master_developer.py" in error
+
+
+def test_acceptance_summary_rejects_unrelated_file_scope():
+    prompt = (
+        "Review orca/readiness_probe.py and its tests. Run focused and full regression, "
+        "inspect the final diff, and prove no unrelated file changed."
+    )
+    evidence = [
+        {"name": "tests.run", "status": "completed", "output": {
+            "target": "focused", "passed": True}},
+        {"name": "tests.run", "status": "completed", "output": {
+            "target": "full", "passed": True}},
+        {"name": "git.diff", "status": "completed", "output": {
+            "files": ["orca/readiness_probe.py", "orca/master_developer.py"],
+            "test_receipts": {"results": {
+                "focused": {"passed": True}, "full": {"passed": True}}}}},
+    ]
+    assert _acceptance_summary(prompt, evidence) is None
 
 
 def test_acceptance_summary_rejects_stale_diff():
