@@ -1,0 +1,12 @@
+[Unit]
+Description=Run ORCA Fleet Heartbeat Agent every five minutes
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+RandomizedDelaySec=30
+Persistent=true
+Unit=orca-fleet-heartbeat@.service
+
+[Install]
+WantedBy=timers.target
