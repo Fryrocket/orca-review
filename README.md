@@ -13,7 +13,7 @@ remain disabled.
 | ANVIL (`192.168.4.20`) | Operator worktop, development, and review | Apple M4, 16 GB unified memory; signed health and private loopback tunnel |
 | FORGE (`192.168.7.30`, wired LAN `.29`, Wi-Fi `.30`) | Authoritative control plane, shared context, deep CPU inference, builds, ingestion, and durable storage | Ryzen 9 5900XT, 64 GB RAM, CRUCIBLE 32 GB plus Lexa display GPU, model/data volumes; loopback-only ORCA service and signed health |
 | KILN (`192.168.4.28`, Tailscale `100.97.193.39`) | Independent QUENCH GPU review and relay | BILLOWS — NVIDIA GeForce GTX 1660 Ti 6 GB; QUENCH inventory and signed health |
-| EMBER (`192.168.4.26`, Tailscale `100.87.165.66`) | Always-on sentinel, UPS/watchdog, and backup observer | Raspberry Pi 4, 8 GB RAM, USB SSD, Gigabit Ethernet, CyberPower UPS |
+| EMBER (`192.168.4.35`, Tailscale `100.107.104.0`, `ember-m1s`) | UPS monitor and backup receiver | Hardkernel ODROID-M1S, RK3566, 4 GB RAM, 58 GB eMMC, Fanxiang backup SSD, CyberPower UPS |
 
 **CRUCIBLE** is FORGE's installed AMD Radeon AI PRO R9700: 32 GB GDDR6, 64 CUs,
 `gfx1201`, amdgpu, and ROCm 7.2.1. Hardware detection, driver/runtime checks,

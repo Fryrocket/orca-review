@@ -42,9 +42,10 @@ Supersedes v11 (2026-09-24T1447Z). Read this FIRST every session.
   `192.168.4.30`; Ubuntu 24.04.5; Ryzen 9 5900XT; 62 GiB; about 10.3 TiB raw
   storage. ORCA and Docker are active; ORCA listens on loopback only and Gitea
   listens on `192.168.7.30:3000`.
-- EMBER: `192.168.4.26`; Tailscale `100.87.165.66`; Raspberry Pi 4, 8 GB,
+- EMBER in this upload was the retired Pi: `192.168.4.26`; Tailscale `100.87.165.66`; Raspberry Pi 4, 8 GB,
   512 GB USB SSD. CyberPower UPS is online at 100% charge and 4% load with
   7,025 seconds estimated runtime; no NUT errors appeared in the last 30 minutes.
+  As of 2026-10-29 the live Ember is the ODROID-M1S at `192.168.4.35`, Tailscale `ember-m1s` `100.107.104.0`.
 - TEMPER is positively discovered on the LAN. Its Raspberry Pi Ethernet MAC is
   `88:a2:9e:35:fc:25` at `192.168.4.27`; Wi-Fi is
   `88:a2:9e:35:fc:26` at `192.168.4.25`. Fry designated `192.168.4.25` as the
